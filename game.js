@@ -21,7 +21,7 @@ const art = a => Sheets.frame(a.sheet, a.ref);
 const BINDINGS = {
   left: ['KeyA', 'ArrowLeft'], right: ['KeyD', 'ArrowRight'], jump: ['KeyW', 'Space', 'ArrowUp'],
   block: ['KeyS', 'ArrowDown'], punch: ['KeyJ'], kick: ['KeyK'], grab: ['KeyF'], ki: ['KeyL'], beam: ['KeyU'],
-  ult: ['KeyO'], charge: ['KeyI'], vanish: ['KeyQ'], transform: ['KeyT'], dash: ['ShiftLeft', 'ShiftRight'],
+  ult: ['KeyO'], charge: ['KeyI'], vanish: ['KeyQ'], barrier: ['KeyG'], junior: ['KeyE'], transform: ['KeyT'], dash: ['ShiftLeft', 'ShiftRight'],
   pause: ['KeyP'], confirm: ['Enter', 'NumpadEnter'], back: ['Escape'], music: ['KeyM'], calm: ['KeyR'],
 };
 // standard-mapping gamepad buttons (A B X Y = 0 1 2 3, LB RB = 4 5, LT RT = 6 7, Back Start = 8 9,
@@ -99,7 +99,7 @@ class Fighter {
       visible: true, queue: [], next: null, hitDone: false, emitted: 0, blockT: 0,
       stamina: 100, staminaDelay: 0, guardBroken: false, trailT: 0, counter: false, hover: 0, big: false,
       flash: 0, sq: 0, // hit flash timer; squash (+) / stretch (-) that springs back to 0
-      juggle: 0, comboTaken: 0, hitLanded: false, wallBounce: false, spiked: false,
+      juggle: 0, comboTaken: 0, hitLanded: false, wallBounce: false, spiked: false, assistCd: 0,
       // Cell's sheet is drawn smaller than Goku's; 1.25 keeps pixels whole at 4x
       scale: who === 'cell' ? 1.25 : 1,
     });
@@ -120,7 +120,9 @@ class Fighter {
     const im = this.img;
     ctx.save();
     ctx.translate(Math.round(this.x), Math.round(this.y - this.hover));
-    ctx.scale(this.facing * this.scale * (1 + this.sq), this.scale * (1 - this.sq));
+    // a held stance breathes a little instead of standing frozen
+    const breath = this.A().breathe ? Math.sin(this.at * 2.6) * 0.018 : 0;
+    ctx.scale(this.facing * this.scale * (1 + this.sq), this.scale * (1 - this.sq + breath));
     if (this.inv > 0 && Math.floor(this.inv * 20) % 2) ctx.globalAlpha = 0.5;
     ctx.drawImage(im, -Math.round(im.ax), -im.height);
     if (this.flash > 0) {
@@ -141,11 +143,11 @@ function toggleCalm() {
 }
 function shake(n) { game.shake = Math.min(14, Math.max(game.shake, n) + n * 0.2); }
 
-let goku, cell, player, boss, projs, beams, sparks, ghosts, popups, trails, zips, clash, timers, game;
+let goku, cell, player, boss, projs, beams, sparks, ghosts, popups, trails, zips, minions, bursts, clash, timers, game;
 const foeOf = f => f === goku ? cell : goku;
 const NAME = f => f.who === 'goku'
   ? (f.state.startsWith('ult') ? 'GOKU  SSJ3' : f.form === 'ssj' ? 'GOKU  SSJ' : 'GOKU')
-  : CELL_INFO[f.form].name;
+  : f.form === 'junior' ? `CELL JR.  x${game.juniors ? game.juniors.left : 1}` : CELL_INFO[f.form].name;
 
 // Goku as the boss gets stronger in each phase instead of changing body
 const GOKU_BOSS = [{ speed: 1, dmgMul: 0.9 }, { speed: 1.15, dmgMul: 1.15 }, { speed: 1.3, dmgMul: 1.35 }];
@@ -157,18 +159,18 @@ function reset(side = (game && game.side) || 'goku') {
   boss = foeOf(player);
   setForm(goku, 'base'); setForm(cell, 'imperfect');
   if (boss === goku) Object.assign(goku, GOKU_BOSS[0]);
-  projs = []; beams = []; sparks = []; ghosts = []; popups = []; trails = []; zips = []; clash = null; timers = [];
+  projs = []; beams = []; sparks = []; ghosts = []; popups = []; trails = []; zips = []; minions = []; bursts = []; clash = null; timers = [];
   // the game clock restarts with each fight, so forget presses timed on the old clock
   for (const a in lastPress) delete lastPress[a];
   dashReq = null; lastTap.dir = 0;
   Object.assign(cam, { x: W / 2, y: H / 2, z: 1, focus: null });
-  Stage.reset(); Object.assign(ai, { think: 0.8, vanishCd: 3, ultCd: 6, spam: 0 });
-  game = { mode: 'title', comboNames: [], menu: [], training: false, dummyFight: false, ct: 0, chaseT: 0, cine: null, combo: { n: 0, t: 0, dmg: 0, moves: [], done: new Set() }, learned: (game && game.learned) || new Set(), side, pick: side === 'cell' ? 1 : 0, time: 120, freeze: 0, shake: 0, flash: 0, phase: 0, slow: 1, banner: null, dlg: null, skip: false, result: null, t: 0, kameCd: 4 };
+  Stage.reset(); Object.assign(ai, { think: 0.8, vanishCd: 3, ultCd: 6, spam: 0, barrierCd: 5, assistCd: 6, rolled: 0 });
+  game = { mode: 'title', comboNames: [], menu: [], training: false, dummyFight: false, ct: 0, chaseT: 0, cine: null, combo: { n: 0, t: 0, dmg: 0, moves: [], done: new Set() }, learned: (game && game.learned) || new Set(), side, pick: side === 'cell' ? 1 : 0, time: 150, juniors: null, freeze: 0, shake: 0, flash: 0, phase: 0, slow: 1, banner: null, dlg: null, skip: false, result: null, t: 0, kameCd: 4 };
 }
 
 function setForm(f, form) {
   f.form = form;
-  if (f.who === 'cell') Object.assign(f, { speed: CELL_INFO[form].speed, dmgMul: CELL_INFO[form].dmgMul });
+  if (f.who === 'cell') Object.assign(f, { speed: CELL_INFO[form].speed, dmgMul: CELL_INFO[form].dmgMul, scale: CELL_INFO[form].scale || 1.25 });
   else Object.assign(f, form === 'ssj' ? { speed: 1.15, dmgMul: 1.35 } : { speed: 1, dmgMul: 1 });
 }
 
@@ -227,7 +229,11 @@ function damage(def, src, dmg, heavy, dir, kind = 'melee', opts = {}) {
       popups.push({ text: 'COUNTER!', x: def.x, y: def.y - 58, t: 0, c: '#ff8a3a' });
     }
     if (opts.grab) {
-      popups.push({ text: 'DRAGON RUSH!', x: def.x, y: def.y - 58, t: 0, c: '#9ff' });
+      // Cell's grab is his Absorb: it drains them and heals him
+      if (src.who === 'cell') {
+        src.hp = Math.min(src.maxHp, src.hp + 15); def.ki = Math.max(0, def.ki - 15);
+        popups.push({ text: 'ABSORB!  +HP', x: def.x, y: def.y - 58, t: 0, c: '#9f8' });
+      } else popups.push({ text: 'DRAGON RUSH!', x: def.x, y: def.y - 58, t: 0, c: '#9ff' });
       game.freeze = 0.16; shake(7); sfx.explode();
     }
   }
@@ -319,6 +325,46 @@ function dash(f, dir) {
   sfx.whoosh();
 }
 
+// Barrier: Cell's aura bursts out and throws the enemy off. It works while he's being hit, so it
+// breaks a combo.
+function barrier(f) {
+  const foe = foeOf(f), dir = foe.x > f.x ? 1 : -1;
+  f.ki = Math.max(0, f.ki - 30);
+  f.play('barrier'); Object.assign(f, { t2: 0.4, inv: 0.5, vx: 0, stun: 0, queue: [], next: null });
+  bursts.push({ x: f.x, y: f.y - 26 * f.scale, t: 0 });
+  Stage.shock(f.x, 1.2); sfx.explode(); shake(6); game.flash = Math.max(game.flash, 0.3);
+  popups.push({ text: 'BARRIER!', x: f.x, y: f.y - 64, t: 0, c: '#d6a8ff' });
+  if (foe.visible && Math.abs(foe.x - f.x) < 64 && Math.abs(foe.y - f.y) < 60
+      && damage(foe, f, 5 * f.dmgMul, true, dir, 'melee', { token: 'barrier' })) foe.vx = dir * 240;
+}
+
+// A Cell Junior called in by Perfect Cell: it flies at the enemy, strikes once (a launcher) and vanishes.
+const JR_FRAMES = { in: '17.0', dash: '18.10', hit: '18.7' };
+function callJunior(f) {
+  const x = clamp(f.x - f.facing * 14, 16, W - 16);
+  minions.push({ owner: f, x, y: FLOOR, dir: f.facing, t: 0, state: 'in' });
+  ghosts.push({ img: teleArt(f), x, y: FLOOR, t: 0 }); sfx.teleport();
+  popups.push({ text: 'CELL JUNIOR!', x: f.x, y: f.y - 60, t: 0, c: '#7ab8ff' });
+}
+
+function updateMinions(dt) {
+  for (const m of minions) {
+    const foe = foeOf(m.owner);
+    m.t += dt;
+    if (m.state === 'in' && m.t > 0.15) { m.state = 'dash'; m.t = 0; m.dir = foe.x > m.x ? 1 : -1; sfx.whoosh(); }
+    else if (m.state === 'dash') {
+      // flies straight at them, up into the air too
+      m.x += m.dir * 340 * dt; m.y += clamp(foe.y - m.y, -280 * dt, 280 * dt);
+      if (foe.visible && Math.abs(foe.x - m.x) < 24 && Math.abs(foe.y - m.y) < 30) {
+        m.state = 'hit'; m.t = 0;
+        damage(foe, m.owner, 9 * m.owner.dmgMul, true, m.dir, 'melee', { launch: true, token: 'junior' });
+      } else if (m.t > 0.9 || m.x < 0 || m.x > W) m.state = 'out';
+    } else if (m.state === 'hit' && m.t > 0.25) m.state = 'out';
+    if (m.state === 'out') { ghosts.push({ img: art(FX_ART.teleport), x: m.x, y: m.y, t: 0 }); m.dead = true; }
+  }
+  minions = minions.filter(m => !m.dead);
+}
+
 function startAttack(f, name) {
   f.play(name, 'attack'); f.vx = f.facing * 50;
   if (name === 'rush') f.vx = f.facing * 240;
@@ -393,6 +439,9 @@ function updateFighter(f, foe, dt) {
   if (f.free || f.state === 'block' || f.state === 'down') f.comboTaken = 0;
   f.sq -= f.sq * Math.min(1, dt * 12);
   if (f.state === 'block') f.blockT += dt;
+  if (f.assistCd > 0) f.assistCd -= dt;
+  // Cell regenerates while he charges ki
+  if (f.who === 'cell' && f.state === 'charge') f.hp = Math.min(f.maxHp, f.hp + 3 * dt);
   // afterimages on fast moves, rocks lifting off the ring while powering up
   if ((['dash', 'ult2'].includes(f.state) || f.anim === 'rush') && f.visible && (f.trailT -= dt) <= 0) {
     f.trailT = 0.035; trails.push({ im: f.img, x: f.x, y: f.y - f.hover, facing: f.facing, scale: f.scale, t: 0 });
@@ -486,6 +535,7 @@ function updateFighter(f, foe, dt) {
       }
       break;
     case 'appear': if (f.animDone) f.play('idle'); break;
+    case 'barrier': if ((f.t2 -= dt) <= 0) { if (f.y < FLOOR - 1) f.play('fall', 'jump'); else f.play('idle'); } break;
     case 'windup':
       if ((f.t2 -= dt) <= 0) {
         f.facing = foe.x > f.x ? 1 : -1;
@@ -575,6 +625,7 @@ function cancel(g, foe, dashDir) {
   }
   if (dashDir) { dash(g, dashDir); return true; }
   if (!isGoku && g.form === 'perfect' && g.ki >= 100 && act('ult')) { solarKame(g); return true; }
+  if (!isGoku && g.form === 'perfect' && g.ki >= 35 && g.assistCd <= 0 && act('junior')) { g.ki -= 35; g.assistCd = 3; callJunior(g); return true; }
   if (g.ki >= 15 && act('vanish')) { g.ki -= 15; teleport(g, foe); return true; }
   if (act('ki')) {
     if (isGoku && g.ki >= 8) { g.ki -= 8; cast(g, 'kiCast'); return true; }
@@ -629,6 +680,8 @@ function playerInput(dt) {
   const dir = (keys.right ? 1 : 0) - (keys.left ? 1 : 0);
   let dashDir = dashReq && game.ct - dashReq.t <= BUFFER ? dashReq.dir : 0;
   if (act('dash')) dashDir = dir || g.facing;
+  // Cell's Barrier works out of most states, even while he's being hit
+  if (!isGoku && g.ki >= 30 && ['idle', 'walk', 'block', 'hurt', 'jump', 'land'].includes(g.state) && act('barrier')) return barrier(g);
   if (g.free) {
     g.facing = foe.x > g.x ? 1 : -1;
     const toward = dir === g.facing;
@@ -652,6 +705,7 @@ function playerInput(dt) {
       if (!isGoku && g.ki >= 8) { g.ki -= 8; return cast(g, 'finger'); }
     }
     if (g.ki >= 15 && act('vanish')) { g.ki -= 15; return teleport(g, foe); }
+    if (!isGoku && g.form === 'perfect' && g.ki >= 35 && g.assistCd <= 0 && act('junior')) { g.ki -= 35; g.assistCd = 3; return callJunior(g); }
     if (g.ki >= 100 && act('transform')) {
       if (isGoku && g.form === 'base') {
         g.ki = 50; superSaiyan(g); return;
@@ -721,7 +775,7 @@ function playerInput(dt) {
 // ---------- boss AI ----------
 // The boss reads what the player does: it punishes charging, whiffs and broken guards, deals
 // with a Kamehameha, anti-airs jump-ins and, from phase two on, vanishes out of trouble.
-const ai = { think: 0.8, vanishCd: 3, ultCd: 6, spam: 0 }; // spam: how hard the player is spamming ki blasts
+const ai = { think: 0.8, vanishCd: 3, ultCd: 6, spam: 0, barrierCd: 5, assistCd: 6, rolled: 0 }; // spam: how hard the player is spamming ki blasts
 const AI_REACT = [0.42, 0.3, 0.2]; // seconds between decisions in each phase
 
 // blink out (leaving an afterimage), reappear behind the player and attack straight away
@@ -744,7 +798,13 @@ const SHOT_REACT = [0.6, 0.75, 0.9];
 
 function bossAI(dt) {
   const c = boss, g = player, ph = game.phase, isCell = c.who === 'cell';
-  game.kameCd -= dt; ai.vanishCd -= dt; ai.ultCd -= dt; ai.spam = Math.max(0, ai.spam - dt * 0.6);
+  game.kameCd -= dt; ai.vanishCd -= dt; ai.ultCd -= dt; ai.barrierCd -= dt; ai.assistCd -= dt;
+  ai.spam = Math.max(0, ai.spam - dt * 0.6);
+  // Cell bursts out of a long combo with his Barrier (one roll per hit taken)
+  if (isCell && c.state === 'hurt' && c.comboTaken >= 3 && c.comboTaken !== ai.rolled) {
+    ai.rolled = c.comboTaken;
+    if (ai.barrierCd <= 0 && Math.random() < 0.2 + ph * 0.15) { ai.barrierCd = rand(7, 10); c.ki = Math.max(c.ki, 30); return barrier(c); }
+  }
   // ki blasts on the way: vanish, Super Dash through them, jump over or block
   for (const p of projs) {
     if (p.owner !== g || p.seen) continue;
@@ -790,6 +850,8 @@ function bossAI(dt) {
   // Goku's finishers once he's all out: Instant Kamehameha on a weakened enemy, or the Dragon Fist
   if (!isCell && ph >= 2 && ai.ultCd <= 0 && g.hp < g.maxHp * 0.35 && r < 0.35) { ai.ultCd = rand(16, 20); return instantKame(c); }
   if (!isCell && ph >= 2 && ai.ultCd <= 0 && dist < 170 && r < 0.3) { ai.ultCd = rand(12, 16); return startUlt(c); }
+  // Perfect Cell calls in a Cell Junior from range
+  if (isCell && c.form === 'perfect' && ai.assistCd <= 0 && dist > 50 && r < 0.3) { ai.assistCd = rand(7, 11); return callJunior(c); }
   // Perfect Cell's finisher: the Solar Kamehameha from the sky
   if (isCell && c.form === 'perfect' && ai.ultCd <= 0 && g.hp < g.maxHp * 0.35 && r < 0.35) { ai.ultCd = rand(16, 20); return solarKame(c); }
   // the player is charging ki: never let that happen for free
@@ -964,7 +1026,7 @@ function drawGuard(f) {
 async function instantKame(f) {
   const foe = foeOf(f);
   f.ki = 0;
-  game.mode = 'cut'; projs = []; beams = []; clash = null; game.banner = null;
+  game.mode = 'cut'; projs = []; beams = []; minions = []; clash = null; game.banner = null;
   settle(foe);
   Object.assign(f, { vx: 0, vy: 0, visible: true, inv: 99, floating: true });
   f.y = Math.min(f.y, FLOOR - 40);
@@ -1008,7 +1070,7 @@ async function instantKame(f) {
 async function solarKame(f) {
   const foe = foeOf(f);
   f.ki = 0;
-  game.mode = 'cut'; projs = []; beams = []; clash = null; game.banner = null;
+  game.mode = 'cut'; projs = []; beams = []; minions = []; clash = null; game.banner = null;
   settle(foe); settle(f);
   f.inv = 99; f.facing = foe.x > f.x ? 1 : -1;
   f.play('power', 'pose'); f.t2 = 99;
@@ -1154,7 +1216,7 @@ function updateCine(raw) {
 // Goku goes Super Saiyan, then all out (and starts using the Dragon Fist).
 async function bossPhase() {
   const next = game.phase + 1;
-  game.mode = 'cut'; projs = []; beams = []; clash = null; game.banner = null;
+  game.mode = 'cut'; projs = []; beams = []; minions = []; clash = null; game.banner = null;
   settle(goku); settle(cell);
   if (boss === cell) {
     cell.play('power'); sfx.powerup(); shake(6);
@@ -1162,7 +1224,7 @@ async function bossPhase() {
     await wait(0.6);
     await say('CELL', next === 1
       ? 'Hehehe... Android 17 is part of me now. Let me show you my second form!'
-      : 'With Android 18 I am finally complete... Behold my PERFECT form!');
+      : 'My children... beaten?! Enough. With Android 18 I am complete... Behold my PERFECT form!');
     sfx.explode(); game.flash = 1; shake(10);
     setForm(cell, CELL_FORMS[next]);
     cell.play('power');
@@ -1191,8 +1253,64 @@ async function bossPhase() {
   game.mode = 'fight';
 }
 
+// The Cell Juniors: three of them, fought one after another, while Semi-Perfect Cell watches from the
+// back of the ring. Cell's own health is kept aside and given back when the last one falls.
+const JUNIORS = 3, JUNIOR_HP = 70;
+async function juniorsStart() {
+  game.mode = 'cut'; projs = []; beams = []; minions = []; clash = null; game.banner = null;
+  settle(goku); settle(cell);
+  cam.focus = { f: cell, z: 1.5 };
+  cell.play('taunt', 'pose');
+  await say('CELL', 'Not bad... But before I become perfect, meet my children. The Cell Juniors!');
+  cell.play('power'); sfx.powerup(); shake(5);
+  await wait(0.8);
+  game.juniors = { left: JUNIORS, hp: cell.hp, maxHp: cell.maxHp };
+  juniorIn();
+  await say('GOKU', "Little Cells?! Fine... I'll take you all on!");
+  cam.focus = null;
+  game.mode = 'fight';
+}
+
+// the next Junior teleports in across from Goku
+function juniorIn() {
+  setForm(cell, 'junior');
+  const x = clamp(goku.x + (goku.x < W / 2 ? 90 : -90), 24, W - 24);
+  Object.assign(cell, { hp: JUNIOR_HP, maxHp: JUNIOR_HP, x, y: FLOOR, vx: 0, vy: 0, visible: true, juggle: 0,
+    comboTaken: 0, inv: 0.6, ki: 40, queue: [], next: null, floating: false, facing: goku.x > x ? 1 : -1 });
+  cell.play('idle');
+  ghosts.push({ img: teleArt(cell), x, y: FLOOR, t: 0 }); sfx.teleport();
+}
+
+async function juniorDown() {
+  const j = game.juniors;
+  game.mode = 'cut'; j.left--;
+  popups.push({ text: 'CELL JR. DOWN!', x: cell.x, y: cell.y - 50, t: 0, c: '#9fd0ff' });
+  game.slow = 0.4;
+  await wait(0.9, true);
+  game.slow = 1;
+  // gone in a flash
+  sparks.push({ x: cell.x, y: cell.y - 20, t: 0, c: '#9fd0ff' }); Stage.shock(cell.x, 1);
+  sfx.explode(); game.flash = 0.5; cell.visible = false;
+  projs = []; beams = []; minions = [];
+  await wait(0.5);
+  if (j.left > 0) {
+    juniorIn();
+    game.banner = { text: j.left === 1 ? 'LAST JUNIOR!' : j.left + ' JUNIORS LEFT', t: 0, dur: 1 };
+    game.mode = 'fight';
+    return;
+  }
+  // all down: Cell steps back in and goes Perfect
+  game.juniors = null;
+  setForm(cell, 'semi');
+  const x = clamp(goku.x + (goku.x < W / 2 ? 90 : -90), 24, W - 24);
+  Object.assign(cell, { hp: j.hp, maxHp: j.maxHp, x, y: FLOOR, visible: true, inv: 0, juggle: 0, comboTaken: 0, facing: goku.x > x ? 1 : -1 });
+  cell.play('idle');
+  ghosts.push({ img: teleArt(cell), x, y: FLOOR, t: 0 }); sfx.teleport();
+  bossPhase();
+}
+
 async function finish(result) {
-  game.mode = 'ko'; game.result = result; clash = null; beams = []; projs = [];
+  game.mode = 'ko'; game.result = result; clash = null; beams = []; projs = []; minions = [];
   game.slow = 0.35;
   // push in on whoever went down
   const fallen = player.hp <= 0 ? player : boss.hp <= 0 ? boss : null;
@@ -1337,29 +1455,22 @@ function drawChecklist() {
 }
 
 // ---------- camera ----------
-// Frames both fighters: pans to the middle of the fight and zooms in a little when they're close,
-// back out as they separate, and never shows past the stage. Cinematics point it at a fighter
-// (cam.focus). Smoothing is exponential, so it feels the same at any frame rate.
+// The fight is shown whole, like a classic 2D fighter. Only cinematics move the camera, pushing in on
+// a fighter or a spot (cam.focus) and easing back out. Smoothing is exponential, so it feels the same
+// at any frame rate.
 const cam = { x: W / 2, y: H / 2, z: 1, focus: null };
 function updateCamera(raw) {
-  let tx, ty, tz;
+  let tx = W / 2, ty = H / 2, tz = 1;
   const live = ['fight', 'ready', 'cut', 'ko', 'end', 'intro', 'paused'].includes(game.mode);
   if (cam.focus && live) {
     const f = cam.focus.f;
     tz = cam.focus.z; tx = f ? f.x : cam.focus.x; ty = (f ? f.y - f.hover : cam.focus.y) - 26;
-  } else if (live && goku && cell) {
-    const x0 = Math.min(goku.x, cell.x), x1 = Math.max(goku.x, cell.x), top = Math.min(goku.y, cell.y) - 64;
-    tz = clamp(W / (x1 - x0 + 150), 1, 1.25);
-    tx = (x0 + x1) / 2;
-    // keep the ring's floor near the bottom of the view; rise only when someone jumps out of frame
-    const viewH = H / tz;
-    ty = Math.min(H - viewH / 2, top + viewH / 2);
-  } else { tz = 1; tx = W / 2; ty = H / 2; }
+  }
   const kz = 1 - Math.exp(-4 * raw), kp = 1 - Math.exp(-7 * raw);
   cam.z += (tz - cam.z) * kz;
   cam.x += (tx - cam.x) * kp; cam.y += (ty - cam.y) * kp;
   // clamp so the view (not just its centre) stays on the stage
-  const z = Math.round(cam.z * 4) / 4, hw = W / 2 / z, hh = H / 2 / z;
+  const z = Math.round(cam.z * S) / S, hw = W / 2 / z, hh = H / 2 / z;
   cam.x = clamp(cam.x, hw, W - hw); cam.y = clamp(cam.y, hh, H - hh);
 }
 
@@ -1425,6 +1536,8 @@ function step(raw) {
   trails = trails.filter(tr => tr.t < 0.22);
   for (const z of zips) z.t += raw;
   zips = zips.filter(z => z.t < 0.3);
+  for (const b of bursts) b.t += raw;
+  bursts = bursts.filter(b => b.t < 0.35);
   if (game.freeze > 0) { game.freeze -= raw; return 'frozen'; }
   game.ct += raw;
   game.chaseT -= raw;
@@ -1434,7 +1547,11 @@ function step(raw) {
     if (!window.noAI && (!game.training || game.dummyFight)) bossAI(dt);
     if (game.training) trainingRefill(dt);
     else game.time -= dt;
-    if (!game.training && game.phase < 2 && boss.hp <= boss.maxHp * (2 - game.phase) / 3 && boss.hp > 0 && boss.free) { bossPhase(); return; }
+    if (!game.training && game.phase < 2 && !game.juniors && boss.hp <= boss.maxHp * (2 - game.phase) / 3 && boss.hp > 0 && boss.free) {
+      // between Semi-Perfect and Perfect, Cell sends in the Cell Juniors first
+      if (boss === cell && game.phase === 1) juniorsStart(); else bossPhase();
+      return;
+    }
   }
   updateFighter(goku, cell, dt);
   updateFighter(cell, goku, dt);
@@ -1444,9 +1561,10 @@ function step(raw) {
     goku.x = clamp(goku.x + d * push, 16, W - 16); cell.x = clamp(cell.x - d * push, 16, W - 16);
   }
   updateProjectiles(dt);
+  updateMinions(dt);
   updateBeams(dt);
   if (game.mode === 'fight') {
-    if (boss.hp <= 0) finish('win');
+    if (boss.hp <= 0) { if (game.juniors) juniorDown(); else finish('win'); }
     else if (player.hp <= 0) finish('lose');
     else if (game.time <= 0) finish('timeup');
   }
@@ -1479,7 +1597,11 @@ function bar(x, y, w, h, v, color, flip) {
 
 // The icon follows the fighter's form: Goku's normal head, Super Saiyan or SSJ3 portrait; Cell's head per form.
 function iconOf(f) {
-  if (f.who === 'cell') return { im: art({ sheet: 'cell', ref: { id: CELL_ROW[f.form] + '.0', h: 20 } }), crop: true };
+  if (f.who === 'cell') {
+    // the sheet's portraits; Perfect Cell's turns furious when he's hurt or going all out
+    const angry = f.form === 'perfect' && (f.hp < f.maxHp * 0.35 || ['kameCharge', 'kameFire', 'barrier'].includes(f.state));
+    return { im: art(FX_ART.cellFace(angry ? 3 : CELL_INFO[f.form].face)), crop: false };
+  }
   const ult = f.state.startsWith('ult');
   return { im: art(ult ? FX_ART.ssj3Portrait : f.form === 'ssj' ? FX_ART.gokuPortrait : FX_ART.gokuHead), crop: !ult && f.form === 'base' };
 }
@@ -1505,7 +1627,7 @@ function drawHUD() {
   bar(32, 7, 100, 7, player.hp / player.maxHp, player.hp / player.maxHp > 0.3 ? '#ffd23a' : '#ff4a3a');
   const bossBar = boss.who === 'cell' ? CELL_INFO[boss.form].bar : ['#ff9a3a', '#ffd84a', '#fff27a'][game.phase];
   bar(W - 132, 7, 100, 7, boss.hp / boss.maxHp, bossBar, true);
-  ctx.fillStyle = '#000'; [1, 2].forEach(k => ctx.fillRect(W - 132 + Math.round(100 * k / 3), 7, 1, 7));
+  if (!game.juniors) { ctx.fillStyle = '#000'; [1, 2].forEach(k => ctx.fillRect(W - 132 + Math.round(100 * k / 3), 7, 1, 7)); }
   const kiFull = player.ki >= 100 && Math.floor(game.t * 6) % 2;
   bar(32, 17, 70, 4, player.ki / 100, kiFull ? '#ffffff' : '#4fd2ff');
   const broken = player.guardBroken && Math.floor(game.t * 8) % 2;
@@ -1585,7 +1707,7 @@ const CONTROLS = {
   ],
   cell: [
     'J PUNCH  K KICK  (CHAIN THEM)  L FINGER BEAM',
-    'TOWARD + L BARRAGE (SEMI-PERFECT+)',
+    'TOWARD + L BARRAGE   G BARRIER   E JUNIOR   J+K ABSORB',
     'T EVOLVE   U DEATH BEAM / KAMEHAMEHA   IN THE AIR: Q VANISH',
     'O SOLAR KAMEHAMEHA (PERFECT, FULL KI)',
   ],
@@ -1608,8 +1730,7 @@ function drawSelect() {
       const body = Sheets.frame('goku', on ? '11.0' : '0.2');
       ctx.drawImage(body, cx + 26 - body.ax, 80 - body.height, body.width, body.height);
     } else {
-      const head = art({ sheet: 'cell', ref: { id: '12.0', h: 20 } });
-      icon(head, cx - 48, 34, true, true, 44);
+      icon(art(FX_ART.cellFace(on ? 2 : 0)), cx - 48, 34, false, false, 44);
       const body = Sheets.frame('cell', on ? '12.0' : '0.0');
       ctx.save(); ctx.translate(cx + 26, 80); ctx.scale(-1.1, 1.1); ctx.drawImage(body, -body.ax, -body.height); ctx.restore();
     }
@@ -1632,12 +1753,18 @@ function render() {
     return;
   }
   // camera: zoom in whole-pixel steps (S x zoom stays an integer, so the pixel art stays crisp)
-  const z = Math.round(cam.z * 4) / 4, k = S * z;
+  const z = Math.round(cam.z * S) / S, k = S * z;
   ctx.setTransform(k, 0, 0, k, Math.round((W / 2 / z - cam.x) * k), Math.round((H / 2 / z - cam.y) * k));
   // shake rides on top of the camera: a smooth wave scaled by trauma squared
   const tr = Math.min(1, game.shake / 12), amp = tr * tr * 12 * (settings.calm ? 0.3 : 1);
   ctx.translate(Math.round(amp * Math.sin(game.t * 47)), Math.round(amp * 0.7 * Math.sin(game.t * 59 + 1.3)));
   drawBackground(game.mode === 'cut' ? 0.25 : 0);
+  // during the Juniors, Semi-Perfect Cell watches from the back of the ring, arms folded
+  if (game.juniors) {
+    const im = Sheets.frame('cell', ANIMS.cell.semi.taunt.fr[0]);
+    ctx.save(); ctx.globalAlpha = 0.9; ctx.translate(W - 26, FLOOR - 21); ctx.scale(-1, 1);
+    ctx.drawImage(im, -Math.round(im.ax), -im.height); ctx.restore();
+  }
   // shadows
   for (const f of [goku, cell]) if (f.visible) {
     const k = clamp(1 - (FLOOR - f.y + f.hover) / 120, 0.3, 1);
@@ -1662,6 +1789,20 @@ function render() {
   }
   const order = player.state === 'attack' ? [boss, player] : [player, boss];
   order.forEach(f => f.draw());
+  for (const m of minions) {
+    const im = Sheets.frame('cell', JR_FRAMES[m.state] || JR_FRAMES.in);
+    ctx.fillStyle = 'rgba(0,0,40,0.3)'; ctx.beginPath(); ctx.ellipse(m.x, FLOOR + 1, 9, 2, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.save(); ctx.translate(Math.round(m.x), Math.round(m.y)); ctx.scale(m.dir, 1);
+    ctx.drawImage(im, -Math.round(im.ax), -im.height); ctx.restore();
+  }
+  // Barrier bursts: a bright sphere that swells and fades
+  for (const b of bursts) {
+    const k = b.t / 0.35, r = 10 + k * 52;
+    ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = (1 - k) * (settings.calm ? 0.4 : 0.8);
+    const g = ctx.createRadialGradient(b.x, b.y, r * 0.5, b.x, b.y, r);
+    g.addColorStop(0, 'rgba(214,168,255,0)'); g.addColorStop(0.8, 'rgba(230,200,255,0.5)'); g.addColorStop(1, 'rgba(255,255,255,0.9)');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(b.x, b.y, r, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+  }
   for (const f of order) if (f.state === 'block' && f.visible) drawGuard(f);
   for (const b of beams) beamLight(b);
   for (const b of beams) drawBeam(b);

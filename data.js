@@ -28,7 +28,8 @@ const GOKU_BASE = {
   k3: { fr: ['5.7', '5.7', '5.8'], fps: 11, hit: { at: 0, dmg: 11, reach: 40, heavy: true, launch: true } },
   rush: { fr: ['1.2', '1.2', '4.2', '4.2', '4.3'], fps: 12, hit: { at: 2, dmg: 7, reach: 38 } },
   // Dragon Rush: a lunging grab. Slow to come out, but it goes through a block and launches
-  grab: { fr: ['1.2', '1.2', '4.2', '4.2', '4.3'], fps: 10, hit: { at: 2, dmg: 6, reach: 34, grab: true, launch: true } },
+  // the sheet's grab: step in, lunge, catch and toss (frame 6.4 holds the lunge and the catch side by side)
+  grab: { fr: ['6.3', { id: '6.4', w: 37 }, { id: '6.4', x: 45 }, { id: '6.4', x: 45 }, '6.3'], fps: 10, hit: { at: 2, dmg: 6, reach: 34, grab: true, launch: true } },
   slash: { fr: ['3.5', '3.6', '3.6', '3.7'], fps: 11, hit: { at: 1, dmg: 10, reach: 46, heavy: true, wallBounce: true } },
   // air string: J J J in the air, ending in a spike that slams them into the ring
   air: { fr: ['5.3', '5.3'], fps: 13, loop: false, hit: { at: 0, dmg: 8, reach: 42 } },
@@ -70,17 +71,19 @@ Object.assign(GOKU_SSJ, {
 });
 
 // Written with Perfect Cell's rows (12-16); each form sits in the same layout 6 rows higher up.
+// The stance is each form's own default pose (the first frame of its first row), breathing gently;
+// moving glides on the lean-forward / lean-back poses next to it.
 const CELL_TEMPLATE = {
-  idle: { fr: ['12.0', '13.0', '13.1', '13.0'], fps: 4, loop: true },
-  walk: { fr: ['12.0', '13.0', '13.1', '13.0'], fps: 6, loop: true },
-  back: { fr: ['12.0', '13.0', '13.1', '13.0'], fps: 5, loop: true },
+  idle: { fr: ['12.0'], fps: 1, loop: true, breathe: true },
+  walk: { fr: ['12.3'], fps: 1, loop: true },
+  back: { fr: ['12.2'], fps: 1, loop: true },
   dash: { fr: ['13.11'], fps: 1, loop: true },
   backdash: { fr: ['12.2'], fps: 1, loop: true },
   airDash: { fr: ['13.11'], fps: 1, loop: true },
   airBack: { fr: ['12.2'], fps: 1, loop: true },
-  jump: { fr: ['13.11'], fps: 1, loop: true },
+  jump: { fr: ['12.3'], fps: 1, loop: true },
   fall: { fr: ['13.11'], fps: 1, loop: true },
-  land: { fr: ['13.0'], fps: 12, loop: false },
+  land: { fr: ['12.0'], fps: 12, loop: false },
   block: { fr: ['14.3'], fps: 1, loop: true },
   blockHit: { fr: ['14.2'], fps: 1, loop: true },
   p1: { fr: ['13.1', '13.2', '13.2', '13.1'], fps: 13, hit: { at: 1, dmg: 6, reach: 32 } },
@@ -92,6 +95,8 @@ const CELL_TEMPLATE = {
   kameCharge: { fr: ['15.2', '16.3'], fps: 6, loop: true },
   kameFire: { fr: [{ id: '16.4', w: 25 }], fps: 1, loop: true, emit: 19 },
   power: { fr: ['12.6', '12.7', '12.8'], fps: 12, loop: true },
+  // Barrier: the aura flares into a burst that throws the enemy off
+  barrier: { fr: ['12.6', '12.7', '12.8'], fps: 16, loop: true },
   hurt: { fr: ['14.5'], fps: 1, loop: true },
   knock: { fr: ['14.4', '14.6'], fps: 8, loop: false },
   down: { fr: ['14.9'], fps: 1, loop: true },
@@ -110,15 +115,24 @@ const CELL_TEMPLATE = {
   charge: { fr: ['12.6', '12.7', '12.8'], fps: 12, loop: true },
 };
 
+// the forms Cell evolves through; the Cell Juniors (rows 17-21) are fought between Semi and Perfect
 const CELL_FORMS = ['imperfect', 'semi', 'perfect'];
-const CELL_ROW = { imperfect: 0, semi: 6, perfect: 12 };
+const CELL_ROW = { imperfect: 0, semi: 6, perfect: 12, junior: 17 };
 const CELL_INFO = {
-  imperfect: { name: 'IMPERFECT CELL', speed: 0.9, dmgMul: 0.9, bar: '#7be05a' },
-  semi: { name: 'SEMI-PERFECT CELL', speed: 1.05, dmgMul: 1.1, bar: '#3fc0a0' },
-  perfect: { name: 'PERFECT CELL', speed: 1.25, dmgMul: 1.3, bar: '#c27aff' },
+  imperfect: { name: 'IMPERFECT CELL', speed: 0.9, dmgMul: 0.9, bar: '#7be05a', face: 0 },
+  semi: { name: 'SEMI-PERFECT CELL', speed: 1.05, dmgMul: 1.1, bar: '#3fc0a0', face: 1 },
+  perfect: { name: 'PERFECT CELL', speed: 1.25, dmgMul: 1.3, bar: '#c27aff', face: 2 },
+  junior: { name: 'CELL JR.', speed: 1.4, dmgMul: 0.75, bar: '#5aa8ff', face: 4, scale: 1 },
 };
-function cellForm(row) {
-  const shift = id => { const [r, i] = id.split('.').map(Number); return `${r - 12 + row}.${i}`; };
+// The Juniors' rows follow Perfect Cell's except where their sheet has a frame fewer (row 13: no
+// knee) or splits the dizzy stars and an extra beam piece off as frames of their own.
+const JUNIOR_FIX = {
+  13: i => i <= 4 ? i : i === 5 ? 4 : i - 1,
+  14: i => i <= 7 ? i : { 8: 9, 9: 11, 10: 12, 11: 13 }[i],
+  16: i => i <= 2 ? i : i + 1,
+};
+function cellForm(row, fix = {}) {
+  const shift = id => { const [r, i] = id.split('.').map(Number); return `${r - 12 + row}.${fix[r] ? fix[r](i) : i}`; };
   return Object.fromEntries(Object.entries(CELL_TEMPLATE).map(([k, a]) => [k, {
     ...a, fr: a.fr.map(r => typeof r === 'string' ? shift(r) : { ...r, id: shift(r.id) }),
   }]));
@@ -128,6 +142,7 @@ const ANIMS = {
   goku: { base: GOKU_BASE, ssj: GOKU_SSJ },
   cell: Object.fromEntries(CELL_FORMS.map(f => [f, cellForm(CELL_ROW[f])])),
 };
+ANIMS.cell.junior = cellForm(CELL_ROW.junior, JUNIOR_FIX);
 ANIMS.cell.base = ANIMS.cell.perfect;
 
 // Projectile and beam art cut out of the sheets.
@@ -144,6 +159,8 @@ const FX_ART = {
   gokuPortrait: { sheet: 'goku', ref: '10.0' },
   ssj3Portrait: { sheet: 'goku', ref: { id: '12.0', w: 41 } },
   gokuHead: { sheet: 'goku', ref: { id: '0.2', h: 22 } },
+  // Cell's portraits, side by side in one strip: Imperfect, Semi, Perfect, Perfect enraged, Junior
+  cellFace: k => ({ sheet: 'cellFaces', ref: { id: '0.0', x: 42 * k, w: 41 } }),
 };
 const BEAMS = {
   goku: {
@@ -195,10 +212,11 @@ const COMBOS = {
     { name: 'AERIAL DEATH BEAM', steps: ['air', 'death'], how: 'air hit, then U (Semi-Perfect)' },
     { name: 'AERIAL KAMEHAMEHA', steps: ['air', 'beam'], how: 'air hit, then U (Perfect)' },
     { name: 'PERFECT SKY BLAST', steps: ['launch', 'air', 'air2', 'beam'], how: 'launcher, W, J J, then U (Perfect)' },
-    { name: 'DRAGON RUSH CHASE', steps: ['grab', 'air'], how: 'J+K (or F) through a block, W, J' },
     { name: 'COUNTER STRIKE', steps: ['counter', 'melee', 'melee'], how: 'hit them as they attack, keep going' },
     { name: 'FINGER RUSH', steps: ['finger', 'rush'], how: 'L hits, then J to rush in after it' },
     { name: 'AERIAL FINGER RELAY', steps: ['air', 'finger', 'air'], how: 'air hit, L, double-tap, J' },
+    { name: 'FAMILY REUNION', steps: ['melee', 'junior'], how: 'land a hit, then E (Perfect)' },
+    { name: 'ABSORPTION', steps: ['grab', 'air'], how: 'J+K (or F) through a block, W, J' },
   ],
 };
 const MELEE = ['p1', 'p2', 'p3', 'p4', 'k1', 'k2', 'k3', 'rush', 'grab', 'slash', 'air', 'air2', 'spike'];
@@ -207,15 +225,12 @@ const MELEE = ['p1', 'p2', 'p3', 'p4', 'k1', 'k2', 'k3', 'rush', 'grab', 'slash'
 const MOVES = {
   goku: [
     ['J  /  K', 'Punch / kick, chain: J J J J or K K K'],
-    ['TOWARD + J', 'Rush punch'],
-    ['TOWARD + K', 'Heavy slash: bounces them off the wall'],
+    ['J J J J  /  K K K', 'Ends in a launcher: W to chase them up'],
+    ['TOWARD + J  /  K', 'Rush punch / heavy slash (wall bounce)'],
     ['J + K  /  F', 'Dragon Rush: grab through a block, launches'],
-    ['J J J J  /  K K K', 'The last hit is a launcher'],
-    ['W AFTER A LAUNCHER', 'Chase jump after them'],
     ['AIR: J J J', 'Air string, ends in a meteor spike'],
     ['AFTER A HIT', 'Cancel into L, U, Q or a dash'],
-    ['AIR HIT + U', 'Kamehameha out of the air combo'],
-    ['AIR HIT + DASH', 'Air dash, then J again for more hits'],
+    ['AIR HIT + U  /  DASH', 'Kamehameha, or air dash and J again'],
     ['L', 'Ki blast (8 ki, air too)'],
     ['AFTER L HITS', 'J rushes in, or cancel into a dash, Q, U, L'],
     ['DOUBLE-TAP A / D', 'Dash, once in the air too'],
@@ -229,22 +244,21 @@ const MOVES = {
   ],
   cell: [
     ['J  /  K', 'Punch / kick, chain: J J K or K K'],
-    ['TOWARD + J', 'Rush punch'],
-    ['TOWARD + K', 'Heavy slash: bounces them off the wall'],
-    ['J + K  /  F', 'Dragon Rush: grab through a block, launches'],
-    ['J J K  /  K K', 'The last hit is a launcher'],
-    ['W AFTER A LAUNCHER', 'Chase jump after them'],
+    ['J J K  /  K K', 'Ends in a launcher: W to chase them up'],
+    ['TOWARD + J  /  K', 'Rush punch / heavy slash (wall bounce)'],
+    ['J + K  /  F', 'Absorb: grab through a block, heals you'],
     ['AIR: J J J', 'Air string, ends in a meteor spike'],
-    ['AFTER A HIT', 'Cancel into L, U, Q or a dash'],
-    ['AIR HIT + U', 'Death Beam / Kamehameha out of the air combo'],
-    ['AIR HIT + DASH', 'Air dash, then J again for more hits'],
+    ['AFTER A HIT', 'Cancel into L, U, Q, E or a dash'],
+    ['AIR HIT + U  /  DASH', 'Death Beam / Kamehameha, or dash and J'],
     ['L', 'Finger beam (8 ki, air too)'],
     ['AFTER L HITS', 'J rushes in, or cancel into a dash, Q, U, L'],
     ['TOWARD + L', 'Barrage (Semi-Perfect, 15 ki)'],
+    ['G', 'Barrier: burst them away, even mid-combo (30 ki)'],
+    ['E', 'A Cell Junior flies in and attacks (Perfect, 35 ki)'],
     ['DOUBLE-TAP A / D', 'Dash, once in the air too'],
     ['Q', 'Vanish behind them (15 ki, air too)'],
     ['S', 'Block. Tap as a hit lands: PERFECT'],
-    ['HOLD I', 'Charge ki'],
+    ['HOLD I', 'Charge ki and regenerate'],
     ['T', 'Evolve to the next form (full ki)'],
     ['U', 'Death Beam (Semi) / Kamehameha (Perfect)'],
     ['O  (AIR, AFTER A HIT TOO)', 'Solar Kamehameha finisher (Perfect, full ki)'],
@@ -255,7 +269,8 @@ const CONTROL_ROWS = [
   ['JUMP', 'W / Space', 'A'],
   ['BLOCK', 'S', 'LB / down'],
   ['PUNCH / KICK', 'J / K', 'X / Y'],
-  ['DRAGON RUSH', 'J + K / F', 'X + Y'],
+  ['DRAGON RUSH / ABSORB', 'J + K / F', 'X + Y'],
+  ['CELL: BARRIER / JUNIOR', 'G / E', ''],
   ['KI ATTACK', 'L', 'B'],
   ['BEAM / ULTIMATE', 'U / O', 'RT / R3'],
   ['CHARGE / TRANSFORM', 'I / T', 'LT / L3'],

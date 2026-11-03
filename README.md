@@ -2,8 +2,9 @@
 
 A Dragon Ball boss fight in plain JavaScript and canvas. Pick a side on the select screen:
 
-- **Goku**: stop Cell before he becomes perfect. Cell starts Imperfect, turns Semi-Perfect at 2/3 health and
-  Perfect at 1/3, unlocking new attacks each time.
+- **Goku**: stop Cell before he becomes perfect. Cell starts Imperfect and turns Semi-Perfect at 2/3 health.
+  At 1/3 he sends in the **Cell Juniors**: three of them, one after another, while he watches from the back
+  of the ring. Beat all three and he comes back and goes Perfect for the last stretch.
 - **Cell**: absorb a Saiyan's power. Fill your ki and press T to evolve yourself; Goku is the boss, going Super
   Saiyan at 2/3 health and all out (Dragon Fist included) at 1/3.
 
@@ -42,6 +43,10 @@ and text stay sharp. Voice lines can be added as recordings: see `VOICE_CLIPS` i
 - **Ki blasts in combos**: L works in the air too, and a ki blast that hits can be cancelled like a
   landed punch: J rushes in after it (an air hit in the air), or go into a dash, Q, U or another L. So
   J J, L, J, J J... on the ground, or air J J, L, double-tap, J J, U in the air.
+- **Cell's own tools**: his grab is **Absorb** (heals him and drains their ki), **G** is his **Barrier**, a
+  burst that throws them off and works even while he's being hit (30 ki), **E** calls in a **Cell Junior**
+  that flies at them and launches them (Perfect, 35 ki, also after a landed hit), and holding **I**
+  regenerates him while he charges. The boss Cell uses all of these too.
 - **Wall bounce**: the heavy slash (toward + K) bounces them off the screen edge for a follow-up.
 - Juggles are limited and long combos hit softer, so nothing loops forever.
 - **Named combos** pop up with a +8 ki bonus when you land them. P opens the pause menu with the full
@@ -52,8 +57,8 @@ and text stay sharp. Voice lines can be added as recordings: see `VOICE_CLIPS` i
 ## Options
 
 Pause menu or the menu after picking a fighter: music and sound volume, music on/off, calm mode
-(less shake and flashing), arena (DAY or CLASSIC). Settings are remembered. The camera follows the fight, zooming in when the
-fighters are close and pushing in for cinematics.
+(less shake and flashing), arena (DAY or CLASSIC). Settings are remembered. The fight is always shown whole; the camera only
+pushes in for cinematics.
 
 ## Music
 
@@ -87,7 +92,9 @@ Then open http://localhost:8765 and press Enter.
 | Toward Cell + J | Rushing punch |
 | Toward Cell + K | Heavy slash (knockdown) |
 | Tap S as a hit lands | Perfect block: no damage, +25 ki, punches leave Cell dizzy |
-| J + K / F | Dragon Rush: a grab that beats block and launches |
+| J + K / F | Dragon Rush (Goku) / Absorb (Cell): a grab that beats block and launches |
+| G (Cell) | Barrier: burst them away, even mid-combo (30 ki) |
+| E (Perfect Cell) | Call a Cell Junior to attack (35 ki) |
 | L | Ki blast (Goku) / finger beam (Cell); toward + L = barrage (Semi-Perfect+) |
 | Hold I | Charge ki |
 | T (Cell, full ki) | Evolve to the next form |
@@ -115,6 +122,7 @@ give stamina back.
 - `game.js` – game loop, fighters, Cell AI, beams, cutscenes, HUD
 - `data.js` – which sprite-sheet frames make up each move
 - `sheets.js` – cuts the sheets into frames and removes the white background
+- `assets/sheets/cell.png` – Cell's three forms plus the Cell Juniors (rows 17-21); `cell-faces.png` – his portraits
 - `audio.js` – music player, generated sound effects and jingles, spoken lines
 - `stage.js` – the Cell Games arena and its live effects
 - `tools/frames.html?sheet=goku` – every sheet frame with its id

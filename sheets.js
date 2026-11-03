@@ -3,6 +3,7 @@
 const SHEET_CFG = {
   goku: { src: 'assets/sheets/goku.png', gap: 4, minX: 22, maxX: 760 },
   cell: { src: 'assets/sheets/cell.png', gap: 1, minX: 0, maxX: 99999 },
+  cellFaces: { src: 'assets/sheets/cell-faces.png', gap: 1, minX: 0, maxX: 99999 },
 };
 
 const isBg = (d, i) => d[i] > 232 && d[i + 1] > 232 && d[i + 2] > 232;
