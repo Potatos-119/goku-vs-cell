@@ -120,11 +120,16 @@ const Audio8 = (() => {
   // fades into the transformation theme (the generated chiptune is the fallback if a file is missing).
   const TRACKS = {
     bg: { src: 'assets/audio/bg-theme.mp3', vol: 0.45 },
-    ssj: { src: 'assets/audio/ssj-transform.mp3', vol: 0.55 },
+    // a 15s cut that builds up and hits at SSJ_PEAK; plays once, then the fight theme resumes
+    ssj: { src: 'assets/audio/ssj-transform.mp3', vol: 0.6, loop: false, then: 'bg' },
   };
   const tracks = {};
   function track(name) {
-    if (!tracks[name]) { const a = new Audio(TRACKS[name].src); a.loop = true; a.volume = TRACKS[name].vol; tracks[name] = a; }
+    if (!tracks[name]) {
+      const a = new Audio(TRACKS[name].src); a.loop = TRACKS[name].loop !== false; a.volume = TRACKS[name].vol;
+      a.onended = () => { if (music.current === name && TRACKS[name].then) music.play(TRACKS[name].then); };
+      tracks[name] = a;
+    }
     return tracks[name];
   }
   function fadeOut(a) {
@@ -149,6 +154,8 @@ const Audio8 = (() => {
       a.play().catch(() => {});
     },
     stop() { for (const a of Object.values(tracks)) a.pause(); stopMusic(); },
+    // playback position of a track, or null when it isn't playing (cinematics sync to this)
+    time(name) { const a = tracks[name]; return a && !a.paused && music.current === name ? a.currentTime : null; },
     winner() { music.stop(); jingle(VICTORY, 0.16); },
     defeat() { music.stop(); jingle(DEFEAT, 0.3); },
   };

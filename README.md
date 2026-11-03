@@ -17,7 +17,10 @@ with the browser's speech voice (press V to turn voices off).
 ## Music
 
 - `assets/audio/bg-theme.mp3` loops during fights (a 4-minute cut of the background OST).
-- `assets/audio/ssj-transform.mp3` takes over when Goku goes Super Saiyan.
+- `assets/audio/ssj-transform.mp3` plays when Goku goes Super Saiyan: a 15-second cut of Blue Saiyan
+  (57.4s-72.5s of the track) that builds up and hits 5.05 seconds in. The transformation is a short
+  cinematic timed to it, so his hair turns gold exactly on that hit (`SSJ_PEAK` in `game.js`); then the
+  fight theme comes back.
 
 Swap either file to change the music; the paths are in `TRACKS` at the top of the music section in `audio.js`.
 

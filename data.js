@@ -31,6 +31,8 @@ const GOKU_BASE = {
   teleIn: { fr: ['1.10', '1.9'], fps: 9, loop: false },
   teleOut: { fr: ['1.9', '1.10'], fps: 12, loop: false },
   transform: { fr: ['10.1', '10.2', '10.3', '10.4', '10.3', '10.4', '10.5', '10.6', '10.7', '10.8', '10.8'], fps: 7, loop: false },
+  // last second of the Super Saiyan cinematic, right before the music hits
+  ssjRise: { fr: ['10.4', '10.5', '10.6', '10.7'], fps: 4, loop: false },
   win: { fr: ['0.10'], fps: 1, loop: true },
 };
 

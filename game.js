@@ -78,7 +78,7 @@ function reset(side = (game && game.side) || 'goku') {
   if (boss === goku) Object.assign(goku, GOKU_BOSS[0]);
   projs = []; beams = []; sparks = []; ghosts = []; popups = []; trails = []; clash = null; timers = [];
   Stage.reset(); Object.assign(ai, { think: 0.8, vanishCd: 3, ultCd: 6 });
-  game = { mode: 'title', side, pick: side === 'cell' ? 1 : 0, time: 120, freeze: 0, shake: 0, flash: 0, phase: 0, slow: 1, banner: null, dlg: null, skip: false, result: null, t: 0, kameCd: 4 };
+  game = { mode: 'title', cine: null, side, pick: side === 'cell' ? 1 : 0, time: 120, freeze: 0, shake: 0, flash: 0, phase: 0, slow: 1, banner: null, dlg: null, skip: false, result: null, t: 0, kameCd: 4 };
 }
 
 function setForm(f, form) {
@@ -347,8 +347,7 @@ function playerInput(dt) {
     if (tap('q') && g.ki >= 15) { g.ki -= 15; return teleport(g, foe); }
     if (tap('t') && g.ki >= 100) {
       if (isGoku && g.form === 'base') {
-        Voice.shout('goku', 'Haaaaaaah!');
-        g.ki = 50; g.play('transform'); g.vx = 0; g.inv = 2; sfx.powerup(); game.shake = 5; return;
+        g.ki = 50; superSaiyan(g); return;
       }
       if (!isGoku && g.form !== 'perfect') {
         Voice.shout('cell', g.form === 'imperfect' ? 'Evolve!' : 'Perfection!');
@@ -623,6 +622,46 @@ async function startFight() {
   game.mode = 'fight';
 }
 
+// Super Saiyan cinematic, timed to assets/audio/ssj-transform.mp3: Goku powers up while the music
+// builds, and his hair turns gold exactly on the hit SSJ_PEAK seconds in. It follows the track's own
+// clock, so a slow start of the audio can't knock it out of sync; if the audio is blocked or stalls
+// more than a second behind, the game clock takes over so the scene never hangs.
+const SSJ_PEAK = 5.05;
+function superSaiyan(f) {
+  return new Promise(done => {
+    projs = []; beams = []; clash = null; game.banner = null;
+    settle(goku); settle(cell);
+    game.cine = { f, t: 0, clock: 0, stage: 0, back: game.mode, done };
+    game.mode = 'cut';
+    f.play('charge', 'pose'); f.t2 = 99; f.inv = 99;
+    Audio8.music.switchTo('ssj');
+    Voice.shout('goku', 'Haaaaaaah!');
+  });
+}
+
+function updateCine(raw) {
+  const c = game.cine, f = c.f, mt = Audio8.music.time('ssj');
+  c.clock += raw;
+  c.t = mt !== null ? Math.max(mt, c.clock - 1) : c.clock;
+  if (c.stage < 2) {
+    // the build-up: ground shaking harder and rocks rising as the music climbs
+    game.shake = Math.max(game.shake, 1 + 5 * Math.min(1, c.t / SSJ_PEAK));
+    if (Math.random() < raw * 30) Stage.lift(f.x);
+  }
+  if (c.stage === 0 && c.t >= SSJ_PEAK - 1) { c.stage = 1; f.play('ssjRise', 'pose'); sfx.powerup(); }
+  if (c.stage === 1 && c.t >= SSJ_PEAK) {
+    c.stage = 2; c.hitAt = mt;
+    finishTransform(f); f.play('charge', 'pose'); f.t2 = 99;
+    game.shake = 12; game.banner = { text: 'SUPER SAIYAN!', t: 0, dur: 1.6 };
+    for (let i = 0; i < 14; i++) Stage.lift(f.x);
+    Stage.crack(f.x, 2);
+  }
+  if (c.stage === 2 && c.t >= SSJ_PEAK + 1.6) {
+    f.play('idle'); f.inv = 0.5;
+    game.mode = c.back; game.cine = null; c.done();
+  }
+}
+
 // The boss powers up at 2/3 and 1/3 health. Cell evolves: Imperfect -> Semi-Perfect -> Perfect.
 // Goku goes Super Saiyan, then all out (and starts using the Dragon Fist).
 async function bossPhase() {
@@ -647,9 +686,7 @@ async function bossPhase() {
     if (goku.form === 'base') await say('GOKU', '(He keeps getting stronger... charge ki with I, then press T!)');
   } else if (next === 1) {
     await say('GOKU', "You're stronger than I thought, Cell... Time to get serious!");
-    Voice.shout('goku', 'Haaaaaaah!');
-    goku.play('transform'); sfx.powerup(); game.shake = 6;
-    await wait(1.8);
+    await superSaiyan(goku);
     await say('CELL', 'The legendary Super Saiyan... Excellent. Your power will make me perfect!');
     if (cell.form === 'imperfect') await say('CELL', '(I must evolve... charge ki with I, then press T!)');
   } else {
@@ -734,6 +771,7 @@ function step(raw) {
   ghosts = ghosts.filter(gh => gh.t < 0.3);
   for (const pp of popups) pp.t += raw;
   popups = popups.filter(pp => pp.t < 0.9);
+  if (game.cine) updateCine(raw);
   Stage.update(raw);
   for (const tr of trails) tr.t += raw;
   trails = trails.filter(tr => tr.t < 0.22);
