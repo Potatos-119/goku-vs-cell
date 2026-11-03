@@ -135,8 +135,12 @@ const Audio8 = (() => {
   function fadeOut(a) {
     const step = setInterval(() => { a.volume = Math.max(0, a.volume - 0.05); if (!a.volume) { clearInterval(step); a.pause(); } }, 40);
   }
+  let savedMute = false;
+  try { savedMute = localStorage.getItem('musicMuted') === '1'; } catch (e) { /* storage blocked: start unmuted */ }
   const music = {
     current: 'bg',
+    // M key: while muted the game still tracks which song should be on, so unmuting resumes it
+    muted: savedMute,
     // play (or resume) a track; restart: from the beginning
     play(name = music.current, restart = false) {
       for (const [k, a] of Object.entries(tracks)) if (k !== name) a.pause();
@@ -144,20 +148,26 @@ const Audio8 = (() => {
       const a = track(name);
       a.volume = TRACKS[name].vol;
       if (restart) a.currentTime = 0;
-      a.play().catch(() => playMusic('boss'));
+      if (!music.muted) a.play().catch(() => playMusic('boss'));
     },
     switchTo(name) {
       if (music.current === name) return;
       if (tracks[music.current]) fadeOut(tracks[music.current]);
       music.current = name;
       const a = track(name); a.currentTime = 0; a.volume = TRACKS[name].vol;
-      a.play().catch(() => {});
+      if (!music.muted) a.play().catch(() => {});
+    },
+    toggleMute() {
+      music.muted = !music.muted;
+      try { localStorage.setItem('musicMuted', music.muted ? '1' : '0'); } catch (e) { /* not saved, still works */ }
+      if (music.muted) music.stop(); else music.play();
+      return music.muted;
     },
     stop() { for (const a of Object.values(tracks)) a.pause(); stopMusic(); },
     // playback position of a track, or null when it isn't playing (cinematics sync to this)
     time(name) { const a = tracks[name]; return a && !a.paused && music.current === name ? a.currentTime : null; },
-    winner() { music.stop(); jingle(VICTORY, 0.16); },
-    defeat() { music.stop(); jingle(DEFEAT, 0.3); },
+    winner() { music.stop(); if (!music.muted) jingle(VICTORY, 0.16); },
+    defeat() { music.stop(); if (!music.muted) jingle(DEFEAT, 0.3); },
   };
 
   // [midi note, beats] lead lines over a sustained bass; _ is a rest

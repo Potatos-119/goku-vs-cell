@@ -734,6 +734,7 @@ function loop(now) {
 function step(raw) {
   game.t += raw;
   if (tap('v')) { Voice.on = !Voice.on; popups.push({ text: Voice.on ? 'VOICES ON' : 'VOICES OFF', x: W / 2, y: 60, t: 0, c: '#fff' }); }
+  if (tap('m')) { Audio8.init(); popups.push({ text: Audio8.music.toggleMute() ? 'MUSIC OFF' : 'MUSIC ON', x: W / 2, y: 60, t: 0, c: '#fff' }); }
   if (game.mode === 'title') {
     if (tap('enter')) { Audio8.init(); Audio8.music.play('bg', true); game.mode = 'select'; sfx.blip(); }
     return;
@@ -906,7 +907,7 @@ function drawTitle() {
   text('VS', W / 2, 58, 22, '#fff', 'center');
   text('CELL', W / 2 + 4, 30, 32, '#a8e27c', 'left');
   if (Math.floor(game.t * 2) % 2) text('PRESS ENTER', W / 2, 96, 14, '#ffe04a', 'center');
-  small('P PAUSE   V VOICES ON/OFF   ESC SKIP INTRO', W / 2, 160, '#ddd');
+  small('P PAUSE   M MUSIC ON/OFF   V VOICES ON/OFF   ESC SKIP INTRO', W / 2, 160, '#ddd');
 }
 
 const CONTROLS = {
@@ -958,8 +959,11 @@ function drawSelect() {
 function render() {
   ctx.setTransform(S, 0, 0, S, 0, 0);
   ctx.imageSmoothingEnabled = false;
-  if (game.mode === 'title') return drawTitle();
-  if (game.mode === 'select') return drawSelect();
+  if (game.mode === 'title' || game.mode === 'select') {
+    if (game.mode === 'title') drawTitle(); else drawSelect();
+    if (Audio8.music.muted) small('MUSIC OFF (M)', W - 4, 4, '#f99', 'right');
+    return;
+  }
   const sh = game.shake;
   ctx.translate(Math.round(rand(-sh, sh)), Math.round(rand(-sh, sh)));
   drawBackground(game.mode === 'cut' ? 0.25 : 0);

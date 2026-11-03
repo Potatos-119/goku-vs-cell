@@ -56,6 +56,7 @@ Blocking uses the green stamina bar under the ki bar. Holding block drains it sl
 | U | Kamehameha (SSJ Goku or Perfect Cell, 50 ki) / Death Beam (Semi-Perfect Cell) |
 | O | Ultimate at full ki: Dragon Fist (SSJ Goku) / Solar Kamehameha (Perfect Cell) |
 | P | Pause |
+| M | Music on/off (remembered next time) |
 | V | Voices on/off |
 | Esc | Skip intro / back to character select after a fight |
 
