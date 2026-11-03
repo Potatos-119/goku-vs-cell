@@ -48,6 +48,9 @@ const GOKU_SSJ = Object.fromEntries(Object.entries(GOKU_BASE).map(([k, a]) => [k
 }]));
 Object.assign(GOKU_SSJ, {
   idle: { fr: ['11.0', '11.1', '11.2', '11.1'], fps: 6, loop: true },
+  // moving uses the sheet's real Super Saiyan stance too
+  walk: { fr: ['11.0', '11.1', '11.2', '11.1'], fps: 9, loop: true },
+  back: { fr: ['11.0', '11.1', '11.2', '11.1'], fps: 7, loop: true },
   charge: { fr: ['10.8'], fps: 1, loop: true },
   kameCharge: { fr: ['11.3', '11.2'], fps: 8, loop: true },
   kameFire: { fr: [{ id: '11.6', w: 31 }], fps: 1, loop: true, emit: 23 },

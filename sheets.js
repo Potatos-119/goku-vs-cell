@@ -87,17 +87,79 @@ function cutOut(sheet, [sx, sy, w, h], seed, ssj) {
     const x = i % w, y = (i / w) | 0;
     if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
   }
-  if (ssj) recolorHair(d, w, h, clear);
+  const hair = ssj ? recolorHair(d, w, h, clear) : null;
+  if (ssj) for (let i = 0; i < w * h; i++) if (!clear[i]) ssjGi(d, i * 4);
   cx.putImageData(img, 0, 0);
   const tw = Math.max(1, x1 - x0 + 1), th = Math.max(1, y1 - y0 + 1);
-  const out = document.createElement('canvas'); out.width = tw; out.height = th;
-  out.getContext('2d').drawImage(cv, x0, y0, tw, th, 0, 0, tw, th);
+  // Super Saiyan hair stands up taller than the normal hair, so leave room above the head for it
+  const pad = hair ? SSJ_PAD : 0;
+  const out = document.createElement('canvas'); out.width = tw + pad * 2; out.height = th + pad;
+  const ox = out.getContext('2d');
+  ox.drawImage(cv, x0, y0, tw, th, pad, pad, tw, th);
+  if (hair) addSsjHair(ox, hair, x0 - pad, y0 - pad, th);
   // anchor = centre of mass of the torso band, so attacks that stretch the box don't slide the body
   let sum = 0, n = 0;
   for (let y = y0 + Math.floor(th * 0.25); y <= y0 + Math.floor(th * 0.65); y++)
     for (let x = x0; x <= x1; x++) if (!clear[y * w + x]) { sum += x - x0; n++; }
-  out.ax = n ? sum / n : tw / 2;
+  out.ax = (n ? sum / n : tw / 2) + pad;
   return out;
+}
+
+// The sheet's real Super Saiyan colours: its gi is a yellower orange than normal Goku's.
+function ssjGi(d, i) {
+  const r = d[i], g = d[i + 1], b = d[i + 2];
+  if (r > 140 && r > g * 1.6 && b < g + 30) { d[i + 1] = Math.min(255, Math.round(g * 1.38)); d[i + 2] = Math.round(b * 0.7); }
+}
+
+// Spiky Super Saiyan hair cut from the sheet's own SSJ frame (11.0), laid over the recoloured hair
+// so moves that only exist for normal Goku still get the real SSJ silhouette. Upright frames only:
+// on flips, falls and knockdowns the head is tilted, and those keep the recolour alone.
+const SSJ_PAD = 6;
+let ssjHairTemplate = null;
+function ssjHairFromSheet() {
+  const f = Sheets.frame('goku', '11.0'), w = f.width, h = f.height;
+  const d = f.getContext('2d').getImageData(0, 0, w, h).data;
+  const isHair = i => {
+    const r = d[i * 4], g = d[i * 4 + 1], b = d[i * 4 + 2];
+    return d[i * 4 + 3] && ((r > 200 && g >= 145 && b < 200) || (r > 240 && g > 225 && b > 170 && b < 245));
+  };
+  const lim = Math.floor(h * 0.48), m = new Uint8Array(w * h), st = [];
+  for (let y = 0; y < h * 0.33; y++) for (let x = 0; x < w; x++) { const i = y * w + x; if (isHair(i)) { m[i] = 1; st.push(i); } }
+  while (st.length) {
+    const i = st.pop(), x = i % w, y = (i / w) | 0;
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+      const nx = x + dx, ny = y + dy, j = ny * w + nx;
+      if (nx >= 0 && ny >= 0 && nx < w && ny < lim && !m[j] && isHair(j)) { m[j] = 1; st.push(j); }
+    }
+  }
+  // keep the dark outline around the spikes
+  const keep = new Uint8Array(m);
+  for (let y = 0; y < lim; y++) for (let x = 0; x < w; x++) {
+    const i = y * w + x;
+    if (m[i] || !d[i * 4 + 3] || Math.max(d[i * 4], d[i * 4 + 1], d[i * 4 + 2]) >= 110) continue;
+    if ((x > 0 && m[i - 1]) || (x < w - 1 && m[i + 1]) || (y > 0 && m[i - w]) || m[i + w]) keep[i] = 1;
+  }
+  let x0 = w, y0 = h, x1 = -1, y1 = -1;
+  for (let i = 0; i < w * h; i++) if (keep[i]) { const x = i % w, y = (i / w) | 0; x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); }
+  const c = document.createElement('canvas'); c.width = x1 - x0 + 1; c.height = y1 - y0 + 1;
+  const cx = c.getContext('2d'), img = cx.createImageData(c.width, c.height);
+  for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+    const i = y * w + x; if (!keep[i]) continue;
+    img.data.set([d[i * 4], d[i * 4 + 1], d[i * 4 + 2], 255], ((y - y0) * c.width + (x - x0)) * 4);
+  }
+  cx.putImageData(img, 0, 0);
+  return c;
+}
+
+// hair: recoloured hair box in crop coordinates; (sx, sy): crop -> output offset
+function addSsjHair(ctx, hair, sx, sy, th) {
+  const hw = hair.x1 - hair.x0 + 1, hh = hair.y1 - hair.y0 + 1;
+  const upright = hair.y0 - (sy + SSJ_PAD) <= th * 0.2 && hw <= hh * 2.2;
+  if (!upright) return;
+  ssjHairTemplate = ssjHairTemplate || ssjHairFromSheet();
+  const t = ssjHairTemplate;
+  // line the front of the spikes up with the front of his hair, a little above its top
+  ctx.drawImage(t, hair.x1 - sx - t.width + 2, hair.y0 - sy - 3);
 }
 
 // Black hair -> Super Saiyan gold. The hair is the biggest *thick* dark blob: eroding the
@@ -126,7 +188,7 @@ function recolorHair(d, w, h, clear) {
     sizes.push(n);
   }
   const biggest = Math.max(0, ...sizes);
-  if (biggest < 12) return;
+  if (biggest < 12) return null;
   const hair = new Uint8Array(N);
   for (let i = 0; i < N; i++) if (lab[i] && sizes[lab[i]] >= biggest * 0.35) hair[i] = 1;
   // grow back over the hair's own edge pixels; those stay as the dark outline
@@ -148,10 +210,14 @@ function recolorHair(d, w, h, clear) {
   inner.sort((a, b) => a - b);
   const q = f => inner[Math.min(inner.length - 1, Math.floor(inner.length * f))];
   const cut = [q(0.3), q(0.6), q(0.85)];
+  let x0 = w, y0 = h, x1 = -1, y1 = -1;
   for (let i = 0; i < N; i++) if (hair[i]) {
     const c = edge[i] ? [96, 52, 18] : ramp[L(i) <= cut[0] ? 0 : L(i) <= cut[1] ? 1 : L(i) <= cut[2] ? 2 : 3];
     d[i * 4] = c[0]; d[i * 4 + 1] = c[1]; d[i * 4 + 2] = c[2];
+    const x = i % w, y = (i / w) | 0;
+    if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
   }
+  return x1 < 0 ? null : { x0, y0, x1, y1 };
 }
 
 const Sheets = {

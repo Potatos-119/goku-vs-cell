@@ -40,7 +40,7 @@ Then open http://localhost:8765 and press Enter.
 |---|---|
 | A / D | Move |
 | W / Space | Jump |
-| S | Block (a ki barrier flares on each blocked hit) |
+| S | Block: turns to face the attacker, a ki barrier flares on each blocked hit. When the boss vanishes behind you a red ! flashes just before the counter, so you can block it |
 | Double-tap A / D (or Shift) | Dash forward / hop back; works once per jump in the air |
 | J / K | Punch / kick (press again to chain a combo) |
 | Toward Cell + J | Rushing punch |
@@ -53,8 +53,8 @@ Blocking uses the green stamina bar under the ki bar. Holding block drains it sl
 | T (Cell, full ki) | Evolve to the next form |
 | Q | Vanish behind the enemy (in the air too) |
 | T | Super Saiyan (full ki) |
-| U | Kamehameha (SSJ Goku or Perfect Cell, 50 ki) / Death Beam (Semi-Perfect Cell) |
-| Jump + U | Instant Kamehameha: charge in the air, vanish behind the enemy, fire point-blank (SSJ Goku, full ki) |
+| U | Kamehameha (SSJ Goku or Perfect Cell, 50 ki; in the air it angles down at the enemy) / Death Beam (Semi-Perfect Cell) |
+| Jump + U at full ki | Instant Kamehameha: charge in the air, vanish behind the enemy, fire point-blank (SSJ Goku) |
 | O | Ultimate at full ki: Dragon Fist (SSJ Goku) / Solar Kamehameha (Perfect Cell) |
 | P | Pause |
 | M | Music on/off (remembered next time) |

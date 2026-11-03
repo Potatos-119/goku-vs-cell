@@ -116,7 +116,7 @@ function damage(def, src, dmg, heavy, dir, kind = 'melee') {
   const armored = def.state === 'kameFire' && def.hp > 0;
   if (!blocking && !armored) {
     def.queue = []; def.next = null;
-    if (heavy || def.hp <= 0) { def.play('knock'); def.vy = -280; def.vx = dir * 160; def.y -= 1; sfx.kick(); }
+    if (heavy || def.hp <= 0) { def.play('knock'); def.vy = -280; def.vx = dir * 160; def.y -= 1; sfx.kick(); Stage.shock(def.x, 0.8); }
     else { def.play('hurt'); def.stun = 0.3; def.vx = dir * 70; sfx.punch(); }
     if (def === player && Math.random() < 0.3) sfx.hurt();
     if (broke && def.state === 'hurt') def.stun = 0.9;
@@ -133,6 +133,7 @@ function guardBreak(f) {
 
 // Block just as a hit lands: no damage, a big ki refund, and a punch or kick leaves the attacker reeling.
 const PARRY_WINDOW = 0.18;
+const WINDUP = 0.28; // pause between a vanish and its counterattack
 function perfectBlock(def, src, kind) {
   def.ki = Math.min(100, def.ki + 25); def.stamina = Math.min(100, def.stamina + 15); def.inv = 0.25;
   popups.push({ text: 'PERFECT!  +KI', x: def.x, y: def.y - 54, t: 0, c: '#8ff' });
@@ -205,13 +206,17 @@ function startKame(f, quick = false, big = false) {
   f.play('kameCharge', 'kameCharge');
   f.t2 = quick ? Math.max(0.12, foeOf(f).t2 + 0.03) : big ? 1.6 : f.who === 'goku' ? 0.9 : 1.3;
   f.vx = 0; if (big) f.inv = f.t2;
+  // fired from the air: hang there until the beam is done
+  if (f.y < FLOOR - 4) { f.floating = true; f.vy = 0; }
   sfx.charge(f.t2);
 }
 
 function fireKame(f) {
   f.play('kameFire', 'kameFire'); f.t2 = f.big ? 2 : f.who === 'goku' ? 1.5 : 1.7;
-  const [hx, hy] = f.hand('kameFire');
-  beams.push({ owner: f, x0: hx, y: hy, dir: f.facing, len: 0, t: 0, tick: 0, big: f.big, dps: f.big ? 34 : f.who === 'goku' ? 22 : 18 });
+  const [hx, hy] = f.hand('kameFire'), foe = foeOf(f);
+  // from the air the beam angles down at the enemy (at most ~40 degrees)
+  const ang = f.floating ? clamp(Math.atan2(foe.y - 22 - hy, Math.max(20, Math.abs(foe.x - hx))), 0, 0.7) : 0;
+  beams.push({ owner: f, x0: hx, y: hy, ang, dir: f.facing, len: 0, t: 0, tick: 0, big: f.big, dps: f.big ? 34 : f.who === 'goku' ? 22 : 18 });
   sfx.beam(f.t2); game.shake = f.big ? 9 : 4;
 }
 
@@ -287,19 +292,29 @@ function updateFighter(f, foe, dt) {
       if ((f.t2 -= dt) <= 0 && !f.visible) {
         f.x = f.teleTo; f.y = f.teleY; f.visible = true; f.facing = foe.x > f.x ? 1 : -1;
         ghosts.push({ img: art(FX_ART.teleport), x: f.x, y: f.y, t: 0 });
-        if (f.y < FLOOR) {
-          f.vy = -60; f.inv = 0.15;
-          if (f.counter) { f.counter = false; f.play('air', 'airAtk'); } else f.play('fall', 'jump');
-        } else {
-          if (f.A('teleIn')) f.play('teleIn', 'appear'); else { f.play('idle'); f.inv = 0.15; }
-          if (f.counter) { f.counter = false; f.queue = [f.who === 'cell' ? 'k2' : 'k3']; startAttack(f, 'p2'); }
-        }
+        if (f.counter) {
+          // a vanish counter flashes '!' and winds up briefly, so a quick block (or perfect block) can stop it
+          f.counter = false; f.play('idle', 'windup'); f.t2 = WINDUP; f.vy = f.y < FLOOR ? -60 : 0;
+          popups.push({ text: '!', x: f.x, y: f.y - 60, t: 0, c: '#ff5a3a' }); sfx.blip();
+        } else if (f.y < FLOOR) { f.vy = -60; f.inv = 0.15; f.play('fall', 'jump'); }
+        else if (f.A('teleIn')) f.play('teleIn', 'appear');
+        else { f.play('idle'); f.inv = 0.15; }
       } else if (f.t2 <= 0.2) f.visible = false;
       break;
     case 'appear': if (f.animDone) f.play('idle'); break;
+    case 'windup':
+      if ((f.t2 -= dt) <= 0) {
+        f.facing = foe.x > f.x ? 1 : -1;
+        if (f.y < FLOOR - 4) f.play('air', 'airAtk');
+        else { f.queue = [f.who === 'cell' ? 'k2' : 'k3']; startAttack(f, 'p2'); }
+      }
+      break;
     case 'kameCharge': if ((f.t2 -= dt) <= 0) fireKame(f); break;
     case 'kameFire':
-      if ((f.t2 -= dt) <= 0 && !clash) { beams = beams.filter(b => b.owner !== f); f.big = false; f.play('idle'); }
+      if ((f.t2 -= dt) <= 0 && !clash) {
+        beams = beams.filter(b => b.owner !== f); f.big = false;
+        if (f.floating) { f.floating = false; f.play('fall', 'jump'); } else f.play('idle');
+      }
       break;
     case 'transform': if (f.animDone) finishTransform(f); break;
     case 'evolve':
@@ -342,7 +357,7 @@ function settle(f) {
   if (f.state === 'transform') finishTransform(f);
   if (f.state === 'evolve') { f.t2 = 0; updateFighter(f, foeOf(f), 0); }
   if (f === player && f.state === 'kameCharge') f.ki = Math.min(100, f.ki + 50);
-  Object.assign(f, { visible: true, x: f.state === 'tele' ? f.teleTo : f.x, y: FLOOR, vx: 0, vy: 0, queue: [], next: null, big: false });
+  Object.assign(f, { visible: true, x: f.state === 'tele' ? f.teleTo : f.x, y: FLOOR, vx: 0, vy: 0, queue: [], next: null, big: false, floating: false });
   if (f.hp > 0) f.play('idle');
 }
 
@@ -414,12 +429,16 @@ function playerInput(dt) {
     if (dashDir && !g.airDashed) return dash(g, dashDir);
     if (tap('q') && g.ki >= 15) { g.ki -= 15; return teleport(g, foe); }
     if (tap('u') && isGoku && g.form === 'ssj' && g.ki >= 100) return instantKame(g);
+    if (tap('u') && g.ki >= 50 && (isGoku ? g.form === 'ssj' : g.form === 'perfect')) { g.ki -= 50; return startKame(g); }
     if (tap('j') || tap('k')) g.play('air', 'airAtk');
   } else if (g.state === 'attack') {
     const chain = CHAINS[g.who];
     if (tap('j') && chain.j[g.anim]) g.next = chain.j[g.anim];
     if (tap('k') && chain.k[g.anim]) g.next = chain.k[g.anim];
-  } else if (g.state === 'block' && !keys.s) g.play('idle');
+  } else if (g.state === 'block') {
+    // the guard turns to face the enemy, even when they reappear behind you
+    if (!keys.s) g.play('idle'); else if (foe.visible) g.facing = foe.x > g.x ? 1 : -1;
+  }
   else if (g.state === 'charge') {
     if (!keys.i) g.play('idle');
     else { g.ki = Math.min(100, g.ki + 32 * dt); if (Math.random() < dt * 2) sfx.charge(0.5); }
@@ -541,12 +560,19 @@ function updateBeams(dt) {
   beams = beams.filter(b => b.owner.state === 'kameFire');
   for (const b of beams) {
     b.t += dt;
-    if (!clash) b.len = Math.min(b.len + 650 * dt, b.dir > 0 ? W + 40 - b.x0 : b.x0 + 40);
+    const cos = Math.cos(b.ang), sin = Math.sin(b.ang);
+    // an angled beam stops where it hits the ring (and blasts a crater there)
+    const edge = (b.dir > 0 ? W + 40 - b.x0 : b.x0 + 40) / cos;
+    const maxLen = sin > 0.01 ? Math.min(edge, (FLOOR + 2 - b.y) / sin) : edge;
+    if (!clash) b.len = Math.min(b.len + 650 * dt, maxLen);
+    if (sin > 0.01 && b.len >= maxLen - 1 && !b.cratered) { b.cratered = true; Stage.crack(b.x0 + b.dir * maxLen * cos, b.big ? 2 : 1.5); game.shake = 8; }
     const foe = foeOf(b.owner), P = beamParts(b);
-    const half = P.body.height * P.s * 0.4, tip = b.x0 + b.dir * b.len, fb = foe.box();
-    const inX = b.dir > 0 ? fb.x0 < tip && fb.x1 > b.x0 : fb.x1 > tip && fb.x0 < b.x0;
-    const inY = fb.y0 < b.y + half && fb.y1 > b.y - half;
-    if (inX && inY && foe.visible && !clash && (b.tick -= dt) <= 0) {
+    const half = P.body.height * P.s * 0.4;
+    // the enemy's middle in the beam's own frame: along it and across it
+    const fx = (foe.x - b.x0) * b.dir, fy = foe.y - 23 * foe.scale - b.y;
+    const along = fx * cos + fy * sin, across = -fx * sin + fy * cos;
+    const inBeam = along > -8 && along < b.len + 8 && Math.abs(across) < half + 20;
+    if (inBeam && foe.visible && !clash && (b.tick -= dt) <= 0) {
       b.tick = 0.1;
       const lastHit = b.owner.t2 < 0.15;
       damage(foe, b.owner, b.dps * 0.1 * b.owner.dmgMul, lastHit, b.dir, b.big ? 'ult' : 'beam');
@@ -556,7 +582,7 @@ function updateBeams(dt) {
   }
   // two beams meeting head-on = beam struggle; the player mashes J to push
   const pb = beams.find(b => b.owner === player), bb = beams.find(b => b.owner === boss);
-  if (pb && bb && !clash && pb.dir !== bb.dir) {
+  if (pb && bb && !clash && pb.dir !== bb.dir && !pb.ang && !bb.ang) {
     const pTip = pb.x0 + pb.dir * pb.len, bTip = bb.x0 + bb.dir * bb.len;
     if ((pb.dir > 0 && pTip >= bTip) || (pb.dir < 0 && pTip <= bTip)) {
       // always start the struggle halfway between them, wherever the tips happened to meet
@@ -582,6 +608,16 @@ function updateBeams(dt) {
   }
 }
 
+// beams light up the ring under them
+function beamLight(b) {
+  const L = b.len, mx = b.x0 + b.dir * L * 0.5 * Math.cos(b.ang);
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  const g = ctx.createRadialGradient(mx, FLOOR, 2, mx, FLOOR, Math.max(30, L * 0.6));
+  g.addColorStop(0, `rgba(90,170,255,${b.big ? 0.35 : 0.22})`); g.addColorStop(1, 'rgba(90,170,255,0)');
+  ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(mx, FLOOR, Math.max(30, L * 0.6), 14, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+}
+
 function drawBeam(b) {
   const P = beamParts(b), s = P.s;
   const sw = P.start.width * s, sh = P.start.height * s;
@@ -590,6 +626,7 @@ function drawBeam(b) {
   ctx.save();
   ctx.translate(Math.round(b.x0), Math.round(b.y));
   ctx.scale(b.dir, 1);
+  ctx.rotate(b.ang);
   const L = b.len, wob = Math.floor(b.t * 30) % 2;
   const headX = Math.max(Math.min(sw, L) - hw * 0.3, L - hw * 0.7);
   if (headX > sw) ctx.drawImage(P.body, 0, 0, P.body.width, P.body.height, sw - 2, -bh / 2 - wob, headX - sw + 6, bh + wob * 2);
@@ -935,7 +972,7 @@ function hintFor(g) {
   if (g.who === 'goku') {
     if (g.form === 'base' && g.ki >= 100) return 'PRESS T  -  SUPER SAIYAN!';
     if (g.form === 'ssj' && g.ki >= 100) return 'JUMP + U  INSTANT KAMEHAMEHA    O  DRAGON FIST';
-    if (g.form === 'ssj' && g.ki >= 50) return 'PRESS U  -  KAMEHAMEHA!';
+    if (g.form === 'ssj' && g.ki >= 50) return 'U  KAMEHAMEHA  (WORKS IN THE AIR TOO)';
   } else {
     if (g.form !== 'perfect' && g.ki >= 100) return 'PRESS T  -  EVOLVE!';
     if (g.form === 'perfect' && g.ki >= 100) return 'U  KAMEHAMEHA    O  SOLAR KAMEHAMEHA!';
@@ -1091,6 +1128,7 @@ function render() {
   const order = player.state === 'attack' ? [boss, player] : [player, boss];
   order.forEach(f => f.draw());
   for (const f of order) if (f.state === 'block' && f.visible) drawGuard(f);
+  for (const b of beams) beamLight(b);
   for (const b of beams) drawBeam(b);
   for (const p of projs) {
     const im = art(FX_ART[p.kind]);
