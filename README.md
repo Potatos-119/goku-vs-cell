@@ -1,13 +1,25 @@
 # Goku vs Cell
 
-A Dragon Ball boss fight in plain JavaScript and canvas: intro cutscene, then Goku against all three of Cell's forms.
-Cell starts Imperfect, turns Semi-Perfect at 2/3 health and Perfect at 1/3, unlocking new attacks each time.
-From Semi-Perfect on he can vanish out of your attacks and counter from behind, and he reads what you do:
-he punishes charging, whiffs and broken guards, blocks or dodges Kamehamehas and answers them with his own.
+A Dragon Ball boss fight in plain JavaScript and canvas. Pick a side on the select screen:
 
-The stage is the Cell Games ring, drawn in code: dust blows across it, rocks lift off the ground when
-someone powers up, and heavy knockdowns crack the tiles. Lines are spoken with the browser's speech voice
-(press V to turn voices off), and the win/lose jingles are generated in `audio.js`.
+- **Goku**: stop Cell before he becomes perfect. Cell starts Imperfect, turns Semi-Perfect at 2/3 health and
+  Perfect at 1/3, unlocking new attacks each time.
+- **Cell**: absorb a Saiyan's power. Fill your ki and press T to evolve yourself; Goku is the boss, going Super
+  Saiyan at 2/3 health and all out (Dragon Fist included) at 1/3.
+
+From phase two on the boss can vanish out of your attacks and counter from behind, and it reads what you do:
+it punishes charging, whiffs and broken guards, blocks or dodges beams and answers them with its own.
+
+The stage is the Cell Games ring (`assets/img/cell-games.webp`) with live effects on top: dust, a news
+helicopter, rocks that lift when someone powers up, and cracks where fighters get slammed. Lines are spoken
+with the browser's speech voice (press V to turn voices off).
+
+## Music
+
+- `assets/audio/bg-theme.mp3` loops during fights (a 4-minute cut of the background OST).
+- `assets/audio/ssj-transform.mp3` takes over when Goku goes Super Saiyan.
+
+Swap either file to change the music; the paths are in `TRACKS` at the top of the music section in `audio.js`.
 
 ## Run
 
@@ -33,15 +45,16 @@ Then open http://localhost:8765 and press Enter.
 | Tap S as a hit lands | Perfect block: no damage, +25 ki, punches leave Cell dizzy |
 
 Blocking uses the green stamina bar under the ki bar. Holding block drains it slowly and each blocked hit costs more; at zero your guard breaks, the hit lands and you can't block until it refills. Perfect blocks give stamina back.
-| L | Ki blast |
+| L | Ki blast (Goku) / finger beam (Cell); toward + L = barrage (Semi-Perfect+) |
 | Hold I | Charge ki |
+| T (Cell, full ki) | Evolve to the next form |
 | Q | Teleport behind Cell |
 | T | Super Saiyan (full ki) |
-| U | Kamehameha (Super Saiyan, 50 ki) |
-| O | Dragon Fist: Super Saiyan 3 ultimate (Super Saiyan, full ki) |
+| U | Kamehameha (SSJ Goku or Perfect Cell, 50 ki) / Death Beam (Semi-Perfect Cell) |
+| O | Ultimate at full ki: Dragon Fist (SSJ Goku) / Solar Kamehameha (Perfect Cell) |
 | P | Pause |
 | V | Voices on/off |
-| Esc | Skip intro |
+| Esc | Skip intro / back to character select after a fight |
 
 ## Files
 
@@ -49,5 +62,5 @@ Blocking uses the green stamina bar under the ki bar. Holding block drains it sl
 - `data.js` – which sprite-sheet frames make up each move
 - `sheets.js` – cuts the sheets into frames and removes the white background
 - `audio.js` – music player, generated sound effects and jingles, spoken lines
-- `stage.js` – the Cell Games arena, dust, lifted rocks and cracks
+- `stage.js` – the Cell Games arena and its live effects
 - `tools/frames.html?sheet=goku` – every sheet frame with its id

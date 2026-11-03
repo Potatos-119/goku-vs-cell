@@ -116,18 +116,39 @@ const Audio8 = (() => {
   sfx.parry = () => { init(); const t = ac.currentTime; [88, 95, 100].forEach((n, i) => tone('square', hz(n), hz(n), t + i * 0.05, 0.12, 0.14)); noise(t, 0.08, 0.3, 'highpass', 5000, 5000); };
   sfx.teleport = () => { init(); const t = ac.currentTime; tone('square', 1800, 300, t, 0.12, 0.12); noise(t, 0.1, 0.2, 'highpass', 4000, 4000); };
 
-  // Music and voice files from assets/audio (falls back to the synth theme if missing).
+  // Music files in assets/audio: the fight theme loops, and when Goku goes Super Saiyan it
+  // fades into the transformation theme (the generated chiptune is the fallback if a file is missing).
+  const TRACKS = {
+    bg: { src: 'assets/audio/bg-theme.mp3', vol: 0.45 },
+    ssj: { src: 'assets/audio/ssj-transform.mp3', vol: 0.55 },
+  };
   const tracks = {};
-  function track(name, src, loop, vol) {
-    if (!tracks[name]) { const a = new Audio(src); a.loop = loop; a.volume = vol; tracks[name] = a; }
+  function track(name) {
+    if (!tracks[name]) { const a = new Audio(TRACKS[name].src); a.loop = true; a.volume = TRACKS[name].vol; tracks[name] = a; }
     return tracks[name];
   }
+  function fadeOut(a) {
+    const step = setInterval(() => { a.volume = Math.max(0, a.volume - 0.05); if (!a.volume) { clearInterval(step); a.pause(); } }, 40);
+  }
   const music = {
-    play() {
-      const a = track('theme', 'assets/audio/theme.mp3', true, 0.45);
+    current: 'bg',
+    // play (or resume) a track; restart: from the beginning
+    play(name = music.current, restart = false) {
+      for (const [k, a] of Object.entries(tracks)) if (k !== name) a.pause();
+      music.current = name;
+      const a = track(name);
+      a.volume = TRACKS[name].vol;
+      if (restart) a.currentTime = 0;
       a.play().catch(() => playMusic('boss'));
     },
-    stop() { if (tracks.theme) tracks.theme.pause(); stopMusic(); },
+    switchTo(name) {
+      if (music.current === name) return;
+      if (tracks[music.current]) fadeOut(tracks[music.current]);
+      music.current = name;
+      const a = track(name); a.currentTime = 0; a.volume = TRACKS[name].vol;
+      a.play().catch(() => {});
+    },
+    stop() { for (const a of Object.values(tracks)) a.pause(); stopMusic(); },
     winner() { music.stop(); jingle(VICTORY, 0.16); },
     defeat() { music.stop(); jingle(DEFEAT, 0.3); },
   };

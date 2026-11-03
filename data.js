@@ -5,9 +5,9 @@
 
 const GOKU_BASE = {
   idle: { fr: ['0.2', '0.3', '0.4', '0.5', '0.4', '0.3'], fps: 8, loop: true },
-  // the sheet has no walk cycle: lean in to move forward, guard-step to back off
-  walk: { fr: ['1.0'], fps: 1, loop: true },
-  back: { fr: ['0.1'], fps: 1, loop: true },
+  // the sheet has no walk cycle, so fighters float in their stance (see hover in game.js)
+  walk: { fr: ['0.2', '0.3', '0.4', '0.5', '0.4', '0.3'], fps: 11, loop: true },
+  back: { fr: ['0.2', '0.3', '0.4', '0.5', '0.4', '0.3'], fps: 9, loop: true },
   dash: { fr: ['1.2'], fps: 1, loop: true },
   jump: { fr: ['2.1', '2.2', '2.3'], fps: 9, loop: false },
   fall: { fr: ['2.4'], fps: 1, loop: true },
@@ -54,8 +54,8 @@ Object.assign(GOKU_SSJ, {
 // Written with Perfect Cell's rows (12-16); each form sits in the same layout 6 rows higher up.
 const CELL_TEMPLATE = {
   idle: { fr: ['12.0', '13.0', '13.1', '13.0'], fps: 4, loop: true },
-  walk: { fr: ['13.11'], fps: 1, loop: true },
-  back: { fr: ['13.0', '13.1'], fps: 5, loop: true },
+  walk: { fr: ['12.0', '13.0', '13.1', '13.0'], fps: 6, loop: true },
+  back: { fr: ['12.0', '13.0', '13.1', '13.0'], fps: 5, loop: true },
   dash: { fr: ['13.11'], fps: 1, loop: true },
   jump: { fr: ['13.11'], fps: 1, loop: true },
   fall: { fr: ['13.11'], fps: 1, loop: true },
@@ -78,6 +78,11 @@ const CELL_TEMPLATE = {
   taunt: { fr: ['12.1'], fps: 1, loop: true },
   win: { fr: ['12.1'], fps: 1, loop: true },
   barrage: { fr: ['16.1', { id: '16.0', w: 24 }, '16.1', { id: '16.0', w: 24 }, '16.1', { id: '16.0', w: 24 }], fps: 10, emitAt: [1, 3, 5], emit: 29 },
+  // used when you play as Cell
+  air: { fr: ['13.8'], fps: 6, hit: { at: 0, dmg: 8, reach: 40 } },
+  rush: { fr: ['13.11', '13.11', '13.4', '13.4'], fps: 12, hit: { at: 2, dmg: 7, reach: 38 } },
+  slash: { fr: ['13.7', '13.8', '13.8', '13.9'], fps: 10, hit: { at: 1, dmg: 11, reach: 44, heavy: true } },
+  charge: { fr: ['12.6', '12.7', '12.8'], fps: 12, loop: true },
 };
 
 const CELL_FORMS = ['imperfect', 'semi', 'perfect'];
