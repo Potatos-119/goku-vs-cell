@@ -60,7 +60,7 @@ class Fighter {
   }
 }
 
-let goku, cell, player, boss, projs, beams, sparks, ghosts, popups, trails, clash, timers, game;
+let goku, cell, player, boss, projs, beams, sparks, ghosts, popups, trails, zips, clash, timers, game;
 const foeOf = f => f === goku ? cell : goku;
 const NAME = f => f.who === 'goku'
   ? (f.state.startsWith('ult') ? 'GOKU  SSJ3' : f.form === 'ssj' ? 'GOKU  SSJ' : 'GOKU')
@@ -76,7 +76,7 @@ function reset(side = (game && game.side) || 'goku') {
   boss = foeOf(player);
   setForm(goku, 'base'); setForm(cell, 'imperfect');
   if (boss === goku) Object.assign(goku, GOKU_BOSS[0]);
-  projs = []; beams = []; sparks = []; ghosts = []; popups = []; trails = []; clash = null; timers = [];
+  projs = []; beams = []; sparks = []; ghosts = []; popups = []; trails = []; zips = []; clash = null; timers = [];
   Stage.reset(); Object.assign(ai, { think: 0.8, vanishCd: 3, ultCd: 6 });
   game = { mode: 'title', cine: null, side, pick: side === 'cell' ? 1 : 0, time: 120, freeze: 0, shake: 0, flash: 0, phase: 0, slow: 1, banner: null, dlg: null, skip: false, result: null, t: 0, kameCd: 4 };
 }
@@ -103,6 +103,7 @@ function damage(def, src, dmg, heavy, dir, kind = 'melee') {
   if (blocking && def === player && (def.stamina -= dmg * 1.6) <= 0) { guardBreak(def); blocking = false; broke = true; }
   if (blocking) {
     dmg *= 0.15; def.vx = dir * 90; def.ki = Math.min(100, def.ki + 3);
+    if (def.A('blockHit')) { def.anim = 'blockHit'; def.at = 0; }
     sparks.push({ x: def.x - dir * 8, y: def.y - 28, t: 0, c: '#9fe7ff' });
     sfx.kick(); game.freeze = 0.04;
   } else {
@@ -154,6 +155,21 @@ function meleeCheck(f, foe) {
   damage(foe, f, h.dmg * f.dmgMul, h.heavy, f.facing);
 }
 
+// Dash: double-tap a direction (or Shift). On the ground it's the sheet's dash run forward or a quick
+// hop back; in the air a straight burst with gravity held off, once per jump. Leaves speed lines.
+function dash(f, dir) {
+  const air = f.y < FLOOR - 2, fwd = dir === f.facing;
+  if (air && f.airDashed) return;
+  f.play(air ? (fwd ? 'airDash' : 'airBack') : (fwd ? 'dash' : 'backdash'), 'dash');
+  f.t2 = air ? 0.22 : fwd ? 0.25 : 0.2;
+  f.vx = dir * (fwd ? 330 : 250) * f.speed;
+  f.vy = air ? 0 : fwd ? 0 : -140;
+  f.dashAir = air; if (air) f.airDashed = true;
+  zips.push({ im: art(f.who === 'goku' ? FX_ART.gokuZip : FX_ART.cellZip), x: f.x, y: f.y - 24 * f.scale, dir, scale: f.scale, t: 0 });
+  if (!air) Stage.puff(f.x, dir);
+  sfx.whoosh();
+}
+
 function startAttack(f, name) {
   f.play(name, 'attack'); f.vx = f.facing * 50;
   if (name === 'rush') f.vx = f.facing * 240;
@@ -176,6 +192,9 @@ function teleport(f, foe) {
   f.play(f.A('teleOut') ? 'teleOut' : 'idle', 'tele'); f.t2 = 0.28; f.vx = 0;
   sfx.teleport();
   f.teleTo = clamp(foe.x - foe.facing * 34, 20, W - 20);
+  // in the air (either of them): reappear behind them up in the air
+  f.teleY = foe.y < FLOOR - 10 ? foe.y : f.y < FLOOR - 4 ? FLOOR - 36 : FLOOR;
+  f.vx = f.vy = 0;
 }
 
 // quick: answering a Kamehameha, charging fast enough to meet it in a beam clash.
@@ -223,10 +242,11 @@ function updateFighter(f, foe, dt) {
     if (f.guardBroken && f.stamina >= 35) f.guardBroken = false;
   }
   const airborne = f.y < FLOOR || f.vy < 0;
-  if (airborne) {
+  if (airborne && f.state !== 'tele' && !f.floating && !(f.state === 'dash' && f.dashAir)) {
     f.vy += GRAV * dt; f.y += f.vy * dt;
     if (f.y >= FLOOR) { f.y = FLOOR; f.vy = 0; landed(f); }
   }
+  if (f.y >= FLOOR) f.airDashed = false;
   f.x = clamp(f.x + f.vx * dt, 16, W - 16);
   if (!airborne && !['walk', 'dash'].includes(f.state)) f.vx -= f.vx * Math.min(1, dt * 8);
 
@@ -254,14 +274,26 @@ function updateFighter(f, foe, dt) {
       break;
     case 'jump': if (f.vy > 0 && f.anim !== 'fall') f.play('fall', 'jump'); break;
     case 'land': if (f.animDone) f.play('idle'); break;
-    case 'dash': if ((f.t2 -= dt) <= 0) { f.vx = 0; f.play('idle'); } break;
-    case 'block': if (f !== player && (f.t2 -= dt) <= 0) f.play('idle'); break;
+    case 'dash':
+      if ((f.t2 -= dt) <= 0) {
+        if (f.y < FLOOR - 1) { f.vx *= 0.4; f.play('fall', 'jump'); } else { f.vx = 0; f.play('idle'); }
+      }
+      break;
+    case 'block':
+      if (f.anim === 'blockHit' && f.at > 0.18) { f.anim = 'block'; f.at = 0; }
+      if (f !== player && (f.t2 -= dt) <= 0) f.play('idle');
+      break;
     case 'tele':
       if ((f.t2 -= dt) <= 0 && !f.visible) {
-        f.x = f.teleTo; f.visible = true; f.facing = foe.x > f.x ? 1 : -1;
+        f.x = f.teleTo; f.y = f.teleY; f.visible = true; f.facing = foe.x > f.x ? 1 : -1;
         ghosts.push({ img: art(FX_ART.teleport), x: f.x, y: f.y, t: 0 });
-        if (f.A('teleIn')) f.play('teleIn', 'appear'); else { f.play('idle'); f.inv = 0.15; }
-        if (f.counter) { f.counter = false; f.queue = [f.who === 'cell' ? 'k2' : 'k3']; startAttack(f, 'p2'); }
+        if (f.y < FLOOR) {
+          f.vy = -60; f.inv = 0.15;
+          if (f.counter) { f.counter = false; f.play('air', 'airAtk'); } else f.play('fall', 'jump');
+        } else {
+          if (f.A('teleIn')) f.play('teleIn', 'appear'); else { f.play('idle'); f.inv = 0.15; }
+          if (f.counter) { f.counter = false; f.queue = [f.who === 'cell' ? 'k2' : 'k3']; startAttack(f, 'p2'); }
+        }
       } else if (f.t2 <= 0.2) f.visible = false;
       break;
     case 'appear': if (f.animDone) f.play('idle'); break;
@@ -326,16 +358,25 @@ const CHAINS = {
   cell: { j: { p1: 'p2', k1: 'p2', rush: 'p2' }, k: { p1: 'k1', p2: 'k2', k1: 'k2', rush: 'k2' } },
 };
 
+const lastTap = { dir: 0, t: -1 };
 function playerInput(dt) {
   const g = player, foe = boss, isGoku = g.who === 'goku';
   const dir = (keys.d || keys.arrowright ? 1 : 0) - (keys.a || keys.arrowleft ? 1 : 0);
+  // double-tapping a direction within a quarter second dashes that way
+  const tapDir = tap('d') || tap('arrowright') ? 1 : tap('a') || tap('arrowleft') ? -1 : 0;
+  let dashDir = 0;
+  if (tapDir) {
+    if (tapDir === lastTap.dir && game.t - lastTap.t < 0.25) { dashDir = tapDir; lastTap.dir = 0; }
+    else Object.assign(lastTap, { dir: tapDir, t: game.t });
+  }
+  if (tap('shift')) dashDir = dir || g.facing;
   if (g.free) {
     g.facing = foe.x > g.x ? 1 : -1;
     const toward = dir === g.facing;
     if (keys.s && !g.guardBroken) { g.play('block'); g.blockT = 0; g.vx = 0; return; }
     if (keys.i) { g.play('charge'); g.vx = 0; sfx.charge(0.5); return; }
     if (tap('w') || tap(' ')) { g.play('jump'); g.vy = JUMP_V; g.vx = dir * 120; sfx.whoosh(); return; }
-    if (tap('shift')) { g.play('dash'); g.t2 = 0.2; g.vx = (dir || g.facing) * 300; Stage.puff(g.x, dir || g.facing); sfx.whoosh(); return; }
+    if (dashDir) return dash(g, dashDir);
     // holding toward the enemy turns J into a rushing punch and K into a heavy slash
     if (tap('j')) return startAttack(g, toward ? 'rush' : 'p1');
     if (tap('k')) return startAttack(g, toward ? 'slash' : 'k1');
@@ -370,6 +411,9 @@ function playerInput(dt) {
     } else if (g.state !== 'idle') g.play('idle');
   } else if (g.state === 'jump') {
     g.vx += clamp(dir * 130 - g.vx, -600 * dt, 600 * dt);
+    if (dashDir && !g.airDashed) return dash(g, dashDir);
+    if (tap('q') && g.ki >= 15) { g.ki -= 15; return teleport(g, foe); }
+    if (tap('u') && isGoku && g.form === 'ssj' && g.ki >= 100) return instantKame(g);
     if (tap('j') || tap('k')) g.play('air', 'airAtk');
   } else if (g.state === 'attack') {
     const chain = CHAINS[g.who];
@@ -421,7 +465,8 @@ function bossAI(dt) {
   const canBeam = isCell ? ph >= 2 : c.form === 'ssj';
   const canVanish = ph >= 1 && ai.vanishCd <= 0;
 
-  // Goku's last resort: the Dragon Fist
+  // Goku's finishers once he's all out: Instant Kamehameha on a weakened enemy, or the Dragon Fist
+  if (!isCell && ph >= 2 && ai.ultCd <= 0 && g.hp < g.maxHp * 0.35 && r < 0.35) { ai.ultCd = rand(16, 20); return instantKame(c); }
   if (!isCell && ph >= 2 && ai.ultCd <= 0 && dist < 170 && r < 0.3) { ai.ultCd = rand(12, 16); return startUlt(c); }
   // the player is charging ki: never let that happen for free
   if (g.state === 'charge') {
@@ -451,14 +496,15 @@ function bossAI(dt) {
   if (close) {
     if (g.state === 'attack' && r < 0.25 + ph * 0.12) { c.play('block'); c.t2 = 0.45; c.vx = 0; return; }
     // turtling: keep hitting if their stamina is low, otherwise step out and bait
-    if (g.state === 'block' && g.stamina > 40 && r < 0.45) { c.play('back', 'walk'); ai.think = 0.45; return; }
+    if (g.state === 'block' && g.stamina > 40 && r < 0.45) { if (r < 0.25) dash(c, -c.facing); else c.play('back', 'walk'); ai.think = 0.45; return; }
     return combo();
   }
   if (dist < 140) {
     if (r < 0.45) return dashIn();
     if (r < 0.62) return shoot();
     if (ph >= 1 && r < 0.75) return bigShot();
-    if (r < 0.85) return c.play('back', 'walk');
+    if (r < 0.78) return dash(c, -c.facing);
+    if (r < 0.88) return c.play('back', 'walk');
     return c.play('walk');
   }
   if (canBeam && game.kameCd <= 0 && r < 0.4) { game.kameCd = rand(7, 11); return startKame(c); }
@@ -551,6 +597,57 @@ function drawBeam(b) {
   ctx.drawImage(P.start, 0, 0, cut / s, P.start.height, 0, -sh / 2, cut, sh);
   ctx.drawImage(P.head, headX, -hh / 2 - wob, hw, hh + wob * 2);
   ctx.restore();
+}
+
+// A ki barrier in front of a blocking fighter; it flares white when a hit lands on it.
+function drawGuard(f) {
+  const flare = f.anim === 'blockHit', s = f.scale;
+  const cx = f.x + f.facing * 13 * s, cy = f.y - 24 * s;
+  ctx.save();
+  ctx.globalAlpha = (flare ? 0.75 : 0.35) + 0.08 * Math.sin(game.t * 20);
+  ctx.beginPath(); ctx.ellipse(cx, cy, 6, 23 * s, 0, -Math.PI / 2, Math.PI / 2, f.facing < 0);
+  ctx.fillStyle = flare ? 'rgba(255,255,255,0.45)' : 'rgba(120,210,255,0.22)'; ctx.fill();
+  ctx.strokeStyle = flare ? '#ffffff' : '#8fe3ff'; ctx.lineWidth = flare ? 2 : 1.2; ctx.stroke();
+  ctx.restore();
+}
+
+// Instant Kamehameha: charge it floating in the air, vanish, reappear right behind the enemy and
+// fire point-blank. A cinematic, so it can't be blocked or dodged; it deals 60 and launches them.
+async function instantKame(f) {
+  const foe = foeOf(f);
+  f.ki = 0;
+  game.mode = 'cut'; projs = []; beams = []; clash = null; game.banner = null;
+  settle(foe);
+  Object.assign(f, { vx: 0, vy: 0, visible: true, inv: 99, floating: true });
+  f.y = Math.min(f.y, FLOOR - 40);
+  f.facing = foe.x > f.x ? 1 : -1;
+  f.play('kameCharge', 'pose'); f.t2 = 99;
+  Voice.shout('goku', 'Ka... me... ha... me...'); sfx.charge(1.6); game.shake = 3;
+  await wait(1.6);
+  // vanish...
+  ghosts.push({ img: art(FX_ART.teleport), x: f.x, y: f.y, t: 0 });
+  trails.push({ im: f.img, x: f.x, y: f.y, facing: f.facing, scale: f.scale, t: 0 });
+  f.visible = false; sfx.teleport();
+  await wait(0.35);
+  // ...and reappear right behind them (in front if they're backed against the edge)
+  let x = foe.x - foe.facing * 26;
+  if (x < 16 || x > W - 16) x = foe.x + foe.facing * 26;
+  Object.assign(f, { x, y: FLOOR, floating: false, visible: true, facing: foe.x > x ? 1 : -1 });
+  ghosts.push({ img: art(FX_ART.teleport), x: f.x, y: f.y, t: 0 }); sfx.teleport();
+  foe.facing = f.x > foe.x ? 1 : -1; foe.play('hurt', 'pose'); foe.t2 = 99;
+  game.slow = 0.5;
+  await wait(0.3);
+  game.slow = 1;
+  Voice.shout('goku', 'HAAAAAAA!');
+  f.big = true; fireKame(f); f.t2 = 1.3;
+  game.banner = { text: 'INSTANT KAMEHAMEHA!', t: 0, dur: 1.4 };
+  game.flash = 1; game.shake = 12; sfx.explode();
+  foe.hp = Math.max(0, foe.hp - 60);
+  foe.play('knock'); foe.vy = -320; foe.vx = f.facing * 230; foe.y -= 1;
+  Stage.crack(foe.x, 2);
+  await wait(1.4);
+  f.inv = 0.5;
+  game.mode = 'fight';
 }
 
 // ---------- cutscenes ----------
@@ -776,6 +873,8 @@ function step(raw) {
   Stage.update(raw);
   for (const tr of trails) tr.t += raw;
   trails = trails.filter(tr => tr.t < 0.22);
+  for (const z of zips) z.t += raw;
+  zips = zips.filter(z => z.t < 0.3);
   if (game.freeze > 0) { game.freeze -= raw; return 'frozen'; }
 
   if (game.mode === 'fight') {
@@ -835,7 +934,7 @@ function iconOf(f) {
 function hintFor(g) {
   if (g.who === 'goku') {
     if (g.form === 'base' && g.ki >= 100) return 'PRESS T  -  SUPER SAIYAN!';
-    if (g.form === 'ssj' && g.ki >= 100) return 'U  KAMEHAMEHA    O  DRAGON FIST!';
+    if (g.form === 'ssj' && g.ki >= 100) return 'JUMP + U  INSTANT KAMEHAMEHA    O  DRAGON FIST';
     if (g.form === 'ssj' && g.ki >= 50) return 'PRESS U  -  KAMEHAMEHA!';
   } else {
     if (g.form !== 'perfect' && g.ki >= 100) return 'PRESS T  -  EVOLVE!';
@@ -914,13 +1013,13 @@ const CONTROLS = {
   goku: [
     'J PUNCH  K KICK  (CHAIN THEM)  L KI BLAST',
     'TOWARD + J RUSH   TOWARD + K SLASH',
-    'T SUPER SAIYAN   U KAMEHAMEHA',
-    'O DRAGON FIST (SSJ, FULL KI)',
+    'T SUPER SAIYAN   U KAMEHAMEHA   O DRAGON FIST',
+    'IN THE AIR: Q VANISH   U INSTANT KAMEHAMEHA (SSJ, FULL KI)',
   ],
   cell: [
     'J PUNCH  K KICK  (CHAIN THEM)  L FINGER BEAM',
     'TOWARD + L BARRAGE (SEMI-PERFECT+)',
-    'T EVOLVE   U DEATH BEAM / KAMEHAMEHA',
+    'T EVOLVE   U DEATH BEAM / KAMEHAMEHA   IN THE AIR: Q VANISH',
     'O SOLAR KAMEHAMEHA (PERFECT, FULL KI)',
   ],
 };
@@ -952,7 +1051,7 @@ function drawSelect() {
   });
   ctx.fillStyle = 'rgba(0,0,0,0.65)'; ctx.fillRect(0, 136, W, 44);
   CONTROLS[game.pick ? 'cell' : 'goku'].forEach((l, i) => small(l, W / 2, 140 + i * 8));
-  small('A/D MOVE  W JUMP  S BLOCK  SHIFT DASH  I CHARGE  Q TELEPORT', W / 2, 172, '#aaa');
+  small('A/D MOVE  DOUBLE-TAP A/D DASH (AIR TOO)  W JUMP  S BLOCK  I CHARGE  Q VANISH', W / 2, 172, '#aaa');
   if (Math.floor(game.t * 2) % 2) small('A / D  CHOOSE     ENTER  START', W / 2, 22, '#fff');
 }
 
@@ -974,9 +1073,15 @@ function render() {
     ctx.beginPath(); ctx.ellipse(f.x, FLOOR + 1, 13 * k, 3 * k, 0, 0, Math.PI * 2); ctx.fill();
   }
   // charging ki at the hands
-  for (const f of [goku, cell]) if (f.state === 'kameCharge') {
+  for (const f of [goku, cell]) if (f.anim === 'kameCharge' && f.visible) {
     const [hx, hy] = f.hand('kameFire');
-    FX.kiGlow(ctx, hx - f.facing * 8, hy, (2 + (1 - f.t2) * 5) * (f.big ? 2 : 1), game.t);
+    const grow = f.state === 'kameCharge' ? 1 - f.t2 : Math.min(1, f.at / 1.6);
+    FX.kiGlow(ctx, hx - f.facing * 8, hy - f.hover, (2 + grow * 5) * (f.big ? 2 : 1), game.t);
+  }
+  for (const z of zips) {
+    ctx.save(); ctx.globalAlpha = 0.85 * (1 - z.t / 0.3);
+    ctx.translate(Math.round(z.x), Math.round(z.y)); ctx.scale(z.dir * z.scale, z.scale);
+    ctx.drawImage(z.im, -z.im.width - 4, -z.im.height / 2); ctx.restore();
   }
   for (const tr of trails) {
     ctx.save(); ctx.globalAlpha = 0.4 * (1 - tr.t / 0.22);
@@ -985,6 +1090,7 @@ function render() {
   }
   const order = player.state === 'attack' ? [boss, player] : [player, boss];
   order.forEach(f => f.draw());
+  for (const f of order) if (f.state === 'block' && f.visible) drawGuard(f);
   for (const b of beams) drawBeam(b);
   for (const p of projs) {
     const im = art(FX_ART[p.kind]);
