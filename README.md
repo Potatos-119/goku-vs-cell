@@ -11,8 +11,27 @@ From phase two on the boss can vanish out of your attacks and counter from behin
 it punishes charging, whiffs and broken guards, blocks or dodges beams and answers them with its own.
 
 The stage is the Cell Games ring (`assets/img/cell-games.webp`) with live effects on top: dust, a news
-helicopter, rocks that lift when someone powers up, and cracks where fighters get slammed. Lines are spoken
-with the browser's speech voice (press V to turn voices off).
+helicopter, rocks that lift when someone powers up, and cracks where fighters get slammed. Voice lines can be added as recordings: see `VOICE_CLIPS` in `audio.js`.
+
+## Combat
+
+- **Chains**: J J J J or K K K (Goku), J J K or K K (Cell). The last hit is a **launcher**.
+- **Chase**: press W right after a launcher to jump after them, then **J J J** in the air: two hits and a
+  meteor **spike** that slams them into the ring and bounces them back up.
+- **Cancels**: once a hit lands you can cancel the rest of the move into a ki blast (L), a beam (U),
+  a vanish (Q) or a dash.
+- **Wall bounce**: the heavy slash (toward + K) bounces them off the screen edge for a follow-up.
+- Juggles are limited and long combos hit softer, so nothing loops forever.
+- **Named combos** pop up with a +8 ki bonus when you land them. P opens the pause menu with the full
+  **Move List**, **Combo List** (with the ones you've landed ticked) and **Controls**.
+- **Training mode** (pick it after choosing a fighter): the dummy can't be KO'd, health and ki refill, and
+  a checklist shows every combo with a hint for the next one to try. The dummy can be set to fight back.
+
+## Options
+
+Pause menu or the menu after picking a fighter: music and sound volume, music on/off, calm mode
+(less shake and flashing). Settings are remembered. The camera follows the fight, zooming in when the
+fighters are close and pushing in for cinematics.
 
 ## Music
 
@@ -64,7 +83,6 @@ Blocking uses the green stamina bar under the ki bar. Holding block drains it sl
 | P | Pause |
 | M | Music on/off (remembered next time) |
 | R | Calm mode: much less screen shake and flashing (remembered next time) |
-| V | Voices on/off |
 | Esc | Skip intro / back to character select after a fight |
 
 ## Files

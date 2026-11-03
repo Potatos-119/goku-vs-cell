@@ -21,13 +21,17 @@ const GOKU_BASE = {
   p1: { fr: ['4.0', '4.1', '4.0'], fps: 16, hit: { at: 1, dmg: 4, reach: 30 } },
   p2: { fr: ['4.3', '4.4', '4.3'], fps: 16, hit: { at: 1, dmg: 5, reach: 32 } },
   p3: { fr: ['4.5', '4.6', '4.6', '4.7'], fps: 15, hit: { at: 1, dmg: 7, reach: 38 } },
-  p4: { fr: ['4.8', '4.9', '4.9', '4.10'], fps: 12, hit: { at: 1, dmg: 10, reach: 32, heavy: true } },
+  // launch: pops them straight up so you can jump after them; wallBounce: off the screen edge
+  p4: { fr: ['4.8', '4.9', '4.9', '4.10'], fps: 12, hit: { at: 1, dmg: 10, reach: 32, heavy: true, launch: true } },
   k1: { fr: ['5.4', '5.5', '5.6', '5.6', '5.4'], fps: 16, hit: { at: 2, dmg: 7, reach: 40 } },
   k2: { fr: ['5.0', '5.1', '5.2'], fps: 14, hit: { at: 1, dmg: 8, reach: 34 } },
-  k3: { fr: ['5.7', '5.7', '5.8'], fps: 11, hit: { at: 0, dmg: 11, reach: 40, heavy: true } },
+  k3: { fr: ['5.7', '5.7', '5.8'], fps: 11, hit: { at: 0, dmg: 11, reach: 40, heavy: true, launch: true } },
   rush: { fr: ['1.2', '1.2', '4.2', '4.2', '4.3'], fps: 12, hit: { at: 2, dmg: 7, reach: 38 } },
-  slash: { fr: ['3.5', '3.6', '3.6', '3.7'], fps: 11, hit: { at: 1, dmg: 10, reach: 46, heavy: true } },
-  air: { fr: ['5.3'], fps: 6, hit: { at: 0, dmg: 8, reach: 42 } },
+  slash: { fr: ['3.5', '3.6', '3.6', '3.7'], fps: 11, hit: { at: 1, dmg: 10, reach: 46, heavy: true, wallBounce: true } },
+  // air string: J J J in the air, ending in a spike that slams them into the ring
+  air: { fr: ['5.3', '5.3'], fps: 13, loop: false, hit: { at: 0, dmg: 8, reach: 42 } },
+  air2: { fr: ['4.6', '4.6'], fps: 13, loop: false, hit: { at: 0, dmg: 7, reach: 42 } },
+  spike: { fr: ['5.8', '5.8', '5.8'], fps: 9, loop: false, hit: { at: 0, dmg: 10, reach: 40, spike: true } },
   kiCast: { fr: ['9.0', '9.2', { id: '9.3', w: 31 }, '9.4'], fps: 13, emitAt: 2, emit: 33 },
   charge: { fr: ['10.3', '10.4'], fps: 12, loop: true },
   hurt: { fr: ['8.0'], fps: 1, loop: true },
@@ -78,7 +82,7 @@ const CELL_TEMPLATE = {
   p1: { fr: ['13.1', '13.2', '13.2', '13.1'], fps: 13, hit: { at: 1, dmg: 6, reach: 32 } },
   p2: { fr: ['13.3', '13.4', '13.4'], fps: 12, hit: { at: 1, dmg: 7, reach: 34 } },
   k1: { fr: ['13.5', '13.6', '13.6', '13.5'], fps: 12, hit: { at: 1, dmg: 8, reach: 40 } },
-  k2: { fr: ['13.7', '13.8', '13.8', '13.9'], fps: 10, hit: { at: 1, dmg: 11, reach: 40, heavy: true } },
+  k2: { fr: ['13.7', '13.8', '13.8', '13.9'], fps: 10, hit: { at: 1, dmg: 11, reach: 40, heavy: true, launch: true } },
   finger: { fr: ['13.10', { id: '15.0', w: 24 }, { id: '15.0', w: 24 }], fps: 8, emitAt: 1, emit: 29 },
   death: { fr: ['13.10', { id: '15.1', w: 31 }, { id: '15.1', w: 31 }], fps: 7, emitAt: 1, emit: 33 },
   kameCharge: { fr: ['15.2', '16.3'], fps: 6, loop: true },
@@ -93,9 +97,11 @@ const CELL_TEMPLATE = {
   win: { fr: ['12.1'], fps: 1, loop: true },
   barrage: { fr: ['16.1', { id: '16.0', w: 24 }, '16.1', { id: '16.0', w: 24 }, '16.1', { id: '16.0', w: 24 }], fps: 10, emitAt: [1, 3, 5], emit: 29 },
   // used when you play as Cell
-  air: { fr: ['13.8'], fps: 6, hit: { at: 0, dmg: 8, reach: 40 } },
+  air: { fr: ['13.8', '13.8'], fps: 13, loop: false, hit: { at: 0, dmg: 8, reach: 40 } },
+  air2: { fr: ['13.4', '13.4'], fps: 13, loop: false, hit: { at: 0, dmg: 7, reach: 40 } },
+  spike: { fr: ['13.6', '13.6', '13.6'], fps: 9, loop: false, hit: { at: 0, dmg: 10, reach: 40, spike: true } },
   rush: { fr: ['13.11', '13.11', '13.4', '13.4'], fps: 12, hit: { at: 2, dmg: 7, reach: 38 } },
-  slash: { fr: ['13.7', '13.8', '13.8', '13.9'], fps: 10, hit: { at: 1, dmg: 11, reach: 44, heavy: true } },
+  slash: { fr: ['13.7', '13.8', '13.8', '13.9'], fps: 10, hit: { at: 1, dmg: 11, reach: 44, heavy: true, wallBounce: true } },
   charge: { fr: ['12.6', '12.7', '12.8'], fps: 12, loop: true },
 };
 
@@ -147,3 +153,83 @@ const BEAMS = {
     scale: 1,
   },
 };
+
+// Named combos: recognised while you play (name pops up, +8 ki) and listed in the pause menu and
+// training mode. steps must land in this order within one combo; 'melee' matches any punch or kick.
+const COMBOS = {
+  goku: [
+    { name: 'RUSH COMBO', steps: ['p1', 'p2', 'p3', 'p4'], how: 'J J J J' },
+    { name: 'DRAGON KICKS', steps: ['k1', 'k2', 'k3'], how: 'K K K' },
+    { name: 'TURTLE STRING', steps: ['p1', 'k1', 'k2', 'k3'], how: 'J K K K' },
+    { name: 'SKY CHASE', steps: ['launch', 'air'], how: 'J J J J (or K K K), then W, J' },
+    { name: 'METEOR SMASH', steps: ['air', 'air2', 'spike'], how: 'in the air: J J J' },
+    { name: 'KI CANCEL', steps: ['melee', 'kiBall'], how: 'land a hit, then L' },
+    { name: 'KAMEHAMEHA CANCEL', steps: ['melee', 'beam'], how: 'land a hit, then U (SSJ)' },
+    { name: 'VANISH STRIKE', steps: ['melee', 'vanish', 'melee'], how: 'land a hit, Q, then J' },
+    { name: 'WALL SPLAT', steps: ['wall', 'melee'], how: 'toward + K near the edge, hit the rebound' },
+  ],
+  cell: [
+    { name: 'NIGHTMARE STRING', steps: ['p1', 'p2', 'k2'], how: 'J J K' },
+    { name: 'BIO KICKS', steps: ['k1', 'k2'], how: 'K K' },
+    { name: 'SKY CHASE', steps: ['launch', 'air'], how: 'J J K, then W, J' },
+    { name: 'METEOR SMASH', steps: ['air', 'air2', 'spike'], how: 'in the air: J J J' },
+    { name: 'FINGER CANCEL', steps: ['melee', 'finger'], how: 'land a hit, then L' },
+    { name: 'DEATH BEAM CANCEL', steps: ['melee', 'death'], how: 'land a hit, then U (Semi-Perfect)' },
+    { name: 'KAMEHAMEHA CANCEL', steps: ['melee', 'beam'], how: 'land a hit, then U (Perfect)' },
+    { name: 'VANISH STRIKE', steps: ['melee', 'vanish', 'melee'], how: 'land a hit, Q, then J' },
+    { name: 'WALL SPLAT', steps: ['wall', 'melee'], how: 'toward + K near the edge, hit the rebound' },
+  ],
+};
+const MELEE = ['p1', 'p2', 'p3', 'p4', 'k1', 'k2', 'k3', 'rush', 'slash', 'air', 'air2', 'spike'];
+
+// Move list shown in the pause menu and from the select screen: [input, what it does]
+const MOVES = {
+  goku: [
+    ['J  /  K', 'Punch / kick, chain: J J J J or K K K'],
+    ['TOWARD + J', 'Rush punch'],
+    ['TOWARD + K', 'Heavy slash: bounces them off the wall'],
+    ['J J J J  /  K K K', 'The last hit is a launcher'],
+    ['W AFTER A LAUNCHER', 'Chase jump after them'],
+    ['AIR: J J J', 'Air string, ends in a meteor spike'],
+    ['AFTER A HIT', 'Cancel into L, U, Q or a dash'],
+    ['L', 'Ki blast (8 ki)'],
+    ['DOUBLE-TAP A / D', 'Dash, once in the air too'],
+    ['Q', 'Vanish behind them (15 ki, air too)'],
+    ['S', 'Block. Tap as a hit lands: PERFECT'],
+    ['HOLD I', 'Charge ki'],
+    ['T', 'Super Saiyan (full ki)'],
+    ['U', 'Kamehameha (SSJ, 50 ki, air too)'],
+    ['JUMP + U', 'Instant Kamehameha (SSJ, full ki)'],
+    ['O', 'Dragon Fist (SSJ, full ki)'],
+  ],
+  cell: [
+    ['J  /  K', 'Punch / kick, chain: J J K or K K'],
+    ['TOWARD + J', 'Rush punch'],
+    ['TOWARD + K', 'Heavy slash: bounces them off the wall'],
+    ['J J K  /  K K', 'The last hit is a launcher'],
+    ['W AFTER A LAUNCHER', 'Chase jump after them'],
+    ['AIR: J J J', 'Air string, ends in a meteor spike'],
+    ['AFTER A HIT', 'Cancel into L, U, Q or a dash'],
+    ['L', 'Finger beam (8 ki)'],
+    ['TOWARD + L', 'Barrage (Semi-Perfect, 15 ki)'],
+    ['DOUBLE-TAP A / D', 'Dash, once in the air too'],
+    ['Q', 'Vanish behind them (15 ki, air too)'],
+    ['S', 'Block. Tap as a hit lands: PERFECT'],
+    ['HOLD I', 'Charge ki'],
+    ['T', 'Evolve to the next form (full ki)'],
+    ['U', 'Death Beam (Semi) / Kamehameha (Perfect)'],
+    ['O', 'Solar Kamehameha (Perfect, full ki)'],
+  ],
+};
+const CONTROL_ROWS = [
+  ['MOVE', 'A / D or arrows', 'Stick / d-pad'],
+  ['JUMP', 'W / Space', 'A'],
+  ['BLOCK', 'S', 'LB / down'],
+  ['PUNCH / KICK', 'J / K', 'X / Y'],
+  ['KI ATTACK', 'L', 'B'],
+  ['BEAM / ULTIMATE', 'U / O', 'RT / R3'],
+  ['CHARGE / TRANSFORM', 'I / T', 'LT / L3'],
+  ['DASH / VANISH', 'Double-tap, Shift / Q', 'RB / Back'],
+  ['PAUSE', 'P', 'Start'],
+  ['MUSIC / CALM MODE', 'M / R', ''],
+];

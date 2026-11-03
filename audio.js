@@ -1,20 +1,39 @@
-// Original chiptune music and sound effects, synthesised with Web Audio (no audio files).
+// Game audio. Everything plays through buses, so music and effects can be balanced and turned
+// up or down as groups:   music files / synth theme -> music -> duck --\
+//                         sound effects -------------> sfx ----------+--> master -> limiter -> speakers
+// The duck stage dips the music while a line is spoken; the limiter stops loud moments clipping.
 const Audio8 = (() => {
   let ac = null, master = null, musicGain = null, timer = null, noiseBuf = null;
+  let musicBus = null, duckBus = null, sfxBus = null;
+
+  // volume settings are 0..10; squared so each step sounds like a similar change
+  const vol = { music: 9, sfx: 8 };
+  try { Object.assign(vol, JSON.parse(localStorage.getItem('volumes') || '{}')); } catch (e) { /* defaults */ }
+  const gainOf = level => Math.pow(level / 10, 2);
 
   function init() {
-    if (ac) return;
+    if (ac) { if (ac.state === 'suspended') ac.resume(); return; }
     ac = new (window.AudioContext || window.webkitAudioContext)();
-    master = ac.createGain(); master.gain.value = 0.5; master.connect(ac.destination);
-    musicGain = ac.createGain(); musicGain.gain.value = 0.35; musicGain.connect(master);
+    const limiter = ac.createDynamicsCompressor();
+    limiter.threshold.value = -3; limiter.ratio.value = 20; limiter.attack.value = 0.003; limiter.release.value = 0.15;
+    limiter.connect(ac.destination);
+    master = ac.createGain(); master.gain.value = 1; master.connect(limiter);
+    duckBus = ac.createGain(); duckBus.connect(master);
+    musicBus = ac.createGain(); musicBus.gain.value = gainOf(vol.music); musicBus.connect(duckBus);
+    sfxBus = ac.createGain(); sfxBus.gain.value = gainOf(vol.sfx) * 0.7; sfxBus.connect(master);
+    musicGain = ac.createGain(); musicGain.gain.value = 0.35; musicGain.connect(musicBus);
+    for (const name in tracks) route(tracks[name]);
     noiseBuf = ac.createBuffer(1, ac.sampleRate, ac.sampleRate);
     const d = noiseBuf.getChannelData(0);
     for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
   }
 
   const hz = n => 440 * Math.pow(2, (n - 69) / 12);
+  // up to +/- one semitone, and +/- about 2 dB
+  const vary = () => Math.pow(2, (Math.random() * 2 - 1) / 12);
+  const level = () => 0.8 + Math.random() * 0.4;
 
-  function tone(type, f0, f1, t, dur, vol, dest = master) {
+  function tone(type, f0, f1, t, dur, vol, dest = sfxBus) {
     const o = ac.createOscillator(), g = ac.createGain();
     o.type = type;
     o.frequency.setValueAtTime(f0, t);
@@ -25,7 +44,7 @@ const Audio8 = (() => {
     o.start(t); o.stop(t + dur + 0.02);
   }
 
-  function noise(t, dur, vol, filter = 'highpass', f0 = 1000, f1 = f0, dest = master) {
+  function noise(t, dur, vol, filter = 'highpass', f0 = 1000, f1 = f0, dest = sfxBus) {
     const s = ac.createBufferSource(), g = ac.createGain(), bq = ac.createBiquadFilter();
     s.buffer = noiseBuf; s.loop = true;
     bq.type = filter; bq.frequency.setValueAtTime(f0, t);
@@ -86,10 +105,11 @@ const Audio8 = (() => {
   function stopMusic() { if (timer) clearInterval(timer); timer = null; }
 
   const sfx = {
-    punch() { init(); const t = ac.currentTime; noise(t, 0.08, 0.6, 'lowpass', 2500, 400); tone('sine', 160, 50, t, 0.12, 0.8); },
-    kick() { init(); const t = ac.currentTime; noise(t, 0.12, 0.6, 'lowpass', 1800, 300); tone('sine', 120, 40, t, 0.16, 0.9); },
-    whoosh() { init(); noise(ac.currentTime, 0.18, 0.25, 'bandpass', 600, 3000); },
-    blast() { init(); const t = ac.currentTime; tone('square', 1100, 180, t, 0.25, 0.25); noise(t, 0.2, 0.25, 'bandpass', 3000, 800); },
+    // hits, whooshes and blasts repeat a lot: each play gets a slightly different pitch and level
+    punch() { init(); const t = ac.currentTime, p = vary(), v = level(); noise(t, 0.08, 0.6 * v, 'lowpass', 2500 * p, 400 * p); tone('sine', 160 * p, 50 * p, t, 0.12, 0.8 * v); },
+    kick() { init(); const t = ac.currentTime, p = vary(), v = level(); noise(t, 0.12, 0.6 * v, 'lowpass', 1800 * p, 300 * p); tone('sine', 120 * p, 40 * p, t, 0.16, 0.9 * v); },
+    whoosh() { init(); const p = vary(); noise(ac.currentTime, 0.18, 0.25 * level(), 'bandpass', 600 * p, 3000 * p); },
+    blast() { init(); const t = ac.currentTime, p = vary(); tone('square', 1100 * p, 180 * p, t, 0.25, 0.25 * level()); noise(t, 0.2, 0.25, 'bandpass', 3000 * p, 800 * p); },
     charge(dur = 1.4) {
       init(); const t = ac.currentTime;
       tone('sawtooth', 160, 1400, t, dur, 0.12);
@@ -102,7 +122,7 @@ const Audio8 = (() => {
       tone('square', 90, 60, t, dur, 0.2);
       tone('sawtooth', 220, 110, t, dur, 0.1);
     },
-    hurt() { init(); const t = ac.currentTime; tone('square', 520, 90, t, 0.22, 0.25); noise(t, 0.1, 0.4, 'lowpass', 3000, 500); },
+    hurt() { init(); const t = ac.currentTime, p = vary(); tone('square', 520 * p, 90 * p, t, 0.22, 0.25 * level()); noise(t, 0.1, 0.4, 'lowpass', 3000, 500); },
     explode() { init(); const t = ac.currentTime; noise(t, 1.2, 0.8, 'lowpass', 3000, 80); tone('sine', 90, 30, t, 0.9, 0.9); },
     powerup() {
       init(); const t = ac.currentTime;
@@ -129,6 +149,7 @@ const Audio8 = (() => {
       const a = new Audio(TRACKS[name].src); a.loop = TRACKS[name].loop !== false; a.volume = TRACKS[name].vol;
       a.onended = () => { if (music.current === name && TRACKS[name].then) music.play(TRACKS[name].then); };
       tracks[name] = a;
+      if (ac) route(a);
     }
     return tracks[name];
   }
@@ -184,29 +205,59 @@ const Audio8 = (() => {
     song.bass.forEach((n, i) => tone('triangle', hz(n), hz(n), ac.currentTime + 0.05 + i * gap * 4, gap * 4 + 0.6, 0.4));
   }
 
-  return { init, playMusic, stopMusic, sfx, music };
+  // a music file joins the mix through the music bus (once the audio context exists)
+  function route(a) {
+    if (a.routed) return;
+    try { ac.createMediaElementSource(a).connect(musicBus); a.routed = true; } catch (e) { /* plays unrouted */ }
+  }
+
+  // dip the music while a line is spoken, then let it come back up
+  function duck(on) {
+    if (!ac) return;
+    duckBus.gain.setTargetAtTime(on ? 0.35 : 1, ac.currentTime, on ? 0.04 : 0.35);
+  }
+
+  function setVolume(bus, level) {
+    vol[bus] = Math.max(0, Math.min(10, level));
+    try { localStorage.setItem('volumes', JSON.stringify(vol)); } catch (e) { /* not saved */ }
+    if (!ac) return;
+    if (bus === 'music') musicBus.gain.setTargetAtTime(gainOf(vol.music), ac.currentTime, 0.05);
+    else { sfxBus.gain.setTargetAtTime(gainOf(vol.sfx) * 0.7, ac.currentTime, 0.05); sfx.blip(); }
+  }
+
+  // Adaptive layer: a heartbeat that fades in under everything while you're close to defeat.
+  let beatTimer = null;
+  function heartbeat(on) {
+    if (on === !!beatTimer || !ac) return;
+    if (!on) { clearInterval(beatTimer); beatTimer = null; return; }
+    const thump = () => { const t = ac.currentTime; tone('sine', 70, 40, t, 0.16, 0.6); tone('sine', 62, 36, t + 0.2, 0.16, 0.45); };
+    thump(); beatTimer = setInterval(thump, 850);
+  }
+
+  return { init, playMusic, stopMusic, sfx, music, duck, setVolume, vol, heartbeat };
 })();
 window.Audio8 = Audio8;
 
-// Spoken lines with the browser's built-in voice: higher and quicker for Goku, deep and slow for Cell.
+// Voice clips. The game calls Voice.speak / Voice.shout with every line and shout; a line only makes a
+// sound if it has a recording listed in VOICE_CLIPS (none yet). To add one, drop the file in
+// assets/audio/voice/ and map "who:exact line" to it, e.g.
+//   'goku:Kamehameha!': 'assets/audio/voice/goku-kamehameha.mp3',
+// The music dips while a clip plays.
+const VOICE_CLIPS = {
+};
 const Voice = {
   on: true,
-  style: { goku: { pitch: 1.35, rate: 1.08 }, cell: { pitch: 0.45, rate: 0.92 } },
-  pick() {
-    if (this.voice !== undefined || !window.speechSynthesis) return this.voice;
-    const all = speechSynthesis.getVoices();
-    this.voice = all.find(v => /^en(-|_)US/.test(v.lang) && /Daniel|Alex|Fred|Google US/.test(v.name)) || all.find(v => /^en/.test(v.lang)) || null;
-    return this.voice;
+  playing: null,
+  speak(who, text) {
+    const src = VOICE_CLIPS[who + ':' + text];
+    if (!this.on || !src) return;
+    if (this.playing) this.playing.pause();
+    const a = new Audio(src);
+    this.playing = a;
+    Audio8.duck(true);
+    a.onended = a.onerror = () => { if (this.playing === a) Audio8.duck(false); };
+    a.play().catch(() => Audio8.duck(false));
   },
-  speak(who, text, interrupt = true) {
-    if (!this.on || !window.speechSynthesis) return;
-    if (interrupt) speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(text);
-    Object.assign(u, this.style[who] || {}, { volume: 0.9 });
-    const v = this.pick(); if (v) u.voice = v;
-    speechSynthesis.speak(u);
-  },
-  shout(who, text) { this.speak(who, text, true); },
+  shout(who, text) { this.speak(who, text); },
 };
-if (window.speechSynthesis) speechSynthesis.onvoiceschanged = () => { Voice.voice = undefined; };
 window.Voice = Voice;

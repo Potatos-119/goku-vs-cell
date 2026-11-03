@@ -19,7 +19,7 @@ const BINDINGS = {
   left: ['KeyA', 'ArrowLeft'], right: ['KeyD', 'ArrowRight'], jump: ['KeyW', 'Space', 'ArrowUp'],
   block: ['KeyS', 'ArrowDown'], punch: ['KeyJ'], kick: ['KeyK'], ki: ['KeyL'], beam: ['KeyU'],
   ult: ['KeyO'], charge: ['KeyI'], vanish: ['KeyQ'], transform: ['KeyT'], dash: ['ShiftLeft', 'ShiftRight'],
-  pause: ['KeyP'], confirm: ['Enter', 'NumpadEnter'], back: ['Escape'], music: ['KeyM'], voice: ['KeyV'], calm: ['KeyR'],
+  pause: ['KeyP'], confirm: ['Enter', 'NumpadEnter'], back: ['Escape'], music: ['KeyM'], calm: ['KeyR'],
 };
 // standard-mapping gamepad buttons (A B X Y = 0 1 2 3, LB RB = 4 5, LT RT = 6 7, Back Start = 8 9,
 // stick clicks = 10 11, d-pad = 12-15)
@@ -34,7 +34,7 @@ const codeOf = e => e.code || { ' ': 'Space', enter: 'Enter', escape: 'Escape', 
 
 const keys = {}, pressed = new Set(), lastPress = {}, kbHeld = {}, padHeld = {};
 function setHeld(src, action, down) {
-  if (down && !kbHeld[action] && !padHeld[action]) { pressed.add(action); lastPress[action] = game ? game.t : 0; }
+  if (down && !kbHeld[action] && !padHeld[action]) { pressed.add(action); lastPress[action] = game ? game.ct : 0; }
   src[action] = down;
   keys[action] = !!(kbHeld[action] || padHeld[action]);
 }
@@ -63,8 +63,10 @@ function pollGamepad() {
 const tap = a => pressed.has(a);
 // input buffer: a press up to 0.12s before the fighter can act still goes through, once
 const BUFFER = 0.12;
+// (ages on the control clock, which stops during hit-freeze, so a press made in a freeze isn't lost)
 function act(a) {
-  if (lastPress[a] === undefined || game.t - lastPress[a] > BUFFER) return false;
+  const age = game.ct - lastPress[a];
+  if (!(age >= 0 && age <= BUFFER)) return false;
   lastPress[a] = -99; return true;
 }
 
@@ -77,12 +79,13 @@ class Fighter {
       visible: true, queue: [], next: null, hitDone: false, emitted: 0, blockT: 0,
       stamina: 100, staminaDelay: 0, guardBroken: false, trailT: 0, counter: false, hover: 0, big: false,
       flash: 0, sq: 0, // hit flash timer; squash (+) / stretch (-) that springs back to 0
+      juggle: 0, comboTaken: 0, hitLanded: false, wallBounce: false, spiked: false,
       // Cell's sheet is drawn smaller than Goku's; 1.25 keeps pixels whole at 4x
       scale: who === 'cell' ? 1.25 : 1,
     });
   }
   A(name = this.anim) { return ANIMS[this.who][this.form][name] || ANIMS[this.who].base[name]; }
-  play(anim, state = anim) { this.anim = anim; this.state = state; this.at = 0; this.hitDone = false; this.emitted = 0; }
+  play(anim, state = anim) { this.anim = anim; this.state = state; this.at = 0; this.hitDone = false; this.hitLanded = false; this.emitted = 0; }
   get fi() { const a = this.A(), i = Math.floor(this.at * a.fps); return a.loop ? i % a.fr.length : Math.min(i, a.fr.length - 1); }
   get animDone() { const a = this.A(); return !a.loop && this.at * a.fps >= a.fr.length; }
   get img() { return Sheets.frame(this.who, this.A().fr[this.fi]); }
@@ -112,6 +115,10 @@ class Fighter {
 const settings = { calm: false };
 try { settings.calm = localStorage.getItem('calmMode') === '1'; } catch (e) { /* storage blocked */ }
 // Screen shake as decaying trauma: hits add to it instead of resetting it, and it eases back to rest.
+function toggleCalm() {
+  settings.calm = !settings.calm;
+  try { localStorage.setItem('calmMode', settings.calm ? '1' : '0'); } catch (e) { /* not saved, still works */ }
+}
 function shake(n) { game.shake = Math.min(14, Math.max(game.shake, n) + n * 0.2); }
 
 let goku, cell, player, boss, projs, beams, sparks, ghosts, popups, trails, zips, clash, timers, game;
@@ -131,8 +138,11 @@ function reset(side = (game && game.side) || 'goku') {
   setForm(goku, 'base'); setForm(cell, 'imperfect');
   if (boss === goku) Object.assign(goku, GOKU_BOSS[0]);
   projs = []; beams = []; sparks = []; ghosts = []; popups = []; trails = []; zips = []; clash = null; timers = [];
+  // the game clock restarts with each fight, so forget presses timed on the old clock
+  for (const a in lastPress) delete lastPress[a];
+  Object.assign(cam, { x: W / 2, y: H / 2, z: 1, focus: null });
   Stage.reset(); Object.assign(ai, { think: 0.8, vanishCd: 3, ultCd: 6 });
-  game = { mode: 'title', cine: null, combo: { n: 0, t: 0 }, side, pick: side === 'cell' ? 1 : 0, time: 120, freeze: 0, shake: 0, flash: 0, phase: 0, slow: 1, banner: null, dlg: null, skip: false, result: null, t: 0, kameCd: 4 };
+  game = { mode: 'title', menu: [], training: false, dummyFight: false, ct: 0, chaseT: 0, cine: null, combo: { n: 0, t: 0, moves: [], done: new Set() }, learned: (game && game.learned) || new Set(), side, pick: side === 'cell' ? 1 : 0, time: 120, freeze: 0, shake: 0, flash: 0, phase: 0, slow: 1, banner: null, dlg: null, skip: false, result: null, t: 0, kameCd: 4 };
 }
 
 function setForm(f, form) {
@@ -143,8 +153,13 @@ function setForm(f, form) {
 
 // ---------- combat ----------
 // kind: 'melee' | 'proj' | 'beam' | 'ult' (ultimates can't be blocked or dodged)
-function damage(def, src, dmg, heavy, dir, kind = 'melee') {
-  if ((def.inv > 0 && kind !== 'ult') || ['down', 'knock', 'tele', 'transform', 'evolve'].includes(def.state) || def.hp <= 0 || game.mode !== 'fight') return false;
+// opts: launch / spike / wallBounce from the attack, token for combo recognition
+const JUGGLE_MAX = 3;
+function damage(def, src, dmg, heavy, dir, kind = 'melee', opts = {}) {
+  if ((def.inv > 0 && kind !== 'ult') || ['down', 'tele', 'transform', 'evolve'].includes(def.state) || def.hp <= 0 || game.mode !== 'fight') return false;
+  // someone already flying can be juggled a few times, but not by beams (that would never end)
+  const juggling = def.state === 'knock';
+  if (juggling && (def.juggle >= JUGGLE_MAX || kind === 'beam')) return false;
   // from phase two on, the boss sometimes vanishes right before a hit lands and counters from behind
   if (def === boss && kind !== 'ult' && kind !== 'beam' && game.phase >= 1 && ai.vanishCd <= 0
       && ['idle', 'walk', 'block', 'pose', 'dash'].includes(def.state) && Math.random() < 0.12 + 0.1 * game.phase) {
@@ -163,17 +178,33 @@ function damage(def, src, dmg, heavy, dir, kind = 'melee') {
   } else {
     def.ki = Math.min(100, def.ki + 4); src.ki = Math.min(100, src.ki + 6);
     def.flash = 0.08;
-    if (src === player) { game.combo.n++; game.combo.t = 0; } else game.combo.n = 0;
+    if (src === player) { game.combo.n++; game.combo.t = 0; comboToken(opts.token || (kind === 'melee' ? src.anim : kind)); }
+    else Object.assign(game.combo, { n: 0, moves: [], done: new Set() });
+    // long combos hit softer and stun for less, so there are no infinites
+    dmg *= Math.max(0.45, 1 - 0.07 * def.comboTaken);
+    def.comboTaken++;
     sparks.push({ x: def.x - dir * 6, y: def.y - 30, t: 0, c: '#fff6b8' });
     game.freeze = heavy ? 0.12 : 0.06; shake(heavy ? 6 : 3);
   }
-  def.hp = Math.max(0, def.hp - dmg);
+  def.hp = Math.max(game.training ? 1 : 0, def.hp - dmg);
   // a fighter mid-Kamehameha takes the damage but keeps firing, unless it finishes them
   const armored = def.state === 'kameFire' && def.hp > 0;
   if (!blocking && !armored) {
     def.queue = []; def.next = null;
-    if (heavy || def.hp <= 0) { def.play('knock'); def.vy = -280; def.vx = dir * 160; def.y -= 1; sfx.kick(); Stage.shock(def.x, 0.8); }
-    else { def.play('hurt'); def.stun = 0.3; def.vx = dir * 70; sfx.punch(); }
+    if (juggling || heavy || opts.launch || opts.spike || def.hp <= 0) {
+      def.juggle = juggling ? def.juggle + 1 : 0;
+      def.play('knock'); def.y -= 1; sfx.kick();
+      if (opts.spike) { def.vy = 420; def.vx = dir * 40; def.spiked = true; }
+      else if (opts.launch) { def.vy = -390; def.vx = dir * 45; if (src === player) { comboToken('launch'); game.chaseT = 0.55; } }
+      // air hits pop them up gently and lift the attacker the same, so the air string stays together
+      else if (juggling && src.state === 'airAtk') { def.vy = -170; def.vx = dir * 25; }
+      else if (juggling) { def.vy = -210; def.vx = dir * 70; }
+      else { def.vy = -280; def.vx = dir * 160; Stage.shock(def.x, 0.8); }
+      def.wallBounce = !!opts.wallBounce;
+      // an air hit keeps the attacker up a moment so the string can continue
+      if (src.state === 'airAtk') { src.vy = -170; src.vx = dir * 20; }
+    }
+    else { def.play('hurt'); def.stun = 0.3 * Math.max(0.55, 1 - 0.06 * def.comboTaken); def.vx = dir * 70; sfx.punch(); }
     if (def === player && Math.random() < 0.3) sfx.hurt();
     if (broke && def.state === 'hurt') def.stun = 0.9;
   }
@@ -209,7 +240,7 @@ function meleeCheck(f, foe) {
   const x0 = f.facing > 0 ? f.x : f.x - h.reach, x1 = f.facing > 0 ? f.x + h.reach : f.x;
   const b = foe.box();
   if (x1 < b.x0 || x0 > b.x1 || f.y - 8 < b.y0 || f.y - 44 > b.y1) { sfx.whoosh(); return; }
-  damage(foe, f, h.dmg * f.dmgMul, h.heavy, f.facing);
+  f.hitLanded = damage(foe, f, h.dmg * f.dmgMul, h.heavy, f.facing, 'melee', h);
 }
 
 // Dash: double-tap a direction (or Shift). On the ground it's the sheet's dash run forward or a quick
@@ -245,6 +276,7 @@ function spawnProjectile(f) {
 }
 
 function teleport(f, foe) {
+  if (f === player && game.combo.n > 0) comboToken('vanish');
   ghosts.push({ img: art(FX_ART.teleport), x: f.x, y: f.y, t: 0 });
   f.play(f.A('teleOut') ? 'teleOut' : 'idle', 'tele'); f.t2 = 0.28; f.vx = 0;
   sfx.teleport();
@@ -288,6 +320,7 @@ function updateFighter(f, foe, dt) {
   f.at += dt;
   if (f.inv > 0) f.inv -= dt;
   if (f.flash > 0) f.flash -= dt;
+  if (f.free || f.state === 'block' || f.state === 'down') f.comboTaken = 0;
   f.sq -= f.sq * Math.min(1, dt * 12);
   if (f.state === 'block') f.blockT += dt;
   // afterimages on fast moves, rocks lifting off the ring while powering up
@@ -321,7 +354,10 @@ function updateFighter(f, foe, dt) {
         if (n) { f.facing = foe.x > f.x ? 1 : -1; startAttack(f, n); } else f.play('idle');
       }
       break;
-    case 'airAtk': meleeCheck(f, foe); break;
+    case 'airAtk':
+      meleeCheck(f, foe);
+      if (f.animDone && f.next) { f.facing = foe.x > f.x ? 1 : -1; f.play(f.next, 'airAtk'); f.next = null; }
+      break;
     case 'cast':
       { const shots = [].concat(f.A().emitAt);
         while (f.emitted < shots.length && f.fi >= shots[f.emitted]) { f.emitted++; spawnProjectile(f); } }
@@ -330,7 +366,15 @@ function updateFighter(f, foe, dt) {
     case 'hurt':
       if ((f.stun -= dt) <= 0) { if (f.y < FLOOR) f.play('fall', 'jump'); else f.play('idle'); }
       break;
-    case 'knock': keepOnScreen(f); break;
+    case 'knock':
+      if (f.wallBounce && (f.x <= 17 || f.x >= W - 17)) {
+        f.wallBounce = false; f.vx = -f.vx * 0.5; f.vy = -230; f.juggle = Math.max(0, f.juggle - 1);
+        sparks.push({ x: f.x, y: f.y - 30, t: 0, c: '#ffffff' }); shake(6); sfx.kick();
+        popups.push({ text: 'WALL BOUNCE!', x: f.x, y: f.y - 60, t: 0, c: '#ffd23a' });
+        if (f === boss) comboToken('wall');
+      }
+      keepOnScreen(f);
+      break;
     case 'down':
       keepOnScreen(f);
       if ((f.t2 -= dt) <= 0 && f.hp > 0) { if (f.A('getup')) f.play('getup', 'appear'); else f.play('idle'); f.inv = 0.7; }
@@ -421,7 +465,13 @@ function settle(f) {
 
 function landed(f) {
   f.sq = f.state === 'knock' ? 0.25 : 0.16;
-  if (f.state === 'knock') { Stage.crack(f.x, 1); f.play('down'); f.t2 = f.hp > 0 ? 0.7 : 99; f.vx = 0; shake(4); sfx.kick(); }
+  if (f.state === 'knock' && f.spiked) {
+    // a spike slams them into the ring and bounces them back up for one more hit
+    f.spiked = false; f.y = FLOOR - 1; f.vy = -230; f.vx *= 0.5; f.juggle = Math.max(0, f.juggle - 1);
+    Stage.crack(f.x, 1.6); shake(8); sfx.explode();
+    return;
+  }
+  if (f.state === 'knock') { f.juggle = 0; Stage.crack(f.x, 1); f.play('down'); f.t2 = f.hp > 0 ? 0.7 : 99; f.vx = 0; shake(4); sfx.kick(); }
   else if (['jump', 'airAtk'].includes(f.state)) { f.play('land'); f.vx = 0; }
 }
 
@@ -431,6 +481,49 @@ const CHAINS = {
   goku: { j: { p1: 'p2', p2: 'p3', p3: 'p4', k1: 'p2', k2: 'p3', rush: 'p2' }, k: { p1: 'k1', p2: 'k2', p3: 'k3', k1: 'k2', k2: 'k3', rush: 'k2' } },
   cell: { j: { p1: 'p2', k1: 'p2', rush: 'p2' }, k: { p1: 'k1', p2: 'k2', k1: 'k2', rush: 'k2' } },
 };
+
+const AIR_CHAIN = { air: 'air2', air2: 'spike' };
+
+// Cancels after a landed hit. Returns true when one happened.
+function cancel(g, foe, dashDir) {
+  const isGoku = g.who === 'goku';
+  if (g.A().hit && g.A().hit.launch && act('jump')) {
+    // chase them into the air
+    g.play('jump'); g.sq = -0.14; g.vy = JUMP_V - 70; g.vx = g.facing * 90; sfx.whoosh(); return true;
+  }
+  if (dashDir) { dash(g, dashDir); return true; }
+  if (g.ki >= 15 && act('vanish')) { g.ki -= 15; teleport(g, foe); return true; }
+  if (act('ki')) {
+    if (isGoku && g.ki >= 8) { g.ki -= 8; cast(g, 'kiCast'); return true; }
+    if (!isGoku && g.ki >= 8) { g.ki -= 8; cast(g, 'finger'); return true; }
+  }
+  if (act('beam')) {
+    if (isGoku && g.form === 'ssj' && g.ki >= 50) { g.ki -= 50; startKame(g); return true; }
+    if (!isGoku && g.form === 'perfect' && g.ki >= 50) { g.ki -= 50; startKame(g); return true; }
+    if (!isGoku && g.form === 'semi' && g.ki >= 20) { g.ki -= 20; cast(g, 'death'); return true; }
+  }
+  return false;
+}
+
+// Combo recognition: every landed hit adds a token; a named combo fires when its steps appear in
+// order within the current combo (the last step must be the hit that just landed).
+function comboToken(tok) {
+  const c = game.combo;
+  c.moves.push(tok);
+  for (const combo of COMBOS[player.who]) {
+    if (c.done.has(combo.name)) continue;
+    const match = (step, t) => step === t || (step === 'melee' && MELEE.includes(t));
+    if (!match(combo.steps[combo.steps.length - 1], tok)) continue;
+    let i = combo.steps.length - 2;
+    for (let k = c.moves.length - 2; k >= 0 && i >= 0; k--) if (match(combo.steps[i], c.moves[k])) i--;
+    if (i >= 0) continue;
+    c.done.add(combo.name);
+    game.learned.add(combo.name);
+    player.ki = Math.min(100, player.ki + 8);
+    popups.push({ text: combo.name + '!', x: W / 2, y: 54, t: 0, c: '#ffd23a' });
+    sfx.parry();
+  }
+}
 
 const lastTap = { dir: 0, t: -1 };
 function playerInput(dt) {
@@ -449,7 +542,13 @@ function playerInput(dt) {
     const toward = dir === g.facing;
     if (keys.block && !g.guardBroken) { g.play('block'); g.blockT = 0; g.vx = 0; return; }
     if (keys.charge) { g.play('charge'); g.vx = 0; sfx.charge(0.5); return; }
-    if (act('jump')) { g.play('jump'); g.sq = -0.14; g.vy = JUMP_V; g.vx = dir * 120; sfx.whoosh(); return; }
+    if (act('jump')) {
+      g.play('jump'); g.sq = -0.14; sfx.whoosh();
+      // just after a launcher, the jump chases them up
+      if (game.chaseT > 0 && foe.state === 'knock') { g.vy = JUMP_V - 70; g.vx = g.facing * 90; game.chaseT = 0; }
+      else { g.vy = JUMP_V; g.vx = dir * 120; }
+      return;
+    }
     if (dashDir) return dash(g, dashDir);
     // holding toward the enemy turns J into a rushing punch and K into a heavy slash
     if (act('punch')) return startAttack(g, toward ? 'rush' : 'p1');
@@ -491,6 +590,11 @@ function playerInput(dt) {
     if (airBeam && isGoku && g.ki >= 100 && act('beam')) return instantKame(g);
     if (airBeam && g.ki >= 50 && act('beam')) { g.ki -= 50; return startKame(g); }
     if (act('punch') || act('kick')) g.play('air', 'airAtk');
+  } else if (g.state === 'airAtk') {
+    if (g.hitLanded && g.ki >= 15 && act('vanish')) { g.ki -= 15; return teleport(g, foe); }
+    if (AIR_CHAIN[g.anim] && (act('punch') || act('kick'))) g.next = AIR_CHAIN[g.anim];
+  } else if (g.state === 'attack' && g.hitLanded && cancel(g, foe, dashDir)) {
+    // a landed hit can be cancelled into a special, a dash or (after a launcher) a chasing jump
   } else if (g.state === 'attack') {
     const chain = CHAINS[g.who];
     if (chain.j[g.anim] && act('punch')) g.next = chain.j[g.anim];
@@ -601,7 +705,7 @@ function updateProjectiles(dt) {
     const foe = foeOf(p.owner), len = art(FX_ART[p.kind]).width * p.owner.scale, b = foe.box();
     const x0 = p.dir > 0 ? p.x : p.x - len, x1 = p.dir > 0 ? p.x + len : p.x;
     if (x1 > b.x0 && x0 < b.x1 && p.y > b.y0 && p.y < b.y1 && foe.visible) {
-      if (damage(foe, p.owner, p.dmg, p.heavy, p.dir, 'proj')) p.dead = true;
+      if (damage(foe, p.owner, p.dmg, p.heavy, p.dir, 'proj', { token: p.kind })) p.dead = true;
     }
     for (const q of projs) if (q !== p && q.owner !== p.owner && Math.abs(q.x - p.x) < 14 && Math.abs(q.y - p.y) < 14) {
       p.dead = q.dead = true; sparks.push({ x: p.x, y: p.y, t: 0, c: '#ffffff' }); sfx.punch();
@@ -719,6 +823,7 @@ async function instantKame(f) {
   f.y = Math.min(f.y, FLOOR - 40);
   f.facing = foe.x > f.x ? 1 : -1;
   f.play('kameCharge', 'pose'); f.t2 = 99;
+  cam.focus = { f, z: 1.25 };
   Voice.shout('goku', 'Ka... me... ha... me...'); sfx.charge(1.6); shake(3);
   await wait(1.6);
   // vanish...
@@ -732,6 +837,7 @@ async function instantKame(f) {
   Object.assign(f, { x, y: FLOOR, floating: false, visible: true, facing: foe.x > x ? 1 : -1 });
   ghosts.push({ img: art(FX_ART.teleport), x: f.x, y: f.y, t: 0 }); sfx.teleport();
   foe.facing = f.x > foe.x ? 1 : -1; foe.play('hurt', 'pose'); foe.t2 = 99;
+  cam.focus = { x: (f.x + foe.x) / 2, y: FLOOR, z: 1.5 };
   game.slow = 0.5;
   await wait(0.3);
   game.slow = 1;
@@ -743,7 +849,7 @@ async function instantKame(f) {
   foe.play('knock'); foe.vy = -320; foe.vx = f.facing * 230; foe.y -= 1;
   Stage.crack(foe.x, 2);
   await wait(1.4);
-  f.inv = 0.5;
+  f.inv = 0.5; cam.focus = null;
   game.mode = 'fight';
 }
 
@@ -828,6 +934,7 @@ function superSaiyan(f) {
     game.cine = { f, t: 0, clock: 0, stage: 0, back: game.mode, done };
     game.mode = 'cut';
     f.play('charge', 'pose'); f.t2 = 99; f.inv = 99;
+    cam.focus = { f, z: 1.5 };
     Audio8.music.switchTo('ssj');
     Voice.shout('goku', 'Haaaaaaah!');
   });
@@ -851,7 +958,7 @@ function updateCine(raw) {
     Stage.crack(f.x, 2);
   }
   if (c.stage === 2 && c.t >= SSJ_PEAK + 1.6) {
-    f.play('idle'); f.inv = 0.5;
+    f.play('idle'); f.inv = 0.5; cam.focus = null;
     game.mode = c.back; game.cine = null; c.done();
   }
 }
@@ -864,6 +971,7 @@ async function bossPhase() {
   settle(goku); settle(cell);
   if (boss === cell) {
     cell.play('power'); sfx.powerup(); shake(6);
+    cam.focus = { f: cell, z: 1.5 };
     await wait(0.6);
     await say('CELL', next === 1
       ? 'Hehehe... Android 17 is part of me now. Let me show you my second form!'
@@ -890,6 +998,7 @@ async function bossPhase() {
     await wait(0.8);
     goku.play('idle');
   }
+  cam.focus = null;
   if (boss === goku) Object.assign(goku, GOKU_BOSS[next]);
   game.phase = next; game.kameCd = 3; ai.ultCd = 4;
   game.mode = 'fight';
@@ -898,12 +1007,16 @@ async function bossPhase() {
 async function finish(result) {
   game.mode = 'ko'; game.result = result; clash = null; beams = []; projs = [];
   game.slow = 0.35;
+  // push in on whoever went down
+  const fallen = player.hp <= 0 ? player : boss.hp <= 0 ? boss : null;
+  if (fallen) cam.focus = { f: fallen, z: 1.5 };
   await banner(result === 'timeup' ? 'TIME!' : 'K.O.!', 1.4);
   game.slow = 1;
   for (const f of [goku, cell]) if (f.hp > 0) settle(f);
   const win = result === 'win' || (result === 'timeup' && player.hp / player.maxHp > boss.hp / boss.maxHp);
   game.result = win ? 'win' : 'lose';
   await wait(0.8);
+  cam.focus = null;
   const winner = win ? player : boss;
   winner.play('win');
   if (win) Audio8.music.winner(); else Audio8.music.defeat();
@@ -913,6 +1026,146 @@ async function finish(result) {
   };
   await say(winner.who.toUpperCase(), LINES[game.side]);
   game.mode = 'end';
+}
+
+// ---------- menus ----------
+// Screens are a stack: the pause menu opens over the fight, the move list opens over the pause
+// menu, and Back pops one level. Every screen opens with an item focused, and works the same on
+// keyboard (W/S or arrows, Enter, Esc) and gamepad (d-pad, A, B).
+const bars = n => '|'.repeat(n) + '.'.repeat(10 - n);
+const sideOfPick = () => game.pick ? 'cell' : 'goku';
+const guideWho = () => game.mode === 'select' ? sideOfPick() : player.who;
+function openMenu(id) { game.menu.push({ id, i: 0 }); }
+function closeMenu() {
+  game.menu.pop();
+  if (!game.menu.length && game.mode === 'paused') { game.mode = 'fight'; Audio8.music.play(); }
+}
+function closeAllMenus() {
+  game.menu = [];
+  if (game.mode === 'paused') { game.mode = 'fight'; Audio8.music.play(); }
+}
+function quitToSelect() {
+  const pick = game.side === 'cell' ? 1 : 0;
+  reset(); game.pick = pick; game.mode = 'select'; Audio8.music.play('bg', true);
+}
+function startTraining(side) {
+  reset(side); game.training = true; Audio8.music.play('bg');
+  player.ki = 100; startFight();
+}
+const MENUS = {
+  pause: () => ({ title: game.training ? 'TRAINING' : 'PAUSED', items: [
+    { label: 'RESUME', go: closeAllMenus },
+    { label: 'MOVE LIST', go: () => openMenu('moves') },
+    { label: 'COMBO LIST', go: () => openMenu('combos') },
+    { label: 'CONTROLS', go: () => openMenu('controls') },
+    { label: 'OPTIONS', go: () => openMenu('options') },
+    ...(game.training ? [{ label: 'DUMMY: ' + (game.dummyFight ? 'FIGHTS BACK' : 'STANDS STILL'), go: () => { game.dummyFight = !game.dummyFight; } }] : []),
+    { label: 'QUIT TO CHARACTER SELECT', go: quitToSelect },
+  ] }),
+  mode: () => ({ title: sideOfPick().toUpperCase(), items: [
+    { label: 'STORY MODE', go: () => { reset(sideOfPick()); Audio8.music.play('bg'); intro(); } },
+    { label: 'TRAINING  (PRACTISE COMBOS)', go: () => startTraining(sideOfPick()) },
+    { label: 'MOVE LIST', go: () => openMenu('moves') },
+    { label: 'COMBO LIST', go: () => openMenu('combos') },
+    { label: 'OPTIONS', go: () => openMenu('options') },
+    { label: 'BACK', go: closeMenu },
+  ] }),
+  // left / right change a setting; it's saved for next time
+  options: () => ({ title: 'OPTIONS', items: [
+    { label: 'MUSIC VOLUME  ' + bars(Audio8.vol.music), adjust: d => Audio8.setVolume('music', Audio8.vol.music + d) },
+    { label: 'SOUND FX VOLUME  ' + bars(Audio8.vol.sfx), adjust: d => Audio8.setVolume('sfx', Audio8.vol.sfx + d) },
+    { label: 'MUSIC  ' + (Audio8.music.muted ? 'OFF' : 'ON'), go: () => Audio8.music.toggleMute(), adjust: () => Audio8.music.toggleMute() },
+    { label: 'CALM MODE  ' + (settings.calm ? 'ON' : 'OFF'), go: toggleCalm, adjust: toggleCalm },
+    { label: 'BACK', go: closeMenu },
+  ] }),
+  moves: () => ({ title: guideWho().toUpperCase() + '  MOVE LIST', page: 'moves', items: [{ label: 'BACK', go: closeMenu }] }),
+  combos: () => ({ title: guideWho().toUpperCase() + '  COMBOS', page: 'combos', items: [{ label: 'BACK', go: closeMenu }] }),
+  controls: () => ({ title: 'CONTROLS', page: 'controls', items: [{ label: 'BACK', go: closeMenu }] }),
+};
+
+function menuInput() {
+  const top = game.menu[game.menu.length - 1], m = MENUS[top.id]();
+  if (tap('jump')) { top.i = (top.i + m.items.length - 1) % m.items.length; sfx.blip(); }
+  if (tap('block')) { top.i = (top.i + 1) % m.items.length; sfx.blip(); }
+  const it = m.items[top.i];
+  if (it.adjust && (tap('left') || tap('right'))) it.adjust(tap('right') ? 1 : -1);
+  else if ((tap('confirm') || tap('punch')) && it.go) { sfx.blip(); it.go(); }
+  else if (tap('back') || tap('pause')) { sfx.blip(); closeMenu(); }
+}
+
+function drawMenu() {
+  if (!game.menu.length) return;
+  const top = game.menu[game.menu.length - 1], m = MENUS[top.id](), who = guideWho();
+  ctx.setTransform(S, 0, 0, S, 0, 0);
+  ctx.fillStyle = m.page ? 'rgba(6,5,16,0.96)' : 'rgba(6,5,16,0.86)'; ctx.fillRect(0, 0, W, H);
+  text(m.title, W / 2, 6, 15, '#ffe04a', 'center');
+  let y = 28;
+  if (m.page === 'moves') {
+    for (const [input, what] of MOVES[who]) { small(input, 14, y, '#ffd23a', 'left', 5); small(what, 118, y, '#fff', 'left', 5); y += 8; }
+  } else if (m.page === 'combos') {
+    for (const c of COMBOS[who]) {
+      const got = game.learned.has(c.name);
+      small(got ? '[X]' : '[ ]', 12, y, got ? '#8f8' : '#888', 'left', 5);
+      small(c.name, 32, y, got ? '#8f8' : '#ffd23a', 'left', 5); small(c.how, 140, y, '#ddd', 'left', 5); y += 11;
+    }
+    small('LAND A COMBO IN A FIGHT OR IN TRAINING TO TICK IT OFF  (+8 KI EACH TIME)', W / 2, y + 2, '#9ff');
+  } else if (m.page === 'controls') {
+    small('ACTION', 14, y, '#9ff', 'left'); small('KEYBOARD', 120, y, '#9ff', 'left'); small('GAMEPAD', 230, y, '#9ff', 'left'); y += 10;
+    for (const [a, k, p] of CONTROL_ROWS) { small(a, 14, y, '#ffd23a', 'left'); small(k, 120, y, '#fff', 'left'); small(p, 230, y, '#fff', 'left'); y += 9; }
+  }
+  // items (focused one highlighted); info pages show just BACK at the bottom
+  const iy = m.page ? H - 18 : 44;
+  m.items.forEach((it, k) => {
+    const on = k === top.i;
+    text((on ? '> ' : '') + it.label, W / 2, iy + k * 15, on ? 12 : 10, on ? '#ffe04a' : '#ccc', 'center');
+  });
+  small(m.items.some(i => i.adjust) ? 'W / S  MOVE     A / D  CHANGE     ESC  BACK' : 'W / S  MOVE     ENTER  SELECT     ESC  BACK', W / 2, H - 6, '#888');
+}
+
+// Training: the dummy can't be KO'd, health refills after each combo and ki tops itself up.
+function trainingRefill(dt) {
+  if (!game.combo.n && boss.free) boss.hp = Math.min(boss.maxHp, boss.hp + 120 * dt);
+  if (player.free) player.hp = Math.min(player.maxHp, player.hp + 40 * dt);
+  player.ki = Math.min(100, player.ki + 20 * dt);
+}
+
+// Training checklist: every named combo, ticked once you've landed it; the next one to try is lit.
+function drawChecklist() {
+  const list = COMBOS[player.who], next = list.find(c => !game.learned.has(c.name));
+  ctx.fillStyle = 'rgba(6,5,16,0.55)'; ctx.fillRect(W - 98, 30, 94, 11 + list.length * 6 + (next ? 9 : 0));
+  small('COMBO CHECKLIST', W - 51, 32, '#9ff', 'center', 4);
+  list.forEach((c, k) => {
+    const got = game.learned.has(c.name);
+    small((got ? 'X ' : '- ') + c.name, W - 95, 39 + k * 6, got ? '#8f8' : c === next ? '#ffe04a' : '#aaa', 'left', 4);
+  });
+  if (next) small('TRY: ' + next.how, W - 95, 41 + list.length * 6, '#ffe04a', 'left', 4);
+}
+
+// ---------- camera ----------
+// Frames both fighters: pans to the middle of the fight and zooms in a little when they're close,
+// back out as they separate, and never shows past the stage. Cinematics point it at a fighter
+// (cam.focus). Smoothing is exponential, so it feels the same at any frame rate.
+const cam = { x: W / 2, y: H / 2, z: 1, focus: null };
+function updateCamera(raw) {
+  let tx, ty, tz;
+  const live = ['fight', 'ready', 'cut', 'ko', 'end', 'intro', 'paused'].includes(game.mode);
+  if (cam.focus && live) {
+    const f = cam.focus.f;
+    tz = cam.focus.z; tx = f ? f.x : cam.focus.x; ty = (f ? f.y - f.hover : cam.focus.y) - 26;
+  } else if (live && goku && cell) {
+    const x0 = Math.min(goku.x, cell.x), x1 = Math.max(goku.x, cell.x), top = Math.min(goku.y, cell.y) - 64;
+    tz = clamp(W / (x1 - x0 + 150), 1, 1.25);
+    tx = (x0 + x1) / 2;
+    // keep the ring's floor near the bottom of the view; rise only when someone jumps out of frame
+    const viewH = H / tz;
+    ty = Math.min(H - viewH / 2, top + viewH / 2);
+  } else { tz = 1; tx = W / 2; ty = H / 2; }
+  const kz = 1 - Math.exp(-4 * raw), kp = 1 - Math.exp(-7 * raw);
+  cam.z += (tz - cam.z) * kz;
+  cam.x += (tx - cam.x) * kp; cam.y += (ty - cam.y) * kp;
+  // clamp so the view (not just its centre) stays on the stage
+  const z = Math.round(cam.z * 4) / 4, hw = W / 2 / z, hh = H / 2 / z;
+  cam.x = clamp(cam.x, hw, W - hw); cam.y = clamp(cam.y, hh, H - hh);
 }
 
 // ---------- main loop ----------
@@ -928,26 +1181,21 @@ function loop(now) {
 
 function step(raw) {
   game.t += raw;
-  if (tap('voice')) { Voice.on = !Voice.on; popups.push({ text: Voice.on ? 'VOICES ON' : 'VOICES OFF', x: W / 2, y: 60, t: 0, c: '#fff' }); }
-  if (tap('calm')) {
-    settings.calm = !settings.calm;
-    try { localStorage.setItem('calmMode', settings.calm ? '1' : '0'); } catch (e) { /* not saved, still works */ }
-    popups.push({ text: settings.calm ? 'CALM MODE: LESS SHAKE + FLASH' : 'CALM MODE OFF', x: W / 2, y: 60, t: 0, c: '#fff' });
-  }
+  if (tap('calm')) { toggleCalm(); popups.push({ text: settings.calm ? 'CALM MODE: LESS SHAKE + FLASH' : 'CALM MODE OFF', x: W / 2, y: 60, t: 0, c: '#fff' }); }
+  // the heartbeat layer comes in when you're close to defeat
+  Audio8.heartbeat(game.mode === 'fight' && !game.training && player.hp > 0 && player.hp < player.maxHp * 0.25);
   if (tap('music')) { Audio8.init(); popups.push({ text: Audio8.music.toggleMute() ? 'MUSIC OFF' : 'MUSIC ON', x: W / 2, y: 60, t: 0, c: '#fff' }); }
   if (game.mode === 'title') {
     if (tap('confirm')) { Audio8.init(); Audio8.music.play('bg', true); game.mode = 'select'; sfx.blip(); }
     return;
   }
+  if (game.menu.length) { menuInput(); return; }
   if (game.mode === 'select') {
     if (tap('left') || tap('right')) { game.pick = 1 - game.pick; sfx.blip(); }
-    if (tap('confirm')) { reset(game.pick ? 'cell' : 'goku'); Audio8.music.play('bg'); intro(); }
+    if (tap('confirm')) { openMenu('mode'); sfx.blip(); }
     return;
   }
-  if (tap('pause') && (game.mode === 'fight' || game.mode === 'paused')) {
-    game.mode = game.mode === 'fight' ? 'paused' : 'fight';
-    if (game.mode === 'paused') Audio8.music.stop(); else Audio8.music.play();
-  }
+  if (tap('pause') && game.mode === 'fight') { game.mode = 'paused'; Audio8.music.stop(); openMenu('pause'); return; }
   if (game.mode === 'paused') return;
   if (game.mode === 'end') {
     if (tap('confirm')) { reset(); Audio8.music.play('bg', true); startFight(); }
@@ -965,7 +1213,7 @@ function step(raw) {
   timers = timers.filter(t => (t.t -= t.real ? raw : dt) > 0 || (t.r(), false));
   if (game.banner && (game.banner.t += raw) > game.banner.dur) game.banner = null;
   game.shake = Math.max(0, game.shake - raw * 16);
-  if ((game.combo.t += raw) > 1.1) game.combo.n = 0;
+  if ((game.combo.t += raw) > 1.1 && game.combo.n) { game.combo.n = 0; game.combo.moves = []; game.combo.done = new Set(); }
   game.flash = Math.max(0, game.flash - raw * 2.5);
   for (const s of sparks) s.t += raw;
   sparks = sparks.filter(s => s.t < 0.3);
@@ -974,18 +1222,22 @@ function step(raw) {
   for (const pp of popups) pp.t += raw;
   popups = popups.filter(pp => pp.t < 0.9);
   if (game.cine) updateCine(raw);
+  updateCamera(raw);
   Stage.update(raw);
   for (const tr of trails) tr.t += raw;
   trails = trails.filter(tr => tr.t < 0.22);
   for (const z of zips) z.t += raw;
   zips = zips.filter(z => z.t < 0.3);
   if (game.freeze > 0) { game.freeze -= raw; return 'frozen'; }
+  game.ct += raw;
+  game.chaseT -= raw;
 
   if (game.mode === 'fight') {
     playerInput(dt);
-    if (!window.noAI) bossAI(dt);
-    game.time -= dt;
-    if (game.phase < 2 && boss.hp <= boss.maxHp * (2 - game.phase) / 3 && boss.hp > 0 && boss.free) { bossPhase(); return; }
+    if (!window.noAI && (!game.training || game.dummyFight)) bossAI(dt);
+    if (game.training) trainingRefill(dt);
+    else game.time -= dt;
+    if (!game.training && game.phase < 2 && boss.hp <= boss.maxHp * (2 - game.phase) / 3 && boss.hp > 0 && boss.free) { bossPhase(); return; }
   }
   updateFighter(goku, cell, dt);
   updateFighter(cell, goku, dt);
@@ -1063,7 +1315,8 @@ function drawHUD() {
   bar(32, 24, 50, 2, player.stamina / 100, broken ? '#ff5a3a' : player.guardBroken ? '#a0503a' : '#9be36b');
   text(NAME(player), 32, 28, 9, '#fff');
   text(NAME(boss), W - 32, 16, 9, '#fff', 'right');
-  text(String(Math.max(0, Math.ceil(game.time))), W / 2, 4, 16, '#ffe04a', 'center');
+  if (game.training) text('TRAINING', W / 2, 6, 11, '#9ff', 'center');
+  else text(String(Math.max(0, Math.ceil(game.time))), W / 2, 4, 16, '#ffe04a', 'center');
   if (game.combo.n >= 2) {
     const pop = Math.max(0, 0.15 - game.combo.t) * 40;
     text(`${game.combo.n} HITS!`, 8, 44, 12 + pop, '#ffd23a', 'left', '#7a1a00');
@@ -1114,7 +1367,7 @@ function drawTitle() {
   text('VS', W / 2, 58, 22, '#fff', 'center');
   text('CELL', W / 2 + 4, 30, 32, '#a8e27c', 'left');
   if (Math.floor(game.t * 2) % 2) text('PRESS ENTER', W / 2, 96, 14, '#ffe04a', 'center');
-  small('P PAUSE   M MUSIC   V VOICES   R CALM MODE (LESS SHAKE)   ESC SKIP', W / 2, 156, '#ddd');
+  small('P PAUSE / MENU   M MUSIC   R CALM MODE (LESS SHAKE)   ESC SKIP', W / 2, 156, '#ddd');
   small('GAMEPAD WORKS TOO: A JUMP  X PUNCH  Y KICK  B KI  LB BLOCK  RB DASH  RT BEAM', W / 2, 165, '#aaa');
 }
 
@@ -1161,7 +1414,7 @@ function drawSelect() {
   ctx.fillStyle = 'rgba(0,0,0,0.65)'; ctx.fillRect(0, 136, W, 44);
   CONTROLS[game.pick ? 'cell' : 'goku'].forEach((l, i) => small(l, W / 2, 140 + i * 8));
   small('A/D MOVE  DOUBLE-TAP A/D DASH (AIR TOO)  W JUMP  S BLOCK  I CHARGE  Q VANISH', W / 2, 172, '#aaa');
-  if (Math.floor(game.t * 2) % 2) small('A / D  CHOOSE     ENTER  START', W / 2, 22, '#fff');
+  if (Math.floor(game.t * 2) % 2) small('A / D  CHOOSE     ENTER  STORY / TRAINING / GUIDE', W / 2, 22, '#fff');
 }
 
 function render() {
@@ -1170,9 +1423,13 @@ function render() {
   if (game.mode === 'title' || game.mode === 'select') {
     if (game.mode === 'title') drawTitle(); else drawSelect();
     if (Audio8.music.muted) small('MUSIC OFF (M)', W - 4, 4, '#f99', 'right');
+    drawMenu();
     return;
   }
-  // smooth wave scaled by trauma squared: small hits barely move the view, big ones punch
+  // camera: zoom in whole-pixel steps (S x zoom stays an integer, so the pixel art stays crisp)
+  const z = Math.round(cam.z * 4) / 4, k = S * z;
+  ctx.setTransform(k, 0, 0, k, Math.round((W / 2 / z - cam.x) * k), Math.round((H / 2 / z - cam.y) * k));
+  // shake rides on top of the camera: a smooth wave scaled by trauma squared
   const tr = Math.min(1, game.shake / 12), amp = tr * tr * 12 * (settings.calm ? 0.3 : 1);
   ctx.translate(Math.round(amp * Math.sin(game.t * 47)), Math.round(amp * 0.7 * Math.sin(game.t * 59 + 1.3)));
   drawBackground(game.mode === 'cut' ? 0.25 : 0);
@@ -1224,8 +1481,9 @@ function render() {
     text(game.result === 'win' ? 'YOU WIN!' : `${boss.who.toUpperCase()} WINS`, W / 2, 46, 28, game.result === 'win' ? '#ffe04a' : '#ff8a6a', 'center');
     if (Math.floor(game.t * 2) % 2) text('ENTER  FIGHT AGAIN      ESC  CHOOSE FIGHTER', W / 2, 82, 9, '#fff', 'center');
   }
-  if (game.mode === 'paused') text('PAUSED', W / 2, 70, 28, '#fff', 'center');
+  if (game.training && game.mode === 'fight') drawChecklist();
   drawDialogue();
+  drawMenu();
 }
 
 reset();
