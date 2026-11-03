@@ -87,7 +87,7 @@ function cutOut(sheet, [sx, sy, w, h], seed, ssj) {
     const x = i % w, y = (i / w) | 0;
     if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
   }
-  if (ssj) recolorHair(d, w, h, clear, y0, y1);
+  if (ssj) recolorHair(d, w, h, clear);
   cx.putImageData(img, 0, 0);
   const tw = Math.max(1, x1 - x0 + 1), th = Math.max(1, y1 - y0 + 1);
   const out = document.createElement('canvas'); out.width = tw; out.height = th;
@@ -100,21 +100,43 @@ function cutOut(sheet, [sx, sy, w, h], seed, ssj) {
   return out;
 }
 
-// Black hair -> Super Saiyan gold: flood from the top of the sprite through dark, non-warm pixels.
-function recolorHair(d, w, h, clear, y0, y1) {
-  const limit = y0 + (y1 - y0) * 0.5;
-  const dark = i => { const r = d[i * 4], g = d[i * 4 + 1], b = d[i * 4 + 2]; return Math.max(r, g, b) < 120 && r < b + 30; };
-  const hair = new Uint8Array(w * h), st = [];
-  for (let y = y0; y < y0 + (y1 - y0) * 0.18; y++) for (let x = 0; x < w; x++) {
-    const i = y * w + x; if (!clear[i] && dark(i)) { hair[i] = 1; st.push(i); }
+// Black hair -> Super Saiyan gold. The hair is the biggest *thick* dark blob: eroding the
+// dark mask by one pixel removes the 1px outlines, so this works in any pose (even lying down).
+function recolorHair(d, w, h, clear) {
+  const N = w * h;
+  const dark = new Uint8Array(N);
+  for (let i = 0; i < N; i++) {
+    const r = d[i * 4], g = d[i * 4 + 1], b = d[i * 4 + 2];
+    dark[i] = !clear[i] && Math.max(r, g, b) < 130 && r < b + 30 ? 1 : 0;
   }
-  while (st.length) {
-    const i = st.pop(), x = i % w, y = (i / w) | 0;
-    for (const j of [i + 1, i - 1, i + w, i - w]) {
-      const jy = (j / w) | 0;
-      if (j < 0 || j >= w * h || hair[j] || clear[j] || jy > limit || Math.abs((j % w) - x) > 1) continue;
-      if (dark(j)) { hair[j] = 1; st.push(j); }
+  const at = (m, x, y) => x >= 0 && y >= 0 && x < w && y < h && m[y * w + x];
+  const core = new Uint8Array(N);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++)
+    core[y * w + x] = dark[y * w + x] && at(dark, x + 1, y) && at(dark, x - 1, y) && at(dark, x, y + 1) && at(dark, x, y - 1) ? 1 : 0;
+  // label the core blobs and keep the big ones (hair can be split by a highlight)
+  const lab = new Int32Array(N), sizes = [0];
+  for (let i = 0; i < N; i++) {
+    if (!core[i] || lab[i]) continue;
+    const id = sizes.length, st = [i]; lab[i] = id; let n = 0;
+    while (st.length) {
+      const j = st.pop(), x = j % w, y = (j / w) | 0; n++;
+      for (const [nx, ny] of [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]])
+        if (at(core, nx, ny) && !lab[ny * w + nx]) { lab[ny * w + nx] = id; st.push(ny * w + nx); }
     }
+    sizes.push(n);
+  }
+  const biggest = Math.max(0, ...sizes);
+  if (biggest < 12) return;
+  const hair = new Uint8Array(N);
+  for (let i = 0; i < N; i++) if (lab[i] && sizes[lab[i]] >= biggest * 0.35) hair[i] = 1;
+  // grow back over the hair's own edge pixels
+  for (let pass = 0; pass < 2; pass++) {
+    const grow = [];
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const i = y * w + x;
+      if (!hair[i] && dark[i] && (at(hair, x + 1, y) || at(hair, x - 1, y) || at(hair, x, y + 1) || at(hair, x, y - 1))) grow.push(i);
+    }
+    grow.forEach(i => hair[i] = 1);
   }
   const ramp = [[110, 60, 0], [214, 150, 20], [246, 204, 52], [255, 240, 130]];
   for (let i = 0; i < w * h; i++) if (hair[i]) {

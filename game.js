@@ -1,4 +1,4 @@
-// Goku vs Cell boss fight. The world is 384x216 and is drawn at 3x.
+// Goku vs Cell boss fight. The world is 320x180 and is drawn at 4x.
 const W = 320, H = 180, S = 4, FLOOR = 162, GRAV = 900;
 const canvas = document.getElementById('game');
 canvas.width = W * S; canvas.height = H * S;
@@ -20,6 +20,8 @@ addEventListener('keydown', e => {
   if ([' ', 'arrowup', 'arrowdown'].includes(k)) e.preventDefault();
 });
 addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
+// switching windows swallows keyup events, which would leave a key held forever
+addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
 const tap = k => pressed.has(k);
 
 // ---------- fighters ----------
@@ -79,7 +81,9 @@ function damage(def, src, dmg, heavy, dir) {
     game.freeze = heavy ? 0.12 : 0.06; game.shake = heavy ? 6 : 3;
   }
   def.hp = Math.max(0, def.hp - dmg);
-  if (!blocking) {
+  // a fighter mid-Kamehameha takes the damage but keeps firing, unless it finishes them
+  const armored = def.state === 'kameFire' && def.hp > 0;
+  if (!blocking && !armored) {
     def.queue = []; def.next = null;
     if (heavy || def.hp <= 0) { def.play('knock'); def.vy = -230; def.vx = dir * 160; def.y -= 1; sfx.kick(); }
     else { def.play('hurt'); def.stun = 0.3; def.vx = dir * 70; sfx.punch(); }
@@ -158,7 +162,9 @@ function updateFighter(f, foe, dt) {
       if (!f.emitted && f.fi >= f.A().emitAt) { f.emitted = true; spawnProjectile(f); }
       if (f.animDone) f.play('idle');
       break;
-    case 'hurt': if ((f.stun -= dt) <= 0) f.play('idle'); break;
+    case 'hurt':
+      if ((f.stun -= dt) <= 0) { if (f.y < FLOOR) f.play('fall', 'jump'); else f.play('idle'); }
+      break;
     case 'down':
       if ((f.t2 -= dt) <= 0 && f.hp > 0) { f.play('idle'); f.inv = 0.7; }
       break;
@@ -178,13 +184,22 @@ function updateFighter(f, foe, dt) {
     case 'kameFire':
       if ((f.t2 -= dt) <= 0 && !clash) { beams = beams.filter(b => b.owner !== f); f.play('idle'); }
       break;
-    case 'transform':
-      if (f.animDone) {
-        f.form = 'ssj'; f.dmgMul = 1.35; f.speed = 1.15; f.play('idle');
-        game.flash = 1; game.shake = 8; sfx.explode();
-      }
-      break;
+    case 'transform': if (f.animDone) finishTransform(f); break;
   }
+}
+
+function finishTransform(f) {
+  f.form = 'ssj'; f.dmgMul = 1.35; f.speed = 1.15; f.play('idle');
+  game.flash = 1; game.shake = 8; sfx.explode();
+}
+
+// Put a fighter back on the floor, visible and standing, when a cutscene or the KO takes over
+// (otherwise they can be left mid-air, invisible mid-teleport or half-way through a move).
+function settle(f) {
+  if (f.state === 'transform') finishTransform(f);
+  if (f === goku && f.state === 'kameCharge') f.ki = Math.min(100, f.ki + 50);
+  Object.assign(f, { visible: true, x: f.state === 'tele' ? f.teleTo : f.x, y: FLOOR, vx: 0, vy: 0, queue: [], next: null });
+  if (f.hp > 0) f.play('idle');
 }
 
 function landed(f) {
@@ -267,8 +282,8 @@ function cellAI(dt) {
 function updateProjectiles(dt) {
   for (const p of projs) {
     p.x += p.vx * dt;
-    const foe = p.owner === goku ? cell : goku, im = art(FX_ART[p.kind]), b = foe.box();
-    const x0 = p.dir > 0 ? p.x : p.x - im.width, x1 = p.dir > 0 ? p.x + im.width : p.x;
+    const foe = p.owner === goku ? cell : goku, len = art(FX_ART[p.kind]).width * p.owner.scale, b = foe.box();
+    const x0 = p.dir > 0 ? p.x : p.x - len, x1 = p.dir > 0 ? p.x + len : p.x;
     if (x1 > b.x0 && x0 < b.x1 && p.y > b.y0 && p.y < b.y1 && foe.visible) {
       if (damage(foe, p.owner, p.dmg, p.heavy, p.dir)) p.dead = true;
     }
@@ -286,6 +301,7 @@ function beamParts(b) {
 }
 
 function updateBeams(dt) {
+  beams = beams.filter(b => b.owner.state === 'kameFire');
   for (const b of beams) {
     b.t += dt;
     if (!clash) b.len = Math.min(b.len + 650 * dt, b.dir > 0 ? W + 40 - b.x0 : b.x0 + 40);
@@ -297,6 +313,7 @@ function updateBeams(dt) {
       b.tick = 0.1;
       const lastHit = b.owner.t2 < 0.15;
       damage(foe, b.owner, b.dps * 0.1 * b.owner.dmgMul, lastHit, b.dir);
+      if (!lastHit) game.freeze = 0; // 10 ticks a second: hit-stop on each would stall the whole game
       if (foe.state === 'hurt') { foe.stun = 0.15; foe.vx = b.dir * 40; }
     }
   }
@@ -385,9 +402,8 @@ async function startFight() {
 }
 
 async function cellPowerUp() {
-  game.mode = 'cut'; projs = []; beams = []; clash = null;
-  for (const f of [goku, cell]) { f.vx = 0; f.queue = []; f.next = null; if (f.y >= FLOOR && f.hp > 0) f.play('idle'); }
-  goku.y = FLOOR; goku.vy = 0;
+  game.mode = 'cut'; projs = []; beams = []; clash = null; game.banner = null;
+  settle(goku); settle(cell);
   cell.play('power'); sfx.powerup(); game.shake = 6;
   await wait(0.6);
   await say('CELL', "Impressive... but playtime is over. Witness my PERFECT power!");
@@ -405,11 +421,12 @@ async function finish(result) {
   game.slow = 0.35;
   await banner(result === 'timeup' ? 'TIME!' : 'K.O.!', 1.4);
   game.slow = 1;
+  for (const f of [goku, cell]) if (f.hp > 0) settle(f);
   const win = result === 'win' || (result === 'timeup' && goku.hp / goku.maxHp > cell.hp / cell.maxHp);
   game.result = win ? 'win' : 'lose';
   await wait(0.8);
   if (win) {
-    if (goku.y >= FLOOR) goku.play('win');
+    goku.play('win');
     Audio8.music.winner();
     await say('GOKU', "It's over, Cell.");
   } else {
@@ -435,7 +452,10 @@ function step(raw) {
     if (tap('enter')) { Audio8.init(); Audio8.music.play(); intro(); }
     return;
   }
-  if (tap('p') && (game.mode === 'fight' || game.mode === 'paused')) game.mode = game.mode === 'fight' ? 'paused' : 'fight';
+  if (tap('p') && (game.mode === 'fight' || game.mode === 'paused')) {
+    game.mode = game.mode === 'fight' ? 'paused' : 'fight';
+    if (game.mode === 'paused') Audio8.music.stop(); else Audio8.music.play();
+  }
   if (game.mode === 'paused') return;
   if (game.mode === 'end') { if (tap('enter')) { reset(); Audio8.music.play(); startFight(); } }
   if (game.mode === 'intro' && tap('escape')) { game.skip = true; timers.forEach(t => t.r()); if (game.dlg) game.dlg.done(); game.dlg = null; }
