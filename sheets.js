@@ -161,7 +161,7 @@ const Sheets = {
     const [r, i] = id.split('.').map(Number);
     return this.sheets[sheet].rows[r][i];
   },
-  // ref: "r.i" or { id, x, y, w, h, seed: 'tblr', ssj } to take part of a box
+  // ref: "r.i" or { id, x, y, w, h, seed: 'tblr', ssj, ax } to take part of a box
   // (for sprites merged with their beam) or to recolour Goku's hair.
   frame(sheet, ref) {
     const key = sheet + JSON.stringify(ref);
@@ -172,7 +172,9 @@ const Sheets = {
       if (r.w) w = Math.min(w, r.w);
       if (r.y) { y += r.y; h -= r.y; }
       if (r.h) h = Math.min(h, r.h);
-      this.cache.set(key, cutOut(this.sheets[sheet], [x, y, w, h], r.seed || 'tblr', r.ssj));
+      const out = cutOut(this.sheets[sheet], [x, y, w, h], r.seed || 'tblr', r.ssj);
+      if (r.ax != null) out.ax = r.ax * out.width;
+      this.cache.set(key, out);
     }
     return this.cache.get(key);
   },

@@ -18,6 +18,8 @@ const GOKU_BASE = {
   k1: { fr: ['5.4', '5.5', '5.6', '5.6', '5.4'], fps: 16, hit: { at: 2, dmg: 7, reach: 40 } },
   k2: { fr: ['5.0', '5.1', '5.2'], fps: 14, hit: { at: 1, dmg: 8, reach: 34 } },
   k3: { fr: ['5.7', '5.7', '5.8'], fps: 11, hit: { at: 0, dmg: 11, reach: 40, heavy: true } },
+  rush: { fr: ['1.2', '1.2', '4.2', '4.2', '4.3'], fps: 12, hit: { at: 2, dmg: 7, reach: 38 } },
+  slash: { fr: ['3.5', '3.6', '3.6', '3.7'], fps: 11, hit: { at: 1, dmg: 10, reach: 46, heavy: true } },
   air: { fr: ['5.3'], fps: 6, hit: { at: 0, dmg: 8, reach: 42 } },
   kiCast: { fr: ['9.0', '9.2', { id: '9.3', w: 31 }, '9.4'], fps: 13, emitAt: 2, emit: 33 },
   charge: { fr: ['10.3', '10.4'], fps: 12, loop: true },
@@ -41,9 +43,14 @@ Object.assign(GOKU_SSJ, {
   kameCharge: { fr: ['11.3', '11.2'], fps: 8, loop: true },
   kameFire: { fr: [{ id: '11.6', w: 31 }], fps: 1, loop: true, emit: 23 },
   win: { fr: ['10.9'], fps: 1, loop: true },
+  // Dragon Fist: power up to Super Saiyan 3, rush in, dragon
+  ult1: { fr: ['12.1', '12.2', '12.3', '12.4', '12.3', '12.4', '12.5'], fps: 7, loop: false },
+  ult2: { fr: ['13.4'], fps: 1, loop: true },
+  ult3: { fr: [{ id: '13.6', ax: 0.3 }], fps: 1, loop: true },
 });
 
-const CELL = {
+// Written with Perfect Cell's rows (12-16); each form sits in the same layout 6 rows higher up.
+const CELL_TEMPLATE = {
   idle: { fr: ['12.0', '13.0', '13.1', '13.0'], fps: 4, loop: true },
   walk: { fr: ['13.0', '13.1'], fps: 5, loop: true },
   dash: { fr: ['13.11'], fps: 1, loop: true },
@@ -64,14 +71,31 @@ const CELL = {
   knock: { fr: ['14.4', '14.6'], fps: 8, loop: false },
   down: { fr: ['14.9'], fps: 1, loop: true },
   dizzy: { fr: ['14.7', '14.8'], fps: 4, loop: true },
+  getup: { fr: ['14.10', '14.11'], fps: 6, loop: false },
   taunt: { fr: ['12.1'], fps: 1, loop: true },
   win: { fr: ['12.1'], fps: 1, loop: true },
+  barrage: { fr: ['16.1', { id: '16.0', w: 24 }, '16.1', { id: '16.0', w: 24 }, '16.1', { id: '16.0', w: 24 }], fps: 10, emitAt: [1, 3, 5], emit: 29 },
 };
+
+const CELL_FORMS = ['imperfect', 'semi', 'perfect'];
+const CELL_ROW = { imperfect: 0, semi: 6, perfect: 12 };
+const CELL_INFO = {
+  imperfect: { name: 'IMPERFECT CELL', speed: 0.9, dmgMul: 0.9, bar: '#7be05a' },
+  semi: { name: 'SEMI-PERFECT CELL', speed: 1.05, dmgMul: 1.1, bar: '#3fc0a0' },
+  perfect: { name: 'PERFECT CELL', speed: 1.25, dmgMul: 1.3, bar: '#c27aff' },
+};
+function cellForm(row) {
+  const shift = id => { const [r, i] = id.split('.').map(Number); return `${r - 12 + row}.${i}`; };
+  return Object.fromEntries(Object.entries(CELL_TEMPLATE).map(([k, a]) => [k, {
+    ...a, fr: a.fr.map(r => typeof r === 'string' ? shift(r) : { ...r, id: shift(r.id) }),
+  }]));
+}
 
 const ANIMS = {
   goku: { base: GOKU_BASE, ssj: GOKU_SSJ },
-  cell: { base: CELL },
+  cell: Object.fromEntries(CELL_FORMS.map(f => [f, cellForm(CELL_ROW[f])])),
 };
+ANIMS.cell.base = ANIMS.cell.perfect;
 
 // Projectile and beam art cut out of the sheets.
 const FX_ART = {
@@ -81,7 +105,8 @@ const FX_ART = {
   teleport: { sheet: 'cell', ref: '12.5' },
   streak: { sheet: 'cell', ref: '12.4' },
   gokuPortrait: { sheet: 'goku', ref: '10.0' },
-  cellHead: { sheet: 'cell', ref: { id: '12.0', h: 20 } },
+  ssj3Portrait: { sheet: 'goku', ref: { id: '12.0', w: 41 } },
+  gokuHead: { sheet: 'goku', ref: { id: '0.2', h: 22 } },
 };
 const BEAMS = {
   goku: {

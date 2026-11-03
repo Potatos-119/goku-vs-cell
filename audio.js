@@ -113,6 +113,7 @@ const Audio8 = (() => {
     blip() { init(); tone('square', 880, 880, ac.currentTime, 0.04, 0.08); },
   };
 
+  sfx.parry = () => { init(); const t = ac.currentTime; [88, 95, 100].forEach((n, i) => tone('square', hz(n), hz(n), t + i * 0.05, 0.12, 0.14)); noise(t, 0.08, 0.3, 'highpass', 5000, 5000); };
   sfx.teleport = () => { init(); const t = ac.currentTime; tone('square', 1800, 300, t, 0.12, 0.12); noise(t, 0.1, 0.2, 'highpass', 4000, 4000); };
 
   // Music and voice files from assets/audio (falls back to the synth theme if missing).

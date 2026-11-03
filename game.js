@@ -30,20 +30,20 @@ class Fighter {
     Object.assign(this, {
       who, x, y: FLOOR, vx: 0, vy: 0, facing, hp: maxHp, maxHp, ki: 0, form: 'base',
       state: 'idle', anim: 'idle', at: 0, t2: 0, stun: 0, inv: 0, dmgMul: 1, speed: 1,
-      visible: true, queue: [], next: null, hitDone: false, emitted: false,
+      visible: true, queue: [], next: null, hitDone: false, emitted: 0, blockT: 0,
       // Cell's sheet is drawn smaller than Goku's; 1.25 keeps pixels whole at 4x
       scale: who === 'cell' ? 1.25 : 1,
     });
   }
   A(name = this.anim) { return ANIMS[this.who][this.form][name] || ANIMS[this.who].base[name]; }
-  play(anim, state = anim) { this.anim = anim; this.state = state; this.at = 0; this.hitDone = false; this.emitted = false; }
+  play(anim, state = anim) { this.anim = anim; this.state = state; this.at = 0; this.hitDone = false; this.emitted = 0; }
   get fi() { const a = this.A(), i = Math.floor(this.at * a.fps); return a.loop ? i % a.fr.length : Math.min(i, a.fr.length - 1); }
   get animDone() { const a = this.A(); return !a.loop && this.at * a.fps >= a.fr.length; }
   get img() { return Sheets.frame(this.who, this.A().fr[this.fi]); }
   get free() { return this.state === 'idle' || this.state === 'walk'; }
   box() { return { x0: this.x - 11, x1: this.x + 11, y0: this.y - 46, y1: this.y }; }
   hand(anim) {
-    const a = this.A(anim), im = Sheets.frame(this.who, a.fr[a.emitAt ?? 0]);
+    const a = this.A(anim), im = Sheets.frame(this.who, a.fr[[].concat(a.emitAt ?? 0)[0]]);
     return [this.x + this.facing * (im.width - im.ax) * this.scale, this.y - a.emit * this.scale];
   }
   draw() {
@@ -58,19 +58,27 @@ class Fighter {
   }
 }
 
-let goku, cell, projs, beams, sparks, ghosts, clash, timers, game;
+let goku, cell, projs, beams, sparks, ghosts, popups, clash, timers, game;
 
 function reset() {
   goku = new Fighter('goku', 80, 1, 100);
-  cell = new Fighter('cell', 240, -1, 240);
-  projs = []; beams = []; sparks = []; ghosts = []; clash = null; timers = [];
-  game = { mode: 'title', time: 99, freeze: 0, shake: 0, flash: 0, phase2: false, slow: 1, banner: null, dlg: null, skip: false, result: null, t: 0, kameCd: 4 };
+  cell = new Fighter('cell', 240, -1, 300);
+  setCellForm('imperfect');
+  projs = []; beams = []; sparks = []; ghosts = []; popups = []; clash = null; timers = [];
+  game = { mode: 'title', time: 120, freeze: 0, shake: 0, flash: 0, phase: 0, slow: 1, banner: null, dlg: null, skip: false, result: null, t: 0, kameCd: 4 };
 }
 
 // ---------- combat ----------
-function damage(def, src, dmg, heavy, dir) {
-  if (def.inv > 0 || ['down', 'knock', 'tele', 'transform'].includes(def.state) || def.hp <= 0 || game.mode !== 'fight') return false;
-  const blocking = def.state === 'block' && def.facing === -dir;
+function setCellForm(form) {
+  cell.form = form;
+  Object.assign(cell, { speed: CELL_INFO[form].speed, dmgMul: CELL_INFO[form].dmgMul });
+}
+
+// kind: 'melee' | 'proj' | 'beam' | 'ult' (the Dragon Fist can't be blocked or dodged)
+function damage(def, src, dmg, heavy, dir, kind = 'melee') {
+  if ((def.inv > 0 && kind !== 'ult') || ['down', 'knock', 'tele', 'transform'].includes(def.state) || def.hp <= 0 || game.mode !== 'fight') return false;
+  const blocking = kind !== 'ult' && def.state === 'block' && def.facing === -dir;
+  if (blocking && def === goku && kind !== 'beam' && def.blockT < PARRY_WINDOW) return perfectBlock(def, src, kind);
   if (blocking) {
     dmg *= 0.15; def.vx = dir * 90; def.ki = Math.min(100, def.ki + 3);
     sparks.push({ x: def.x - dir * 8, y: def.y - 28, t: 0, c: '#9fe7ff' });
@@ -89,6 +97,17 @@ function damage(def, src, dmg, heavy, dir) {
     else { def.play('hurt'); def.stun = 0.3; def.vx = dir * 70; sfx.punch(); }
     if (def === goku && Math.random() < 0.3) sfx.hurt();
   }
+  return true;
+}
+
+// Block just as a hit lands: no damage, a big ki refund, and a punch or kick leaves Cell dizzy.
+const PARRY_WINDOW = 0.18;
+function perfectBlock(def, src, kind) {
+  def.ki = Math.min(100, def.ki + 25); def.inv = 0.25;
+  popups.push({ text: 'PERFECT!  +KI', x: def.x, y: def.y - 54, t: 0, c: '#8ff' });
+  sparks.push({ x: def.x + def.facing * 10, y: def.y - 30, t: 0, c: '#ffffff' });
+  game.freeze = 0.15; game.flash = 0.35; sfx.parry();
+  if (kind === 'melee') { src.queue = []; src.next = null; src.play('dizzy', 'hurt'); src.stun = 1.1; src.vx = -src.facing * 60; }
   return true;
 }
 
@@ -111,7 +130,7 @@ function cast(f, name) {
 }
 
 function spawnProjectile(f) {
-  const kind = { kiCast: 'kiBall', finger: 'finger', death: 'death' }[f.anim];
+  const kind = { kiCast: 'kiBall', finger: 'finger', death: 'death', barrage: 'finger' }[f.anim];
   const [hx, hy] = f.hand(f.anim);
   const stats = { kiBall: [300, 6, false], finger: [330, 8, false], death: [560, 12, true] }[kind];
   projs.push({ owner: f, kind, x: hx, y: hy, dir: f.facing, vx: stats[0] * f.facing, dmg: stats[1] * f.dmgMul, heavy: stats[2] });
@@ -141,6 +160,7 @@ function fireKame(f) {
 function updateFighter(f, foe, dt) {
   f.at += dt;
   if (f.inv > 0) f.inv -= dt;
+  if (f.state === 'block') f.blockT += dt;
   const airborne = f.y < FLOOR || f.vy < 0;
   if (airborne) {
     f.vy += GRAV * dt; f.y += f.vy * dt;
@@ -159,14 +179,15 @@ function updateFighter(f, foe, dt) {
       break;
     case 'airAtk': meleeCheck(f, foe); break;
     case 'cast':
-      if (!f.emitted && f.fi >= f.A().emitAt) { f.emitted = true; spawnProjectile(f); }
+      { const shots = [].concat(f.A().emitAt);
+        while (f.emitted < shots.length && f.fi >= shots[f.emitted]) { f.emitted++; spawnProjectile(f); } }
       if (f.animDone) f.play('idle');
       break;
     case 'hurt':
       if ((f.stun -= dt) <= 0) { if (f.y < FLOOR) f.play('fall', 'jump'); else f.play('idle'); }
       break;
     case 'down':
-      if ((f.t2 -= dt) <= 0 && f.hp > 0) { f.play('idle'); f.inv = 0.7; }
+      if ((f.t2 -= dt) <= 0 && f.hp > 0) { if (f.A('getup')) f.play('getup', 'appear'); else f.play('idle'); f.inv = 0.7; }
       break;
     case 'jump': if (f.vy > 0) f.play('fall', 'jump'); break;
     case 'land': if (f.animDone) f.play('idle'); break;
@@ -185,6 +206,17 @@ function updateFighter(f, foe, dt) {
       if ((f.t2 -= dt) <= 0 && !clash) { beams = beams.filter(b => b.owner !== f); f.play('idle'); }
       break;
     case 'transform': if (f.animDone) finishTransform(f); break;
+    case 'pose': if ((f.t2 -= dt) <= 0) f.play('idle'); break;
+    case 'ult1': if ((f.t2 -= dt) <= 0) { f.play('ult2'); f.t2 = 0.7; sfx.whoosh(); } break;
+    case 'ult2':
+      f.facing = foe.x > f.x ? 1 : -1; f.vx = f.facing * 420;
+      if (Math.abs(foe.x - f.x) < 34 || (f.t2 -= dt) <= 0) {
+        f.vx = 0; f.play('ult3'); f.t2 = 1.1;
+        game.flash = 1; game.shake = 10; sfx.explode();
+        damage(foe, f, 50, true, f.facing, 'ult');
+      }
+      break;
+    case 'ult3': if ((f.t2 -= dt) <= 0) { f.play('idle'); f.inv = 0.3; } break;
   }
 }
 
@@ -208,25 +240,32 @@ function landed(f) {
 }
 
 // ---------- player ----------
-const NEXT_P = { p1: 'p2', p2: 'p3', p3: 'p4', k1: 'p2', k2: 'p3' };
-const NEXT_K = { p1: 'k1', p2: 'k2', p3: 'k3', k1: 'k2', k2: 'k3' };
+const NEXT_P = { p1: 'p2', p2: 'p3', p3: 'p4', k1: 'p2', k2: 'p3', rush: 'p2' };
+const NEXT_K = { p1: 'k1', p2: 'k2', p3: 'k3', k1: 'k2', k2: 'k3', rush: 'k2' };
 
 function playerInput(dt) {
   const g = goku, dir = (keys.d ? 1 : 0) - (keys.a ? 1 : 0);
   if (g.free) {
     g.facing = cell.x > g.x ? 1 : -1;
-    if (keys.s) { g.play('block'); g.vx = 0; return; }
+    if (keys.s) { g.play('block'); g.blockT = 0; g.vx = 0; return; }
     if (keys.i) { g.play('charge'); g.vx = 0; sfx.charge(0.5); return; }
     if (tap('w') || tap(' ')) { g.play('jump'); g.vy = -370; g.vx = dir * 120; sfx.whoosh(); return; }
     if (tap('shift')) { g.play('dash'); g.t2 = 0.2; g.vx = (dir || g.facing) * 300; sfx.whoosh(); return; }
-    if (tap('j')) return startAttack(g, 'p1');
-    if (tap('k')) return startAttack(g, 'k1');
+    // holding toward Cell turns J into a rushing punch and K into a heavy slash
+    if (tap('j')) { startAttack(g, dir === g.facing ? 'rush' : 'p1'); if (dir === g.facing) g.vx = g.facing * 240; return; }
+    if (tap('k')) return startAttack(g, dir === g.facing ? 'slash' : 'k1');
     if (tap('l') && g.ki >= 8) { g.ki -= 8; return cast(g, 'kiCast'); }
     if (tap('q') && g.ki >= 15) { g.ki -= 15; return teleport(g, cell); }
     if (tap('t') && g.form === 'base' && g.ki >= 100) {
       g.ki = 50; g.play('transform'); g.vx = 0; g.inv = 2; sfx.powerup(); game.shake = 5; return;
     }
     if (tap('u') && g.form === 'ssj' && g.ki >= 50) { g.ki -= 50; return startKame(g); }
+    if (tap('o') && g.form === 'ssj' && g.ki >= 100) {
+      g.ki = 0; g.play('ult1'); g.t2 = 1.0; g.inv = 3; g.vx = 0;
+      sfx.powerup(); game.shake = 6; game.flash = 0.6;
+      popups.push({ text: 'SUPER SAIYAN 3!', x: g.x, y: g.y - 70, t: 0, c: '#ffe04a' });
+      return;
+    }
     if (dir) { if (g.anim !== 'walk') g.play('walk'); g.vx = dir * 100 * g.speed; }
     else if (g.state !== 'idle') { g.play('idle'); g.vx = 0; }
   } else if (g.state === 'jump') {
@@ -250,30 +289,32 @@ function cellAI(dt) {
   // dodge incoming ki blasts now and then
   for (const p of projs) if (p.owner === g && !p.seen && Math.abs(p.x - c.x) < 70) {
     p.seen = true;
-    if (c.free && Math.random() < 0.3) return teleport(c, g);
+    if (c.free && game.phase >= 1 && Math.random() < 0.3) return teleport(c, g);
   }
   if (!c.free) return;
   c.facing = g.x > c.x ? 1 : -1;
   const dist = Math.abs(g.x - c.x);
   if ((ai.think -= dt) > 0) { if (c.state === 'walk') c.vx = c.facing * 70 * c.speed; return; }
   ai.think = rand(0.25, 0.6) / c.speed;
-  const r = Math.random(), p2 = game.phase2;
+  const r = Math.random(), ph = game.phase;
   if (dist < 48) {
     if (g.state === 'attack' && r < 0.35) { c.play('block'); c.t2 = 0.5; c.vx = 0; return; }
-    if (r < 0.1) return teleport(c, g);
-    c.queue = pick([['p2', 'k2'], ['p1', 'p2', 'k2'], ['k1', 'k2'], ['p1', 'k1']]).slice(0, p2 ? 3 : 2);
+    if (ph >= 1 && r < 0.1) return teleport(c, g);
+    c.queue = pick([['p2', 'k2'], ['p1', 'p2', 'k2'], ['k1', 'k2'], ['p1', 'k1']]).slice(0, ph + 1);
     startAttack(c, c.queue.shift());
     ai.think = rand(0.6, 1.1) / c.speed;
   } else if (dist < 140) {
     if (r < 0.45) { c.play('dash'); c.t2 = 0.24; c.vx = c.facing * 260 * c.speed; }
     else if (r < 0.65) cast(c, 'finger');
-    else if (p2 && r < 0.78) cast(c, 'death');
+    else if (ph >= 1 && r < 0.78) cast(c, 'death');
     else { c.play('walk'); }
   } else {
-    if (p2 && game.kameCd <= 0 && r < 0.4) { game.kameCd = rand(8, 12); return startKame(c); }
-    if (r < 0.35) cast(c, 'finger');
-    else if (r < 0.5) teleport(c, g);
-    else if (p2 && r < 0.62) cast(c, 'death');
+    if (ph >= 2 && game.kameCd <= 0 && r < 0.4) { game.kameCd = rand(8, 12); return startKame(c); }
+    if (r < 0.3) cast(c, 'finger');
+    else if (ph >= 1 && r < 0.45) cast(c, 'barrage');
+    else if (ph >= 1 && r < 0.55) teleport(c, g);
+    else if (ph >= 1 && r < 0.65) cast(c, 'death');
+    else if (r < 0.75) { c.play('taunt', 'pose'); c.t2 = 0.9; }
     else c.play('walk');
   }
 }
@@ -285,7 +326,7 @@ function updateProjectiles(dt) {
     const foe = p.owner === goku ? cell : goku, len = art(FX_ART[p.kind]).width * p.owner.scale, b = foe.box();
     const x0 = p.dir > 0 ? p.x : p.x - len, x1 = p.dir > 0 ? p.x + len : p.x;
     if (x1 > b.x0 && x0 < b.x1 && p.y > b.y0 && p.y < b.y1 && foe.visible) {
-      if (damage(foe, p.owner, p.dmg, p.heavy, p.dir)) p.dead = true;
+      if (damage(foe, p.owner, p.dmg, p.heavy, p.dir, 'proj')) p.dead = true;
     }
     for (const q of projs) if (q !== p && q.owner !== p.owner && Math.abs(q.x - p.x) < 14 && Math.abs(q.y - p.y) < 14) {
       p.dead = q.dead = true; sparks.push({ x: p.x, y: p.y, t: 0, c: '#ffffff' }); sfx.punch();
@@ -312,7 +353,7 @@ function updateBeams(dt) {
     if (inX && inY && foe.visible && !clash && (b.tick -= dt) <= 0) {
       b.tick = 0.1;
       const lastHit = b.owner.t2 < 0.15;
-      damage(foe, b.owner, b.dps * 0.1 * b.owner.dmgMul, lastHit, b.dir);
+      damage(foe, b.owner, b.dps * 0.1 * b.owner.dmgMul, lastHit, b.dir, 'beam');
       if (!lastHit) game.freeze = 0; // 10 ticks a second: hit-stop on each would stall the whole game
       if (foe.state === 'hurt') { foe.stun = 0.15; foe.vx = b.dir * 40; }
     }
@@ -328,7 +369,7 @@ function updateBeams(dt) {
   }
   if (clash) {
     if (tap('j') || tap('u')) clash.m += gb.dir * 7;
-    clash.m -= gb.dir * (game.phase2 ? 34 : 28) * dt;
+    clash.m -= gb.dir * 34 * dt;
     gb.len = Math.abs(clash.m - gb.x0); cb.len = Math.abs(clash.m - cb.x0);
     game.shake = 2;
     if (Math.random() < dt * 8) sfx.punch();
@@ -338,7 +379,7 @@ function updateBeams(dt) {
       clash = null; game.banner = null;
       beams = beams.filter(b => b.owner === winner);
       winner.t2 = 0.4; loser.play('idle');
-      damage(loser, winner, 38, true, winner.facing);
+      damage(loser, winner, 38, true, winner.facing, 'beam');
       game.flash = 0.8; sfx.explode();
     }
   }
@@ -375,13 +416,13 @@ async function intro() {
   game.mode = 'intro'; game.skip = false;
   goku.visible = false; cell.play('idle'); cell.x = 240;
   await wait(0.8);
-  await say('CELL', 'So... the great Son Goku finally decided to show up.');
+  await say('CELL', 'So... the great Son Goku. Once I absorb the androids, I will be PERFECT.');
   goku.x = 80; goku.visible = true; goku.play('teleIn', 'appear');
   ghosts.push({ img: art(FX_ART.teleport), x: goku.x, y: FLOOR, t: 0 }); sfx.teleport();
   await wait(0.7);
-  await say('GOKU', "Cell! Your little games end right here.");
+  await say('GOKU', "You won't get the chance, Cell! I'm stopping you right here.");
   cell.play('taunt');
-  await say('CELL', 'Hahaha! Then show me everything a Saiyan has, before I erase you!');
+  await say('CELL', 'Hahaha! Then let me taste the power of a Saiyan!');
   cell.play('power'); sfx.powerup(); game.shake = 5;
   await wait(1.6);
   cell.play('idle'); goku.play('charge'); sfx.charge(1.2); game.shake = 4;
@@ -401,18 +442,27 @@ async function startFight() {
   game.mode = 'fight';
 }
 
-async function cellPowerUp() {
+// Cell evolves at 2/3 and 1/3 health: Imperfect -> Semi-Perfect -> Perfect.
+async function cellTransform() {
+  const next = CELL_FORMS[game.phase + 1];
   game.mode = 'cut'; projs = []; beams = []; clash = null; game.banner = null;
   settle(goku); settle(cell);
   cell.play('power'); sfx.powerup(); game.shake = 6;
   await wait(0.6);
-  await say('CELL', "Impressive... but playtime is over. Witness my PERFECT power!");
-  sfx.explode(); game.flash = 1; game.shake = 8;
-  await wait(1);
+  await say('CELL', next === 'semi'
+    ? 'Hehehe... Android 17 is part of me now. Let me show you my second form!'
+    : 'With Android 18 I am finally complete... Behold my PERFECT form!');
+  sfx.explode(); game.flash = 1; game.shake = 10;
+  setCellForm(next); game.phase++;
+  cell.play('power');
+  await wait(1.2);
   cell.play('idle');
-  Object.assign(cell, { speed: 1.25, dmgMul: 1.3 });
-  game.phase2 = true; game.kameCd = 3;
-  if (goku.form === 'base' && goku.ki < 100) await say('GOKU', '(I need more power... charge ki with I, then press T!)');
+  if (next === 'perfect') {
+    game.kameCd = 3;
+    await say('CELL', 'Perfection! Go on, Goku. Entertain me.');
+    if (goku.form === 'ssj') await say('GOKU', '(Time to go all out... fill my ki and press O!)');
+  }
+  if (goku.form === 'base') await say('GOKU', '(He keeps getting stronger... charge ki with I, then press T!)');
   game.mode = 'fight';
 }
 
@@ -475,13 +525,15 @@ function step(raw) {
   sparks = sparks.filter(s => s.t < 0.3);
   for (const gh of ghosts) gh.t += raw;
   ghosts = ghosts.filter(gh => gh.t < 0.3);
+  for (const pp of popups) pp.t += raw;
+  popups = popups.filter(pp => pp.t < 0.9);
   if (game.freeze > 0) { game.freeze -= raw; return 'frozen'; }
 
   if (game.mode === 'fight') {
     playerInput(dt);
     if (!window.noAI) cellAI(dt);
     game.time -= dt;
-    if (!game.phase2 && cell.hp <= cell.maxHp * 0.5 && cell.hp > 0 && cell.free) { cellPowerUp(); return; }
+    if (game.phase < 2 && cell.hp <= cell.maxHp * (2 - game.phase) / 3 && cell.hp > 0 && cell.free) { cellTransform(); return; }
   }
   updateFighter(goku, cell, dt);
   updateFighter(cell, goku, dt);
@@ -526,22 +578,35 @@ function bar(x, y, w, h, v, color, flip) {
 }
 
 function drawHUD() {
-  const portrait = art(FX_ART.gokuPortrait);
-  ctx.drawImage(portrait, 0, 0, portrait.width, 40, 6, 5, 22, 22);
-  ctx.strokeStyle = '#000'; ctx.strokeRect(5.5, 4.5, 23, 23);
-  const head = art(FX_ART.cellHead);
-  ctx.save(); ctx.translate(W - 6, 5); ctx.scale(-1, 1); ctx.drawImage(head, 0, 0, 22, 22 * head.height / head.width); ctx.restore();
+  // the icon follows Goku's form: normal head, Super Saiyan portrait, SSJ3 during the Dragon Fist
+  const ult = goku.state.startsWith('ult');
+  icon(art(ult ? FX_ART.ssj3Portrait : goku.form === 'ssj' ? FX_ART.gokuPortrait : FX_ART.gokuHead), 6, 5, !ult && goku.form === 'base');
+  icon(art({ sheet: 'cell', ref: { id: CELL_ROW[cell.form] + '.0', h: 20 } }), W - 28, 5, true, true);
   bar(32, 7, 100, 7, goku.hp / goku.maxHp, goku.hp / goku.maxHp > 0.3 ? '#ffd23a' : '#ff4a3a');
-  bar(W - 132, 7, 100, 7, cell.hp / cell.maxHp, game.phase2 ? '#c27aff' : '#7be05a', true);
+  bar(W - 132, 7, 100, 7, cell.hp / cell.maxHp, CELL_INFO[cell.form].bar, true);
+  ctx.fillStyle = '#000'; [1, 2].forEach(k => ctx.fillRect(W - 132 + Math.round(100 * k / 3), 7, 1, 7));
   const kiFull = goku.ki >= 100 && Math.floor(game.t * 6) % 2;
   bar(32, 17, 70, 4, goku.ki / 100, kiFull ? '#ffffff' : '#4fd2ff');
-  text(goku.form === 'ssj' ? 'GOKU  SSJ' : 'GOKU', 32, 22, 9, '#fff');
-  text(game.phase2 ? 'PERFECT CELL' : 'CELL', W - 32, 16, 9, '#fff', 'right');
+  text(ult ? 'GOKU  SSJ3' : goku.form === 'ssj' ? 'GOKU  SSJ' : 'GOKU', 32, 22, 9, '#fff');
+  text(CELL_INFO[cell.form].name, W - 32, 16, 9, '#fff', 'right');
   text(String(Math.max(0, Math.ceil(game.time))), W / 2, 4, 16, '#ffe04a', 'center');
   let hint = '';
   if (goku.form === 'base' && goku.ki >= 100) hint = 'PRESS T  -  SUPER SAIYAN!';
+  else if (goku.form === 'ssj' && goku.ki >= 100) hint = 'U  KAMEHAMEHA    O  DRAGON FIST!';
   else if (goku.form === 'ssj' && goku.ki >= 50) hint = 'PRESS U  -  KAMEHAMEHA!';
   if (hint && game.mode === 'fight' && !beams.length) text(hint, W / 2, 32, 8, '#9ff', 'center');
+}
+
+// Icon in a dark frame. crop: draw just the top square of a tall portrait.
+function icon(im, x, y, crop, flip) {
+  const sw = im.width, sh = crop ? im.height : Math.min(im.height, im.width);
+  const k = Math.min(22 / sw, 22 / sh);
+  ctx.fillStyle = '#120c1c'; ctx.fillRect(x, y, 22, 22);
+  ctx.save(); ctx.beginPath(); ctx.rect(x, y, 22, 22); ctx.clip();
+  ctx.translate(x + 11, y + 22 - sh * k); if (flip) ctx.scale(-1, 1);
+  ctx.drawImage(im, 0, 0, sw, sh, -sw * k / 2, 0, sw * k, sh * k);
+  ctx.restore();
+  ctx.strokeStyle = '#000'; ctx.lineWidth = 1; ctx.strokeRect(x - 0.5, y - 0.5, 23, 23);
 }
 
 function drawDialogue() {
@@ -571,14 +636,17 @@ function drawTitle() {
   text('VS', W / 2, 42, 20, '#fff', 'center');
   text('CELL', W / 2 + 4, 16, 30, '#a8e27c', 'left');
   if (Math.floor(game.t * 2) % 2) text('PRESS ENTER', W / 2, 72, 14, '#ffe04a', 'center');
-  ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(0, 112, W, 60);
+  ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(0, 110, W, 68);
   ctx.font = '5px "Press Start 2P", monospace'; ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
   [
     'A/D MOVE   W JUMP   S BLOCK   SHIFT DASH',
     'J PUNCH   K KICK   (CHAIN THEM!)   L KI BLAST',
+    'TOWARD CELL + J RUSH   TOWARD CELL + K SLASH',
+    'TAP S RIGHT AS A HIT LANDS = PERFECT BLOCK (+KI)',
     'HOLD I CHARGE KI   Q TELEPORT   T SUPER SAIYAN',
-    'U KAMEHAMEHA (SSJ)   P PAUSE   ESC SKIP INTRO',
-  ].forEach((l, i) => ctx.fillText(l, W / 2, 120 + i * 12));
+    'U KAMEHAMEHA   O DRAGON FIST (SSJ, FULL KI)',
+    'P PAUSE   ESC SKIP INTRO',
+  ].forEach((l, i) => ctx.fillText(l, W / 2, 116 + i * 9));
 }
 
 function render() {
@@ -610,6 +678,7 @@ function render() {
   }
   for (const gh of ghosts) { ctx.globalAlpha = 1 - gh.t / 0.3; ctx.drawImage(gh.img, Math.round(gh.x - gh.img.width / 2), gh.y - gh.img.height); ctx.globalAlpha = 1; }
   for (const s of sparks) FX.spark(ctx, s.x, s.y, s.t, s.c);
+  for (const pp of popups) text(pp.text, Math.round(pp.x), Math.round(pp.y - pp.t * 18), 9, pp.c, 'center');
   ctx.setTransform(S, 0, 0, S, 0, 0);
   if (game.flash > 0) { ctx.fillStyle = `rgba(255,250,220,${game.flash * 0.8})`; ctx.fillRect(0, 0, W, H); }
   if (['fight', 'ready', 'ko', 'paused', 'cut'].includes(game.mode)) drawHUD();
@@ -627,4 +696,4 @@ function render() {
 
 reset();
 Sheets.load().then(() => requestAnimationFrame(loop));
-window.__game = () => ({ goku, cell, game, beams, projs, startKame, cellPowerUp });
+window.__game = () => ({ goku, cell, game, beams, projs, startKame, cellTransform });
