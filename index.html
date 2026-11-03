@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Goku vs Cell</title>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+  @font-face { font-family: Saiyan; src: url(assets/font/Saiyan-Sans.ttf); }
+  html, body { margin: 0; height: 100%; background: #07060d; overflow: hidden; }
+  body { display: flex; align-items: center; justify-content: center; }
+  canvas { width: min(100vw, calc(100vh * 16 / 9)); aspect-ratio: 16 / 9; image-rendering: pixelated; display: block; }
+  /* preload fonts so canvas text uses them */
+  .preload { position: absolute; opacity: 0; font-family: Saiyan; } .preload b { font-family: 'Press Start 2P'; }
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+<div class="preload">a<b>a</b></div>
+<script src="sheets.js"></script>
+<script src="data.js"></script>
+<script src="fx.js"></script>
+<script src="audio.js"></script>
+<script src="game.js"></script>
+</body>
+</html>

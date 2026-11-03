@@ -1,0 +1,33 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Frame Viewer</title>
+<style>
+body{margin:0;background:#3a3458;color:#fff;font:11px monospace;padding:8px}
+.row{display:flex;flex-wrap:wrap;gap:6px;align-items:flex-end;margin-bottom:10px;border-bottom:1px solid #556}
+.f{text-align:center}.f canvas{image-rendering:pixelated;display:block;background:#2a2440}
+b{display:block;color:#ffd84a;margin:4px 0}
+</style></head>
+<body><div id="o"></div>
+<script src="../sheets.js"></script>
+<script>
+// Shows every frame of one sheet at 2x with its id, for mapping frames to animations.
+const q = new URLSearchParams(location.search);
+const sheet = q.get('sheet') || 'goku', from = +(q.get('from') || 0), to = +(q.get('to') || 99), S = +(q.get('s') || 2);
+for (const k in SHEET_CFG) SHEET_CFG[k].src = '../' + SHEET_CFG[k].src;
+Sheets.load().then(() => {
+  const rows = Sheets.sheets[sheet].rows;
+  rows.forEach((r, ri) => {
+    if (ri < from || ri > to) return;
+    const div = document.createElement('div'); div.className = 'row';
+    div.innerHTML = `<b>row ${ri}</b>`;
+    r.forEach((_, i) => {
+      const f = Sheets.frame(sheet, ri + '.' + i);
+      const c = document.createElement('canvas'); c.width = f.width; c.height = f.height;
+      c.style.width = f.width * S + 'px'; c.style.height = f.height * S + 'px';
+      c.getContext('2d').drawImage(f, 0, 0);
+      const w = document.createElement('div'); w.className = 'f'; w.append(c, ri + '.' + i);
+      div.append(w);
+    });
+    document.getElementById('o').append(div);
+  });
+});
+</script></body></html>
