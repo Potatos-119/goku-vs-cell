@@ -47,6 +47,11 @@ Then open http://localhost:8765 and press Enter.
 | Toward Cell + K | Heavy slash (knockdown) |
 | Tap S as a hit lands | Perfect block: no damage, +25 ki, punches leave Cell dizzy |
 
+Keys are read by position, so the layout above works on AZERTY and other keyboards too. A gamepad works as
+well: A jump, X punch, Y kick, B ki blast, LB block, RB dash, LT charge, RT beam, Back vanish, Start pause,
+L3 transform, R3 ultimate, stick or d-pad to move. A press made just before you can act (while landing or
+recovering) is remembered for a moment, so attacks don't get swallowed.
+
 Blocking uses the green stamina bar under the ki bar. Holding block drains it slowly and each blocked hit costs more; at zero your guard breaks, the hit lands and you can't block until it refills. Perfect blocks give stamina back.
 | L | Ki blast (Goku) / finger beam (Cell); toward + L = barrage (Semi-Perfect+) |
 | Hold I | Charge ki |
@@ -58,6 +63,7 @@ Blocking uses the green stamina bar under the ki bar. Holding block drains it sl
 | O | Ultimate at full ki: Dragon Fist (SSJ Goku) / Solar Kamehameha (Perfect Cell) |
 | P | Pause |
 | M | Music on/off (remembered next time) |
+| R | Calm mode: much less screen shake and flashing (remembered next time) |
 | V | Voices on/off |
 | Esc | Skip intro / back to character select after a fight |
 

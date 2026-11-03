@@ -13,17 +13,60 @@ const sfx = Audio8.sfx;
 const art = a => Sheets.frame(a.sheet, a.ref);
 
 // ---------- input ----------
-const keys = {}, pressed = new Set();
+// Gameplay reads named actions, never raw keys. Keyboard bindings are physical key positions
+// (e.code), so WASD stays in place on AZERTY/QWERTZ, and a gamepad maps onto the same actions.
+const BINDINGS = {
+  left: ['KeyA', 'ArrowLeft'], right: ['KeyD', 'ArrowRight'], jump: ['KeyW', 'Space', 'ArrowUp'],
+  block: ['KeyS', 'ArrowDown'], punch: ['KeyJ'], kick: ['KeyK'], ki: ['KeyL'], beam: ['KeyU'],
+  ult: ['KeyO'], charge: ['KeyI'], vanish: ['KeyQ'], transform: ['KeyT'], dash: ['ShiftLeft', 'ShiftRight'],
+  pause: ['KeyP'], confirm: ['Enter', 'NumpadEnter'], back: ['Escape'], music: ['KeyM'], voice: ['KeyV'], calm: ['KeyR'],
+};
+// standard-mapping gamepad buttons (A B X Y = 0 1 2 3, LB RB = 4 5, LT RT = 6 7, Back Start = 8 9,
+// stick clicks = 10 11, d-pad = 12-15)
+const PAD_BINDINGS = {
+  jump: [0, 12], confirm: [0, 9], back: [1, 8], ki: [1], punch: [2], kick: [3], block: [4, 13], dash: [5],
+  charge: [6], beam: [7], vanish: [8], pause: [9], transform: [10], ult: [11], left: [14], right: [15],
+};
+const CODE_ACTIONS = {};
+for (const [a, codes] of Object.entries(BINDINGS)) for (const c of codes) (CODE_ACTIONS[c] = CODE_ACTIONS[c] || []).push(a);
+// synthetic events (and some old browsers) carry no e.code: fall back to the key's name
+const codeOf = e => e.code || { ' ': 'Space', enter: 'Enter', escape: 'Escape', shift: 'ShiftLeft', arrowleft: 'ArrowLeft', arrowright: 'ArrowRight', arrowup: 'ArrowUp', arrowdown: 'ArrowDown' }[e.key.toLowerCase()] || 'Key' + e.key.toUpperCase();
+
+const keys = {}, pressed = new Set(), lastPress = {}, kbHeld = {}, padHeld = {};
+function setHeld(src, action, down) {
+  if (down && !kbHeld[action] && !padHeld[action]) { pressed.add(action); lastPress[action] = game ? game.t : 0; }
+  src[action] = down;
+  keys[action] = !!(kbHeld[action] || padHeld[action]);
+}
 addEventListener('keydown', e => {
-  const k = e.key.toLowerCase();
-  if (!keys[k]) pressed.add(k);
-  keys[k] = true;
-  if ([' ', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(k)) e.preventDefault();
+  const acts = CODE_ACTIONS[codeOf(e)];
+  if (!acts) return;
+  e.preventDefault();
+  if (!e.repeat) acts.forEach(a => setHeld(kbHeld, a, true));
 });
-addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
+addEventListener('keyup', e => (CODE_ACTIONS[codeOf(e)] || []).forEach(a => setHeld(kbHeld, a, false)));
 // switching windows swallows keyup events, which would leave a key held forever
-addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
-const tap = k => pressed.has(k);
+addEventListener('blur', () => { for (const a in kbHeld) setHeld(kbHeld, a, false); });
+function pollGamepad() {
+  const pad = [...(navigator.getGamepads ? navigator.getGamepads() : [])].find(p => p && p.connected);
+  if (!pad) return;
+  const btn = i => pad.buttons[i] && pad.buttons[i].pressed;
+  const x = pad.axes[0] || 0, y = pad.axes[1] || 0, stick = Math.hypot(x, y) > 0.35; // radial deadzone
+  for (const [a, list] of Object.entries(PAD_BINDINGS)) {
+    let down = list.some(btn);
+    if (a === 'left') down = down || (stick && x < -0.5);
+    if (a === 'right') down = down || (stick && x > 0.5);
+    if (a === 'block') down = down || (stick && y > 0.6);
+    setHeld(padHeld, a, down);
+  }
+}
+const tap = a => pressed.has(a);
+// input buffer: a press up to 0.12s before the fighter can act still goes through, once
+const BUFFER = 0.12;
+function act(a) {
+  if (lastPress[a] === undefined || game.t - lastPress[a] > BUFFER) return false;
+  lastPress[a] = -99; return true;
+}
 
 // ---------- fighters ----------
 class Fighter {
@@ -33,6 +76,7 @@ class Fighter {
       state: 'idle', anim: 'idle', at: 0, t2: 0, stun: 0, inv: 0, dmgMul: 1, speed: 1,
       visible: true, queue: [], next: null, hitDone: false, emitted: 0, blockT: 0,
       stamina: 100, staminaDelay: 0, guardBroken: false, trailT: 0, counter: false, hover: 0, big: false,
+      flash: 0, sq: 0, // hit flash timer; squash (+) / stretch (-) that springs back to 0
       // Cell's sheet is drawn smaller than Goku's; 1.25 keeps pixels whole at 4x
       scale: who === 'cell' ? 1.25 : 1,
     });
@@ -53,12 +97,22 @@ class Fighter {
     const im = this.img;
     ctx.save();
     ctx.translate(Math.round(this.x), Math.round(this.y - this.hover));
-    ctx.scale(this.facing * this.scale, this.scale);
+    ctx.scale(this.facing * this.scale * (1 + this.sq), this.scale * (1 - this.sq));
     if (this.inv > 0 && Math.floor(this.inv * 20) % 2) ctx.globalAlpha = 0.5;
     ctx.drawImage(im, -Math.round(im.ax), -im.height);
+    if (this.flash > 0) {
+      ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = settings.calm ? 0.35 : 0.75;
+      ctx.drawImage(im, -Math.round(im.ax), -im.height);
+    }
     ctx.restore();
   }
 }
+
+// accessibility: calm mode cuts screen shake and flashing (remembered between visits)
+const settings = { calm: false };
+try { settings.calm = localStorage.getItem('calmMode') === '1'; } catch (e) { /* storage blocked */ }
+// Screen shake as decaying trauma: hits add to it instead of resetting it, and it eases back to rest.
+function shake(n) { game.shake = Math.min(14, Math.max(game.shake, n) + n * 0.2); }
 
 let goku, cell, player, boss, projs, beams, sparks, ghosts, popups, trails, zips, clash, timers, game;
 const foeOf = f => f === goku ? cell : goku;
@@ -78,7 +132,7 @@ function reset(side = (game && game.side) || 'goku') {
   if (boss === goku) Object.assign(goku, GOKU_BOSS[0]);
   projs = []; beams = []; sparks = []; ghosts = []; popups = []; trails = []; zips = []; clash = null; timers = [];
   Stage.reset(); Object.assign(ai, { think: 0.8, vanishCd: 3, ultCd: 6 });
-  game = { mode: 'title', cine: null, side, pick: side === 'cell' ? 1 : 0, time: 120, freeze: 0, shake: 0, flash: 0, phase: 0, slow: 1, banner: null, dlg: null, skip: false, result: null, t: 0, kameCd: 4 };
+  game = { mode: 'title', cine: null, combo: { n: 0, t: 0 }, side, pick: side === 'cell' ? 1 : 0, time: 120, freeze: 0, shake: 0, flash: 0, phase: 0, slow: 1, banner: null, dlg: null, skip: false, result: null, t: 0, kameCd: 4 };
 }
 
 function setForm(f, form) {
@@ -108,8 +162,10 @@ function damage(def, src, dmg, heavy, dir, kind = 'melee') {
     sfx.kick(); game.freeze = 0.04;
   } else {
     def.ki = Math.min(100, def.ki + 4); src.ki = Math.min(100, src.ki + 6);
+    def.flash = 0.08;
+    if (src === player) { game.combo.n++; game.combo.t = 0; } else game.combo.n = 0;
     sparks.push({ x: def.x - dir * 6, y: def.y - 30, t: 0, c: '#fff6b8' });
-    game.freeze = heavy ? 0.12 : 0.06; game.shake = heavy ? 6 : 3;
+    game.freeze = heavy ? 0.12 : 0.06; shake(heavy ? 6 : 3);
   }
   def.hp = Math.max(0, def.hp - dmg);
   // a fighter mid-Kamehameha takes the damage but keeps firing, unless it finishes them
@@ -217,13 +273,13 @@ function fireKame(f) {
   // from the air the beam angles down at the enemy (at most ~40 degrees)
   const ang = f.floating ? clamp(Math.atan2(foe.y - 22 - hy, Math.max(20, Math.abs(foe.x - hx))), 0, 0.7) : 0;
   beams.push({ owner: f, x0: hx, y: hy, ang, dir: f.facing, len: 0, t: 0, tick: 0, big: f.big, dps: f.big ? 34 : f.who === 'goku' ? 22 : 18 });
-  sfx.beam(f.t2); game.shake = f.big ? 9 : 4;
+  sfx.beam(f.t2); shake(f.big ? 9 : 4);
 }
 
 // Dragon Fist: power up to Super Saiyan 3, rush in, dragon
 function startUlt(f) {
   f.ki = 0; f.play('ult1'); f.t2 = 1.0; f.inv = 3; f.vx = 0;
-  sfx.powerup(); game.shake = 6; game.flash = 0.6;
+  sfx.powerup(); shake(6); game.flash = 0.6;
   popups.push({ text: 'SUPER SAIYAN 3!', x: f.x, y: f.y - 70, t: 0, c: '#ffe04a' });
 }
 
@@ -231,6 +287,8 @@ function startUlt(f) {
 function updateFighter(f, foe, dt) {
   f.at += dt;
   if (f.inv > 0) f.inv -= dt;
+  if (f.flash > 0) f.flash -= dt;
+  f.sq -= f.sq * Math.min(1, dt * 12);
   if (f.state === 'block') f.blockT += dt;
   // afterimages on fast moves, rocks lifting off the ring while powering up
   if ((['dash', 'ult2'].includes(f.state) || f.anim === 'rush') && f.visible && (f.trailT -= dt) <= 0) {
@@ -320,7 +378,7 @@ function updateFighter(f, foe, dt) {
     case 'evolve':
       if ((f.t2 -= dt) <= 0) {
         setForm(f, CELL_FORMS[CELL_FORMS.indexOf(f.form) + 1]); f.play('idle');
-        game.flash = 1; game.shake = 8; sfx.explode();
+        game.flash = 1; shake(8); sfx.explode();
         popups.push({ text: CELL_INFO[f.form].name + '!', x: f.x, y: f.y - 70, t: 0, c: '#a8e27c' });
       }
       break;
@@ -330,7 +388,7 @@ function updateFighter(f, foe, dt) {
       f.facing = foe.x > f.x ? 1 : -1; f.vx = f.facing * 420;
       if (Math.abs(foe.x - f.x) < 34 || (f.t2 -= dt) <= 0) {
         f.vx = 0; f.play('ult3'); f.t2 = 1.1;
-        game.flash = 1; game.shake = 10; sfx.explode();
+        game.flash = 1; shake(10); sfx.explode();
         damage(foe, f, 50, true, f.facing, 'ult'); Stage.crack(foe.x, 2);
       }
       break;
@@ -348,7 +406,7 @@ function keepOnScreen(f) {
 function finishTransform(f) {
   setForm(f, 'ssj'); f.play('idle');
   Audio8.music.switchTo('ssj');
-  game.flash = 1; game.shake = 8; sfx.explode();
+  game.flash = 1; shake(8); sfx.explode();
 }
 
 // Put a fighter back on the floor, visible and standing, when a cutscene or the KO takes over
@@ -362,7 +420,8 @@ function settle(f) {
 }
 
 function landed(f) {
-  if (f.state === 'knock') { Stage.crack(f.x, 1); f.play('down'); f.t2 = f.hp > 0 ? 0.7 : 99; f.vx = 0; game.shake = 4; sfx.kick(); }
+  f.sq = f.state === 'knock' ? 0.25 : 0.16;
+  if (f.state === 'knock') { Stage.crack(f.x, 1); f.play('down'); f.t2 = f.hp > 0 ? 0.7 : 99; f.vx = 0; shake(4); sfx.kick(); }
   else if (['jump', 'airAtk'].includes(f.state)) { f.play('land'); f.vx = 0; }
 }
 
@@ -376,46 +435,46 @@ const CHAINS = {
 const lastTap = { dir: 0, t: -1 };
 function playerInput(dt) {
   const g = player, foe = boss, isGoku = g.who === 'goku';
-  const dir = (keys.d || keys.arrowright ? 1 : 0) - (keys.a || keys.arrowleft ? 1 : 0);
+  const dir = (keys.right ? 1 : 0) - (keys.left ? 1 : 0);
   // double-tapping a direction within a quarter second dashes that way
-  const tapDir = tap('d') || tap('arrowright') ? 1 : tap('a') || tap('arrowleft') ? -1 : 0;
+  const tapDir = tap('right') ? 1 : tap('left') ? -1 : 0;
   let dashDir = 0;
   if (tapDir) {
     if (tapDir === lastTap.dir && game.t - lastTap.t < 0.25) { dashDir = tapDir; lastTap.dir = 0; }
     else Object.assign(lastTap, { dir: tapDir, t: game.t });
   }
-  if (tap('shift')) dashDir = dir || g.facing;
+  if (act('dash')) dashDir = dir || g.facing;
   if (g.free) {
     g.facing = foe.x > g.x ? 1 : -1;
     const toward = dir === g.facing;
-    if (keys.s && !g.guardBroken) { g.play('block'); g.blockT = 0; g.vx = 0; return; }
-    if (keys.i) { g.play('charge'); g.vx = 0; sfx.charge(0.5); return; }
-    if (tap('w') || tap(' ')) { g.play('jump'); g.vy = JUMP_V; g.vx = dir * 120; sfx.whoosh(); return; }
+    if (keys.block && !g.guardBroken) { g.play('block'); g.blockT = 0; g.vx = 0; return; }
+    if (keys.charge) { g.play('charge'); g.vx = 0; sfx.charge(0.5); return; }
+    if (act('jump')) { g.play('jump'); g.sq = -0.14; g.vy = JUMP_V; g.vx = dir * 120; sfx.whoosh(); return; }
     if (dashDir) return dash(g, dashDir);
     // holding toward the enemy turns J into a rushing punch and K into a heavy slash
-    if (tap('j')) return startAttack(g, toward ? 'rush' : 'p1');
-    if (tap('k')) return startAttack(g, toward ? 'slash' : 'k1');
-    if (tap('l')) {
+    if (act('punch')) return startAttack(g, toward ? 'rush' : 'p1');
+    if (act('kick')) return startAttack(g, toward ? 'slash' : 'k1');
+    if (act('ki')) {
       if (isGoku && g.ki >= 8) { g.ki -= 8; return cast(g, 'kiCast'); }
       if (!isGoku && toward && g.form !== 'imperfect' && g.ki >= 15) { g.ki -= 15; return cast(g, 'barrage'); }
       if (!isGoku && g.ki >= 8) { g.ki -= 8; return cast(g, 'finger'); }
     }
-    if (tap('q') && g.ki >= 15) { g.ki -= 15; return teleport(g, foe); }
-    if (tap('t') && g.ki >= 100) {
+    if (g.ki >= 15 && act('vanish')) { g.ki -= 15; return teleport(g, foe); }
+    if (g.ki >= 100 && act('transform')) {
       if (isGoku && g.form === 'base') {
         g.ki = 50; superSaiyan(g); return;
       }
       if (!isGoku && g.form !== 'perfect') {
         Voice.shout('cell', g.form === 'imperfect' ? 'Evolve!' : 'Perfection!');
-        g.ki = 50; g.play('charge', 'evolve'); g.t2 = 1.2; g.inv = 1.4; g.vx = 0; sfx.powerup(); game.shake = 5; return;
+        g.ki = 50; g.play('charge', 'evolve'); g.t2 = 1.2; g.inv = 1.4; g.vx = 0; sfx.powerup(); shake(5); return;
       }
     }
-    if (tap('u')) {
+    if (act('beam')) {
       if (isGoku && g.form === 'ssj' && g.ki >= 50) { g.ki -= 50; return startKame(g); }
       if (!isGoku && g.form === 'perfect' && g.ki >= 50) { g.ki -= 50; return startKame(g); }
       if (!isGoku && g.form === 'semi' && g.ki >= 20) { g.ki -= 20; return cast(g, 'death'); }
     }
-    if (tap('o') && g.ki >= 100) {
+    if (g.ki >= 100 && act('ult')) {
       if (isGoku && g.form === 'ssj') return startUlt(g);
       if (!isGoku && g.form === 'perfect') { g.ki = 0; return startKame(g, false, true); }
     }
@@ -427,20 +486,21 @@ function playerInput(dt) {
   } else if (g.state === 'jump') {
     g.vx += clamp(dir * 130 - g.vx, -600 * dt, 600 * dt);
     if (dashDir && !g.airDashed) return dash(g, dashDir);
-    if (tap('q') && g.ki >= 15) { g.ki -= 15; return teleport(g, foe); }
-    if (tap('u') && isGoku && g.form === 'ssj' && g.ki >= 100) return instantKame(g);
-    if (tap('u') && g.ki >= 50 && (isGoku ? g.form === 'ssj' : g.form === 'perfect')) { g.ki -= 50; return startKame(g); }
-    if (tap('j') || tap('k')) g.play('air', 'airAtk');
+    if (g.ki >= 15 && act('vanish')) { g.ki -= 15; return teleport(g, foe); }
+    const airBeam = isGoku ? g.form === 'ssj' : g.form === 'perfect';
+    if (airBeam && isGoku && g.ki >= 100 && act('beam')) return instantKame(g);
+    if (airBeam && g.ki >= 50 && act('beam')) { g.ki -= 50; return startKame(g); }
+    if (act('punch') || act('kick')) g.play('air', 'airAtk');
   } else if (g.state === 'attack') {
     const chain = CHAINS[g.who];
-    if (tap('j') && chain.j[g.anim]) g.next = chain.j[g.anim];
-    if (tap('k') && chain.k[g.anim]) g.next = chain.k[g.anim];
+    if (chain.j[g.anim] && act('punch')) g.next = chain.j[g.anim];
+    if (chain.k[g.anim] && act('kick')) g.next = chain.k[g.anim];
   } else if (g.state === 'block') {
     // the guard turns to face the enemy, even when they reappear behind you
-    if (!keys.s) g.play('idle'); else if (foe.visible) g.facing = foe.x > g.x ? 1 : -1;
+    if (!keys.block) g.play('idle'); else if (foe.visible) g.facing = foe.x > g.x ? 1 : -1;
   }
   else if (g.state === 'charge') {
-    if (!keys.i) g.play('idle');
+    if (!keys.charge) g.play('idle');
     else { g.ki = Math.min(100, g.ki + 32 * dt); if (Math.random() < dt * 2) sfx.charge(0.5); }
   }
 }
@@ -565,7 +625,7 @@ function updateBeams(dt) {
     const edge = (b.dir > 0 ? W + 40 - b.x0 : b.x0 + 40) / cos;
     const maxLen = sin > 0.01 ? Math.min(edge, (FLOOR + 2 - b.y) / sin) : edge;
     if (!clash) b.len = Math.min(b.len + 650 * dt, maxLen);
-    if (sin > 0.01 && b.len >= maxLen - 1 && !b.cratered) { b.cratered = true; Stage.crack(b.x0 + b.dir * maxLen * cos, b.big ? 2 : 1.5); game.shake = 8; }
+    if (sin > 0.01 && b.len >= maxLen - 1 && !b.cratered) { b.cratered = true; Stage.crack(b.x0 + b.dir * maxLen * cos, b.big ? 2 : 1.5); shake(8); }
     const foe = foeOf(b.owner), P = beamParts(b);
     const half = P.body.height * P.s * 0.4;
     // the enemy's middle in the beam's own frame: along it and across it
@@ -591,10 +651,10 @@ function updateBeams(dt) {
     }
   }
   if (clash) {
-    if (tap('j') || tap('u')) clash.m += pb.dir * 7;
+    if (tap('punch') || tap('beam')) clash.m += pb.dir * 7;
     clash.m -= pb.dir * (bb.big ? 44 : 34) * dt;
     pb.len = Math.abs(clash.m - pb.x0); bb.len = Math.abs(clash.m - bb.x0);
-    game.shake = 2;
+    game.shake = Math.max(game.shake, 3); // steady rumble while the beams push
     if (Math.random() < dt * 8) sfx.punch();
     const won = Math.abs(clash.m - boss.x) < 22, lost = Math.abs(clash.m - player.x) < 22;
     if (won || lost) {
@@ -659,7 +719,7 @@ async function instantKame(f) {
   f.y = Math.min(f.y, FLOOR - 40);
   f.facing = foe.x > f.x ? 1 : -1;
   f.play('kameCharge', 'pose'); f.t2 = 99;
-  Voice.shout('goku', 'Ka... me... ha... me...'); sfx.charge(1.6); game.shake = 3;
+  Voice.shout('goku', 'Ka... me... ha... me...'); sfx.charge(1.6); shake(3);
   await wait(1.6);
   // vanish...
   ghosts.push({ img: art(FX_ART.teleport), x: f.x, y: f.y, t: 0 });
@@ -678,7 +738,7 @@ async function instantKame(f) {
   Voice.shout('goku', 'HAAAAAAA!');
   f.big = true; fireKame(f); f.t2 = 1.3;
   game.banner = { text: 'INSTANT KAMEHAMEHA!', t: 0, dur: 1.4 };
-  game.flash = 1; game.shake = 12; sfx.explode();
+  game.flash = 1; shake(12); sfx.explode();
   foe.hp = Math.max(0, foe.hp - 60);
   foe.play('knock'); foe.vy = -320; foe.vx = f.facing * 230; foe.y -= 1;
   Stage.crack(foe.x, 2);
@@ -715,9 +775,9 @@ async function introGoku() {
   await say('GOKU', "You won't get the chance, Cell! I'm stopping you right here.");
   cell.play('taunt');
   await say('CELL', 'Hahaha! Then let me taste the power of a Saiyan!');
-  cell.play('power'); sfx.powerup(); game.shake = 5;
+  cell.play('power'); sfx.powerup(); shake(5);
   await wait(1.6);
-  cell.play('idle'); goku.play('charge'); sfx.charge(1.2); game.shake = 4;
+  cell.play('idle'); goku.play('charge'); sfx.charge(1.2); shake(4);
   await wait(1.2);
   goku.play('idle');
   await say('GOKU', 'Here I come!');
@@ -734,7 +794,7 @@ async function introCell() {
   await say('GOKU', "Cell! I won't let you hurt anyone else.");
   cell.play('taunt');
   await say('CELL', 'Every blow you land teaches my cells. I will evolve... and become PERFECT.');
-  goku.play('charge'); sfx.charge(1.2); game.shake = 4;
+  goku.play('charge'); sfx.charge(1.2); shake(4);
   await say('GOKU', "Then I'll finish this before you get the chance!");
   goku.play('idle');
   await say('CELL', '(Fill my ki with I, then press T to evolve. Perfection awaits.)');
@@ -786,7 +846,7 @@ function updateCine(raw) {
   if (c.stage === 1 && c.t >= SSJ_PEAK) {
     c.stage = 2; c.hitAt = mt;
     finishTransform(f); f.play('charge', 'pose'); f.t2 = 99;
-    game.shake = 12; game.banner = { text: 'SUPER SAIYAN!', t: 0, dur: 1.6 };
+    shake(12); game.banner = { text: 'SUPER SAIYAN!', t: 0, dur: 1.6 };
     for (let i = 0; i < 14; i++) Stage.lift(f.x);
     Stage.crack(f.x, 2);
   }
@@ -803,12 +863,12 @@ async function bossPhase() {
   game.mode = 'cut'; projs = []; beams = []; clash = null; game.banner = null;
   settle(goku); settle(cell);
   if (boss === cell) {
-    cell.play('power'); sfx.powerup(); game.shake = 6;
+    cell.play('power'); sfx.powerup(); shake(6);
     await wait(0.6);
     await say('CELL', next === 1
       ? 'Hehehe... Android 17 is part of me now. Let me show you my second form!'
       : 'With Android 18 I am finally complete... Behold my PERFECT form!');
-    sfx.explode(); game.flash = 1; game.shake = 10;
+    sfx.explode(); game.flash = 1; shake(10);
     setForm(cell, CELL_FORMS[next]);
     cell.play('power');
     await wait(1.2);
@@ -824,7 +884,7 @@ async function bossPhase() {
     await say('CELL', 'The legendary Super Saiyan... Excellent. Your power will make me perfect!');
     if (cell.form === 'imperfect') await say('CELL', '(I must evolve... charge ki with I, then press T!)');
   } else {
-    goku.play('charge'); sfx.powerup(); game.shake = 8;
+    goku.play('charge'); sfx.powerup(); shake(8);
     await say('GOKU', "I can't hold back anymore. This is everything I've got!");
     game.flash = 1; sfx.explode();
     await wait(0.8);
@@ -859,6 +919,7 @@ async function finish(result) {
 let last = performance.now();
 function loop(now) {
   const raw = Math.min(0.05, (now - last) / 1000); last = now;
+  pollGamepad();
   // hit-freeze frames skip input, so keep those key presses for the next real frame
   if (step(raw) !== 'frozen') pressed.clear();
   render();
@@ -867,38 +928,44 @@ function loop(now) {
 
 function step(raw) {
   game.t += raw;
-  if (tap('v')) { Voice.on = !Voice.on; popups.push({ text: Voice.on ? 'VOICES ON' : 'VOICES OFF', x: W / 2, y: 60, t: 0, c: '#fff' }); }
-  if (tap('m')) { Audio8.init(); popups.push({ text: Audio8.music.toggleMute() ? 'MUSIC OFF' : 'MUSIC ON', x: W / 2, y: 60, t: 0, c: '#fff' }); }
+  if (tap('voice')) { Voice.on = !Voice.on; popups.push({ text: Voice.on ? 'VOICES ON' : 'VOICES OFF', x: W / 2, y: 60, t: 0, c: '#fff' }); }
+  if (tap('calm')) {
+    settings.calm = !settings.calm;
+    try { localStorage.setItem('calmMode', settings.calm ? '1' : '0'); } catch (e) { /* not saved, still works */ }
+    popups.push({ text: settings.calm ? 'CALM MODE: LESS SHAKE + FLASH' : 'CALM MODE OFF', x: W / 2, y: 60, t: 0, c: '#fff' });
+  }
+  if (tap('music')) { Audio8.init(); popups.push({ text: Audio8.music.toggleMute() ? 'MUSIC OFF' : 'MUSIC ON', x: W / 2, y: 60, t: 0, c: '#fff' }); }
   if (game.mode === 'title') {
-    if (tap('enter')) { Audio8.init(); Audio8.music.play('bg', true); game.mode = 'select'; sfx.blip(); }
+    if (tap('confirm')) { Audio8.init(); Audio8.music.play('bg', true); game.mode = 'select'; sfx.blip(); }
     return;
   }
   if (game.mode === 'select') {
-    if (['a', 'd', 'arrowleft', 'arrowright'].some(tap)) { game.pick = 1 - game.pick; sfx.blip(); }
-    if (tap('enter')) { reset(game.pick ? 'cell' : 'goku'); Audio8.music.play('bg'); intro(); }
+    if (tap('left') || tap('right')) { game.pick = 1 - game.pick; sfx.blip(); }
+    if (tap('confirm')) { reset(game.pick ? 'cell' : 'goku'); Audio8.music.play('bg'); intro(); }
     return;
   }
-  if (tap('p') && (game.mode === 'fight' || game.mode === 'paused')) {
+  if (tap('pause') && (game.mode === 'fight' || game.mode === 'paused')) {
     game.mode = game.mode === 'fight' ? 'paused' : 'fight';
     if (game.mode === 'paused') Audio8.music.stop(); else Audio8.music.play();
   }
   if (game.mode === 'paused') return;
   if (game.mode === 'end') {
-    if (tap('enter')) { reset(); Audio8.music.play('bg', true); startFight(); }
-    else if (tap('escape')) { reset(); Audio8.music.play('bg', true); game.mode = 'select'; }
+    if (tap('confirm')) { reset(); Audio8.music.play('bg', true); startFight(); }
+    else if (tap('back')) { reset(); Audio8.music.play('bg', true); game.mode = 'select'; }
   }
-  if (game.mode === 'intro' && tap('escape')) { game.skip = true; timers.forEach(t => t.r()); if (game.dlg) game.dlg.done(); game.dlg = null; }
+  if (game.mode === 'intro' && tap('back')) { game.skip = true; timers.forEach(t => t.r()); if (game.dlg) game.dlg.done(); game.dlg = null; }
 
   // dialogue: Enter finishes the line, then advances
   if (game.dlg) {
     const d = game.dlg;
     d.shown += raw * 45;
-    if (tap('enter')) { if (d.shown < d.text.length) d.shown = d.text.length; else { game.dlg = null; d.done(); } }
+    if (tap('confirm')) { if (d.shown < d.text.length) d.shown = d.text.length; else { game.dlg = null; d.done(); } }
   }
   const dt = raw * game.slow;
   timers = timers.filter(t => (t.t -= t.real ? raw : dt) > 0 || (t.r(), false));
   if (game.banner && (game.banner.t += raw) > game.banner.dur) game.banner = null;
-  game.shake = Math.max(0, game.shake - raw * 20);
+  game.shake = Math.max(0, game.shake - raw * 16);
+  if ((game.combo.t += raw) > 1.1) game.combo.n = 0;
   game.flash = Math.max(0, game.flash - raw * 2.5);
   for (const s of sparks) s.t += raw;
   sparks = sparks.filter(s => s.t < 0.3);
@@ -997,6 +1064,10 @@ function drawHUD() {
   text(NAME(player), 32, 28, 9, '#fff');
   text(NAME(boss), W - 32, 16, 9, '#fff', 'right');
   text(String(Math.max(0, Math.ceil(game.time))), W / 2, 4, 16, '#ffe04a', 'center');
+  if (game.combo.n >= 2) {
+    const pop = Math.max(0, 0.15 - game.combo.t) * 40;
+    text(`${game.combo.n} HITS!`, 8, 44, 12 + pop, '#ffd23a', 'left', '#7a1a00');
+  }
   const hint = hintFor(player);
   if (hint && game.mode === 'fight' && !beams.length) text(hint, W / 2, 32, 8, '#9ff', 'center');
 }
@@ -1043,7 +1114,8 @@ function drawTitle() {
   text('VS', W / 2, 58, 22, '#fff', 'center');
   text('CELL', W / 2 + 4, 30, 32, '#a8e27c', 'left');
   if (Math.floor(game.t * 2) % 2) text('PRESS ENTER', W / 2, 96, 14, '#ffe04a', 'center');
-  small('P PAUSE   M MUSIC ON/OFF   V VOICES ON/OFF   ESC SKIP INTRO', W / 2, 160, '#ddd');
+  small('P PAUSE   M MUSIC   V VOICES   R CALM MODE (LESS SHAKE)   ESC SKIP', W / 2, 156, '#ddd');
+  small('GAMEPAD WORKS TOO: A JUMP  X PUNCH  Y KICK  B KI  LB BLOCK  RB DASH  RT BEAM', W / 2, 165, '#aaa');
 }
 
 const CONTROLS = {
@@ -1100,8 +1172,9 @@ function render() {
     if (Audio8.music.muted) small('MUSIC OFF (M)', W - 4, 4, '#f99', 'right');
     return;
   }
-  const sh = game.shake;
-  ctx.translate(Math.round(rand(-sh, sh)), Math.round(rand(-sh, sh)));
+  // smooth wave scaled by trauma squared: small hits barely move the view, big ones punch
+  const tr = Math.min(1, game.shake / 12), amp = tr * tr * 12 * (settings.calm ? 0.3 : 1);
+  ctx.translate(Math.round(amp * Math.sin(game.t * 47)), Math.round(amp * 0.7 * Math.sin(game.t * 59 + 1.3)));
   drawBackground(game.mode === 'cut' ? 0.25 : 0);
   // shadows
   for (const f of [goku, cell]) if (f.visible) {
@@ -1141,7 +1214,7 @@ function render() {
   Stage.drawFront(ctx);
   for (const pp of popups) text(pp.text, Math.round(pp.x), Math.round(pp.y - pp.t * 18), 9, pp.c, 'center');
   ctx.setTransform(S, 0, 0, S, 0, 0);
-  if (game.flash > 0) { ctx.fillStyle = `rgba(255,250,220,${game.flash * 0.8})`; ctx.fillRect(0, 0, W, H); }
+  if (game.flash > 0) { ctx.fillStyle = `rgba(255,250,220,${game.flash * (settings.calm ? 0.25 : 0.8)})`; ctx.fillRect(0, 0, W, H); }
   if (['fight', 'ready', 'ko', 'paused', 'cut'].includes(game.mode)) drawHUD();
   if (game.banner) {
     const b = game.banner, pop = Math.min(1, b.t * 6);
