@@ -1,8 +1,11 @@
 // Goku vs Cell. Pick a side on the select screen; the other fighter becomes the boss, with
 // three phases and an AI. The world is 320x180 and is drawn at 4x.
-const W = 320, H = 180, S = 4, FLOOR = 162, GRAV = 1300, JUMP_V = -400;
+const W = 320, H = 180, FLOOR = 162, GRAV = 1300, JUMP_V = -400;
 const PLAYER_HP = 100, BOSS_HP = 300;
 const canvas = document.getElementById('game');
+// the world is 320x180; draw it 4x, or 8x on big/retina screens so the arena art and text stay
+// sharp instead of being stretched (a multiple of 4 keeps S x zoom whole, so pixel art stays crisp)
+const S = screen.width * (window.devicePixelRatio || 1) > 1900 ? 8 : 4;
 canvas.width = W * S; canvas.height = H * S;
 const ctx = canvas.getContext('2d');
 
@@ -17,7 +20,7 @@ const art = a => Sheets.frame(a.sheet, a.ref);
 // (e.code), so WASD stays in place on AZERTY/QWERTZ, and a gamepad maps onto the same actions.
 const BINDINGS = {
   left: ['KeyA', 'ArrowLeft'], right: ['KeyD', 'ArrowRight'], jump: ['KeyW', 'Space', 'ArrowUp'],
-  block: ['KeyS', 'ArrowDown'], punch: ['KeyJ'], kick: ['KeyK'], ki: ['KeyL'], beam: ['KeyU'],
+  block: ['KeyS', 'ArrowDown'], punch: ['KeyJ'], kick: ['KeyK'], grab: ['KeyF'], ki: ['KeyL'], beam: ['KeyU'],
   ult: ['KeyO'], charge: ['KeyI'], vanish: ['KeyQ'], transform: ['KeyT'], dash: ['ShiftLeft', 'ShiftRight'],
   pause: ['KeyP'], confirm: ['Enter', 'NumpadEnter'], back: ['Escape'], music: ['KeyM'], calm: ['KeyR'],
 };
@@ -79,6 +82,12 @@ function act(a) {
   const age = game.ct - lastPress[a];
   if (!(age >= 0 && age <= BUFFER)) return false;
   lastPress[a] = -99; return true;
+}
+// two buttons pressed together (both still in the buffer)
+function chord(a, b) {
+  const fresh = k => { const age = game.ct - lastPress[k]; return age >= 0 && age <= BUFFER; };
+  if (!fresh(a) || !fresh(b)) return false;
+  lastPress[a] = lastPress[b] = -99; return true;
 }
 
 // ---------- fighters ----------
@@ -154,7 +163,7 @@ function reset(side = (game && game.side) || 'goku') {
   dashReq = null; lastTap.dir = 0;
   Object.assign(cam, { x: W / 2, y: H / 2, z: 1, focus: null });
   Stage.reset(); Object.assign(ai, { think: 0.8, vanishCd: 3, ultCd: 6 });
-  game = { mode: 'title', comboNames: [], menu: [], training: false, dummyFight: false, ct: 0, chaseT: 0, cine: null, combo: { n: 0, t: 0, moves: [], done: new Set() }, learned: (game && game.learned) || new Set(), side, pick: side === 'cell' ? 1 : 0, time: 120, freeze: 0, shake: 0, flash: 0, phase: 0, slow: 1, banner: null, dlg: null, skip: false, result: null, t: 0, kameCd: 4 };
+  game = { mode: 'title', comboNames: [], menu: [], training: false, dummyFight: false, ct: 0, chaseT: 0, cine: null, combo: { n: 0, t: 0, dmg: 0, moves: [], done: new Set() }, learned: (game && game.learned) || new Set(), side, pick: side === 'cell' ? 1 : 0, time: 120, freeze: 0, shake: 0, flash: 0, phase: 0, slow: 1, banner: null, dlg: null, skip: false, result: null, t: 0, kameCd: 4 };
 }
 
 function setForm(f, form) {
@@ -165,12 +174,16 @@ function setForm(f, form) {
 
 // ---------- combat ----------
 // kind: 'melee' | 'proj' | 'beam' | 'ult' (ultimates can't be blocked or dodged)
-// opts: launch / spike / wallBounce from the attack, token for combo recognition
+// opts: launch / spike / wallBounce / grab from the attack, token for combo recognition
 const JUGGLE_MAX = 5;
+// caught starting their own move: a counter hit, which hurts more and stuns for longer
+const COUNTER_STATES = ['attack', 'airAtk', 'cast', 'kameCharge', 'windup'];
 function damage(def, src, dmg, heavy, dir, kind = 'melee', opts = {}) {
   if ((def.inv > 0 && kind !== 'ult') || ['down', 'tele', 'transform', 'evolve'].includes(def.state) || def.hp <= 0 || game.mode !== 'fight') return false;
   // someone already flying can be juggled a few times, but not by beams (that would never end)
   const juggling = def.state === 'knock';
+  // a Dragon Rush only catches someone standing on the ring
+  if (opts.grab && (juggling || def.y < FLOOR - 6)) return false;
   // beams don't count toward the limit: they carry a flying enemy instead of re-launching them
   if (juggling && kind !== 'beam' && def.juggle >= JUGGLE_MAX) return false;
   // from phase two on, the boss sometimes vanishes right before a hit lands and counters from behind
@@ -178,7 +191,8 @@ function damage(def, src, dmg, heavy, dir, kind = 'melee', opts = {}) {
       && ['idle', 'walk', 'block', 'pose', 'dash'].includes(def.state) && Math.random() < 0.12 + 0.1 * game.phase) {
     vanish(boss, player); return false;
   }
-  let blocking = kind !== 'ult' && def.state === 'block' && def.facing === -dir;
+  let blocking = kind !== 'ult' && !opts.grab && def.state === 'block' && def.facing === -dir;
+  const counter = !blocking && !juggling && COUNTER_STATES.includes(def.state) && !(def.state === 'attack' && def.hitDone);
   if (blocking && def === player && kind !== 'beam' && def.blockT < PARRY_WINDOW) return perfectBlock(def, src, kind);
   // every blocked hit wears down the player's guard; when stamina runs out it breaks and the hit lands
   let broke = false;
@@ -191,16 +205,30 @@ function damage(def, src, dmg, heavy, dir, kind = 'melee', opts = {}) {
   } else {
     def.ki = Math.min(100, def.ki + 4); src.ki = Math.min(100, src.ki + 6);
     def.flash = 0.08;
-    if (src === player) { game.combo.n++; game.combo.t = 0; comboToken(opts.token || (kind === 'melee' ? src.anim : kind)); }
-    else Object.assign(game.combo, { n: 0, moves: [], done: new Set() });
+    if (src === player) {
+      game.combo.n++; game.combo.t = 0;
+      if (counter) comboToken('counter');
+      comboToken(opts.token || (kind === 'melee' ? src.anim : kind));
+    }
+    else Object.assign(game.combo, { n: 0, dmg: 0, moves: [], done: new Set() });
     // long combos hit softer and stun for less, so there are no infinites
     // (beams keep more of their damage: they're the combo's finisher)
     dmg *= Math.max(kind === 'beam' ? 0.75 : 0.45, 1 - 0.07 * def.comboTaken);
     def.comboTaken++;
     sparks.push({ x: def.x - dir * 6, y: def.y - 30, t: 0, c: '#fff6b8' });
     game.freeze = heavy ? 0.12 : 0.06; shake(heavy ? 6 : 3);
+    if (counter) {
+      dmg *= 1.25; game.freeze += 0.05;
+      popups.push({ text: 'COUNTER!', x: def.x, y: def.y - 58, t: 0, c: '#ff8a3a' });
+    }
+    if (opts.grab) {
+      popups.push({ text: 'DRAGON RUSH!', x: def.x, y: def.y - 58, t: 0, c: '#9ff' });
+      game.freeze = 0.16; shake(7); sfx.explode();
+    }
   }
+  const hpBefore = def.hp;
   def.hp = Math.max(game.training ? 1 : 0, def.hp - dmg);
+  if (src === player && !blocking) game.combo.dmg += hpBefore - def.hp;
   // a fighter mid-Kamehameha takes the damage but keeps firing, unless it finishes them
   const armored = def.state === 'kameFire' && def.hp > 0;
   if (!blocking && !armored) {
@@ -221,7 +249,7 @@ function damage(def, src, dmg, heavy, dir, kind = 'melee', opts = {}) {
       // an air hit keeps the attacker up a moment so the string can continue
       if (src.state === 'airAtk') { src.vy = -170; src.vx = dir * 20; }
     }
-    else { def.play('hurt'); def.stun = 0.3 * Math.max(0.55, 1 - 0.06 * def.comboTaken); def.vx = dir * 70; sfx.punch(); }
+    else { def.play('hurt'); def.stun = 0.3 * Math.max(0.55, 1 - 0.06 * def.comboTaken) * (counter ? 1.6 : 1); def.vx = dir * 70; sfx.punch(); }
     if (def === player && Math.random() < 0.3) sfx.hurt();
     if (broke && def.state === 'hurt') def.stun = 0.9;
   }
@@ -283,6 +311,7 @@ function dash(f, dir) {
 function startAttack(f, name) {
   f.play(name, 'attack'); f.vx = f.facing * 50;
   if (name === 'rush') f.vx = f.facing * 240;
+  if (name === 'grab') f.vx = f.facing * 200;
 }
 
 function cast(f, name) {
@@ -297,9 +326,11 @@ function spawnProjectile(f) {
   sfx.blast();
 }
 
+// the streaks a fighter leaves when vanishing (Goku's orange, Cell's green)
+const teleArt = f => art(f.who === 'goku' ? FX_ART.gokuTeleport : FX_ART.teleport);
+
 function teleport(f, foe) {
   if (f === player && game.combo.n > 0) comboToken('vanish');
-  ghosts.push({ img: art(FX_ART.teleport), x: f.x, y: f.y, t: 0 });
   f.play(f.A('teleOut') ? 'teleOut' : 'idle', 'tele'); f.t2 = 0.28; f.vx = 0;
   sfx.teleport();
   f.teleTo = clamp(foe.x - foe.facing * 34, 20, W - 20);
@@ -426,7 +457,7 @@ function updateFighter(f, foe, dt) {
     case 'tele':
       if ((f.t2 -= dt) <= 0 && !f.visible) {
         f.x = f.teleTo; f.y = f.teleY; f.visible = true; f.facing = foe.x > f.x ? 1 : -1;
-        ghosts.push({ img: art(FX_ART.teleport), x: f.x, y: f.y, t: 0 });
+        ghosts.push({ img: teleArt(f), x: f.x, y: f.y, t: 0 });
         if (f.counter) {
           // a vanish counter flashes '!' and winds up briefly, so a quick block (or perfect block) can stop it
           f.counter = false; f.play('idle', 'windup'); f.t2 = WINDUP; f.vy = f.y < FLOOR ? -60 : 0;
@@ -434,7 +465,10 @@ function updateFighter(f, foe, dt) {
         } else if (f.y < FLOOR) { f.vy = -60; f.inv = 0.15; f.play('fall', 'jump'); }
         else if (f.A('teleIn')) f.play('teleIn', 'appear');
         else { f.play('idle'); f.inv = 0.15; }
-      } else if (f.t2 <= 0.2) f.visible = false;
+      } else if (f.t2 <= 0.15 && f.visible) {
+        // flicker out (the first frames of teleOut), then leave only the streaks behind
+        f.visible = false; ghosts.push({ img: teleArt(f), x: f.x, y: f.y, t: 0 });
+      }
       break;
     case 'appear': if (f.animDone) f.play('idle'); break;
     case 'windup':
@@ -525,6 +559,7 @@ function cancel(g, foe, dashDir) {
     g.play('jump'); g.sq = -0.14; g.vy = JUMP_V - 70; g.vx = g.facing * 90; sfx.whoosh(); return true;
   }
   if (dashDir) { dash(g, dashDir); return true; }
+  if (!isGoku && g.form === 'perfect' && g.ki >= 100 && act('ult')) { solarKame(g); return true; }
   if (g.ki >= 15 && act('vanish')) { g.ki -= 15; teleport(g, foe); return true; }
   if (act('ki')) {
     if (isGoku && g.ki >= 8) { g.ki -= 8; cast(g, 'kiCast'); return true; }
@@ -577,6 +612,7 @@ function playerInput(dt) {
     }
     if (dashDir) return dash(g, dashDir);
     // holding toward the enemy turns J into a rushing punch and K into a heavy slash
+    if (act('grab') || chord('punch', 'kick')) return startAttack(g, 'grab');
     if (act('punch')) return startAttack(g, toward ? 'rush' : 'p1');
     if (act('kick')) return startAttack(g, toward ? 'slash' : 'k1');
     if (act('ki')) {
@@ -601,7 +637,7 @@ function playerInput(dt) {
     }
     if (g.ki >= 100 && act('ult')) {
       if (isGoku && g.form === 'ssj') return startUlt(g);
-      if (!isGoku && g.form === 'perfect') { g.ki = 0; return startKame(g, false, true); }
+      if (!isGoku && g.form === 'perfect') return solarKame(g);
     }
     if (dir) {
       const anim = toward ? 'walk' : 'back';
@@ -614,6 +650,7 @@ function playerInput(dt) {
     if (g.ki >= 15 && act('vanish')) { g.ki -= 15; return teleport(g, foe); }
     const airBeam = isGoku ? g.form === 'ssj' : g.form === 'perfect';
     if (airBeam && isGoku && g.ki >= 100 && act('beam')) return instantKame(g);
+    if (airBeam && !isGoku && g.ki >= 100 && act('ult')) return solarKame(g);
     if (airBeam && g.ki >= 50 && act('beam')) { g.ki -= 50; return startKame(g); }
     if (act('punch') || act('kick')) g.play('air', 'airAtk');
   } else if (g.state === 'airAtk') {
@@ -621,6 +658,9 @@ function playerInput(dt) {
     if (g.hitLanded) {
       if (g.ki >= 15 && act('vanish')) { g.ki -= 15; return teleport(g, foe); }
       if (dashDir && !g.airDashed) return dash(g, dashDir);
+      // full ki ends the air combo with the cinematic finisher
+      if (isGoku && g.form === 'ssj' && g.ki >= 100 && act('beam')) return instantKame(g);
+      if (!isGoku && g.form === 'perfect' && g.ki >= 100 && act('ult')) return solarKame(g);
       if (act('beam')) {
         if (g.ki >= 50 && (isGoku ? g.form === 'ssj' : g.form === 'perfect')) { g.ki -= 50; return startKame(g, false, false, true); }
         if (!isGoku && g.form === 'semi' && g.ki >= 20) { g.ki -= 20; return cast(g, 'death'); }
@@ -628,6 +668,10 @@ function playerInput(dt) {
       if (g.ki >= 8 && act('ki')) { g.ki -= 8; return cast(g, isGoku ? 'kiCast' : 'finger'); }
     }
     if (AIR_CHAIN[g.anim] && (act('punch') || act('kick'))) g.next = AIR_CHAIN[g.anim];
+  } else if (g.state === 'attack' && !g.hitDone && g.at < 0.07 && ['p1', 'rush', 'k1', 'slash'].includes(g.anim)
+      && act(['p1', 'rush'].includes(g.anim) ? 'kick' : 'punch')) {
+    // the second button of J+K came a moment late: still a Dragon Rush
+    startAttack(g, 'grab');
   } else if (g.state === 'attack' && g.hitLanded && cancel(g, foe, dashDir)) {
     // a landed hit can be cancelled into a special, a dash or (after a launcher) a chasing jump
   } else if (g.state === 'attack') {
@@ -686,6 +730,8 @@ function bossAI(dt) {
   // Goku's finishers once he's all out: Instant Kamehameha on a weakened enemy, or the Dragon Fist
   if (!isCell && ph >= 2 && ai.ultCd <= 0 && g.hp < g.maxHp * 0.35 && r < 0.35) { ai.ultCd = rand(16, 20); return instantKame(c); }
   if (!isCell && ph >= 2 && ai.ultCd <= 0 && dist < 170 && r < 0.3) { ai.ultCd = rand(12, 16); return startUlt(c); }
+  // Perfect Cell's finisher: the Solar Kamehameha from the sky
+  if (isCell && c.form === 'perfect' && ai.ultCd <= 0 && g.hp < g.maxHp * 0.35 && r < 0.35) { ai.ultCd = rand(16, 20); return solarKame(c); }
   // the player is charging ki: never let that happen for free
   if (g.state === 'charge') {
     if (close) return combo();
@@ -712,6 +758,8 @@ function bossAI(dt) {
   const open = g.guardBroken || ['land', 'cast', 'transform', 'evolve'].includes(g.state) || (g.state === 'attack' && g.hitDone && dist > 40);
   if (open) return close ? combo() : dist < 150 ? dashIn() : shoot();
   if (close) {
+    // a turtling player gets grabbed through the guard
+    if (g.state === 'block' && r < 0.25 + ph * 0.1) return startAttack(c, 'grab');
     if (g.state === 'attack' && r < 0.25 + ph * 0.12) { c.play('block'); c.t2 = 0.45; c.vx = 0; return; }
     // turtling: keep hitting if their stamina is low, otherwise step out and bait
     if (g.state === 'block' && g.stamina > 40 && r < 0.45) { if (r < 0.25) dash(c, -c.facing); else c.play('back', 'walk'); ai.think = 0.45; return; }
@@ -861,16 +909,18 @@ async function instantKame(f) {
   cam.focus = { f, z: 1.25 };
   Voice.shout('goku', 'Ka... me... ha... me...'); sfx.charge(1.6); shake(3);
   await wait(1.6);
-  // vanish...
-  ghosts.push({ img: art(FX_ART.teleport), x: f.x, y: f.y, t: 0 });
-  trails.push({ im: f.img, x: f.x, y: f.y, facing: f.facing, scale: f.scale, t: 0 });
-  f.visible = false; sfx.teleport();
-  await wait(0.35);
+  // vanish (flicker out, leaving only the streaks)...
+  f.play('teleOut', 'pose'); sfx.teleport();
+  await wait(0.14);
+  ghosts.push({ img: teleArt(f), x: f.x, y: f.y, t: 0 });
+  f.visible = false;
+  await wait(0.25);
   // ...and reappear right behind them (in front if they're backed against the edge)
   let x = foe.x - foe.facing * 26;
   if (x < 16 || x > W - 16) x = foe.x + foe.facing * 26;
   Object.assign(f, { x, y: FLOOR, floating: false, visible: true, facing: foe.x > x ? 1 : -1 });
-  ghosts.push({ img: art(FX_ART.teleport), x: f.x, y: f.y, t: 0 }); sfx.teleport();
+  ghosts.push({ img: teleArt(f), x: f.x, y: f.y, t: 0 }); sfx.teleport();
+  f.play('teleIn', 'pose');
   foe.facing = f.x > foe.x ? 1 : -1; foe.play('hurt', 'pose'); foe.t2 = 99;
   cam.focus = { x: (f.x + foe.x) / 2, y: FLOOR, z: 1.5 };
   game.slow = 0.5;
@@ -880,10 +930,48 @@ async function instantKame(f) {
   f.big = true; fireKame(f); f.t2 = 1.3;
   game.banner = { text: 'INSTANT KAMEHAMEHA!', t: 0, dur: 1.4 };
   game.flash = 1; shake(12); sfx.explode();
-  foe.hp = Math.max(0, foe.hp - 60);
+  foe.hp = Math.max(game.training ? 1 : 0, foe.hp - 60);
   foe.play('knock'); foe.vy = -320; foe.vx = f.facing * 230; foe.y -= 1;
   Stage.crack(foe.x, 2);
   await wait(1.4);
+  f.inv = 0.5; cam.focus = null;
+  game.mode = 'fight';
+}
+
+// Solar Kamehameha: Perfect Cell's finisher. He flares his aura, vanishes, reappears high above
+// the enemy and fires a huge Kamehameha down into the ring. A cinematic: it can't be blocked or
+// dodged, deals 60 and blasts them away.
+async function solarKame(f) {
+  const foe = foeOf(f);
+  f.ki = 0;
+  game.mode = 'cut'; projs = []; beams = []; clash = null; game.banner = null;
+  settle(foe); settle(f);
+  f.inv = 99; f.facing = foe.x > f.x ? 1 : -1;
+  f.play('power', 'pose'); f.t2 = 99;
+  cam.focus = { f, z: 1.5 };
+  Voice.shout('cell', 'Perfect power!'); sfx.powerup(); shake(6); game.flash = 0.35;
+  for (let i = 0; i < 4; i++) Stage.lift(f.x + (i - 1.5) * 14);
+  await wait(1.2);
+  // vanish...
+  f.visible = false; sfx.teleport();
+  ghosts.push({ img: teleArt(f), x: f.x, y: f.y, t: 0 });
+  await wait(0.3);
+  // ...and reappear high up, on whichever side has more room
+  const x = clamp(foe.x + (foe.x < W / 2 ? 1 : -1) * 84, 24, W - 24);
+  Object.assign(f, { x, y: FLOOR - 74, floating: true, visible: true, facing: foe.x > x ? 1 : -1 });
+  ghosts.push({ img: teleArt(f), x: f.x, y: f.y, t: 0 }); sfx.teleport();
+  foe.facing = f.x > foe.x ? 1 : -1; foe.play('hurt', 'pose'); foe.t2 = 99;
+  f.play('kameCharge', 'pose');
+  cam.focus = { x: (f.x + foe.x) / 2, y: FLOOR - 40, z: 1 };
+  Voice.shout('cell', 'Solar... Kamehameha!'); sfx.charge(1); shake(4);
+  await wait(1);
+  f.big = true; fireKame(f); f.t2 = 1.5;
+  game.banner = { text: 'SOLAR KAMEHAMEHA!', t: 0, dur: 1.4 };
+  game.flash = 1; shake(12); sfx.explode();
+  foe.hp = Math.max(game.training ? 1 : 0, foe.hp - 60);
+  foe.play('knock'); foe.vy = -220; foe.vx = f.facing * 200; foe.y -= 1;
+  Stage.crack(foe.x, 2.5);
+  await wait(1.5);
   f.inv = 0.5; cam.focus = null;
   game.mode = 'fight';
 }
@@ -911,7 +999,7 @@ async function introGoku() {
   await wait(0.8);
   await say('CELL', 'So... the great Son Goku. Once I absorb the androids, I will be PERFECT.');
   goku.visible = true; goku.play('teleIn', 'appear');
-  ghosts.push({ img: art(FX_ART.teleport), x: goku.x, y: FLOOR, t: 0 }); sfx.teleport();
+  ghosts.push({ img: teleArt(goku), x: goku.x, y: FLOOR, t: 0 }); sfx.teleport();
   await wait(0.7);
   await say('GOKU', "You won't get the chance, Cell! I'm stopping you right here.");
   cell.play('taunt');
@@ -930,7 +1018,7 @@ async function introCell() {
   await wait(0.8);
   await say('CELL', 'The androids slipped through my fingers... No matter. A Saiyan will do nicely.');
   goku.visible = true; goku.play('teleIn', 'appear');
-  ghosts.push({ img: art(FX_ART.teleport), x: goku.x, y: FLOOR, t: 0 }); sfx.teleport();
+  ghosts.push({ img: teleArt(goku), x: goku.x, y: FLOOR, t: 0 }); sfx.teleport();
   await wait(0.7);
   await say('GOKU', "Cell! I won't let you hurt anyone else.");
   cell.play('taunt');
@@ -1111,12 +1199,18 @@ const MENUS = {
     { label: 'SOUND FX VOLUME  ' + bars(Audio8.vol.sfx), adjust: d => Audio8.setVolume('sfx', Audio8.vol.sfx + d) },
     { label: 'MUSIC  ' + (Audio8.music.muted ? 'OFF' : 'ON'), go: () => Audio8.music.toggleMute(), adjust: () => Audio8.music.toggleMute() },
     { label: 'CALM MODE  ' + (settings.calm ? 'ON' : 'OFF'), go: toggleCalm, adjust: toggleCalm },
+    { label: 'ARENA  ' + Stage.arena.toUpperCase(), go: () => cycleArena(1), adjust: cycleArena },
     { label: 'BACK', go: closeMenu },
   ] }),
   moves: () => ({ title: guideWho().toUpperCase() + '  MOVE LIST', page: 'moves', items: [{ label: 'BACK', go: closeMenu }] }),
   combos: () => ({ title: guideWho().toUpperCase() + '  COMBOS', page: 'combos', items: [{ label: 'BACK', go: closeMenu }] }),
   controls: () => ({ title: 'CONTROLS', page: 'controls', items: [{ label: 'BACK', go: closeMenu }] }),
 };
+
+function cycleArena(d) {
+  const all = Stage.arenas;
+  Stage.setArena(all[(all.indexOf(Stage.arena) + (d > 0 ? 1 : all.length - 1)) % all.length]);
+}
 
 function menuInput() {
   const top = game.menu[game.menu.length - 1], m = MENUS[top.id]();
@@ -1136,12 +1230,14 @@ function drawMenu() {
   text(m.title, W / 2, 6, 15, '#ffe04a', 'center');
   let y = 28;
   if (m.page === 'moves') {
-    for (const [input, what] of MOVES[who]) { small(input, 14, y, '#ffd23a', 'left', 5); small(what, 118, y, '#fff', 'left', 5); y += 7; }
+    const step = Math.min(7, 128 / MOVES[who].length);
+    for (const [input, what] of MOVES[who]) { small(input, 14, y, '#ffd23a', 'left', 5); small(what, 118, y, '#fff', 'left', 5); y += step; }
   } else if (m.page === 'combos') {
+    const step = Math.min(9, 124 / COMBOS[who].length);
     for (const c of COMBOS[who]) {
       const got = game.learned.has(c.name);
       small(got ? '[X]' : '[ ]', 12, y, got ? '#8f8' : '#888', 'left', 5);
-      small(c.name, 32, y, got ? '#8f8' : '#ffd23a', 'left', 5); small(c.how, 140, y, '#ddd', 'left', 5); y += 9;
+      small(c.name, 32, y, got ? '#8f8' : '#ffd23a', 'left', 5); small(c.how, 140, y, '#ddd', 'left', 5); y += step;
     }
     small('LAND A COMBO IN A FIGHT OR IN TRAINING TO TICK IT OFF  (+8 KI EACH TIME)', W / 2, y + 2, '#9ff');
   } else if (m.page === 'controls') {
@@ -1248,7 +1344,7 @@ function step(raw) {
   timers = timers.filter(t => (t.t -= t.real ? raw : dt) > 0 || (t.r(), false));
   if (game.banner && (game.banner.t += raw) > game.banner.dur) game.banner = null;
   game.shake = Math.max(0, game.shake - raw * 16);
-  if ((game.combo.t += raw) > 1.1 && game.combo.n) { game.combo.n = 0; game.combo.moves = []; game.combo.done = new Set(); }
+  if ((game.combo.t += raw) > 1.1 && game.combo.n) Object.assign(game.combo, { n: 0, dmg: 0, moves: [], done: new Set() });
   game.flash = Math.max(0, game.flash - raw * 2.5);
   for (const s of sparks) s.t += raw;
   sparks = sparks.filter(s => s.t < 0.3);
@@ -1357,6 +1453,7 @@ function drawHUD() {
   if (game.combo.n >= 2) {
     const pop = Math.max(0, 0.15 - game.combo.t) * 40;
     text(`${game.combo.n} HITS!`, 8, 44, 12 + pop, '#ffd23a', 'left', '#7a1a00');
+    small(`${Math.round(game.combo.dmg)} DAMAGE`, 9, 60 + pop, '#fff', 'left');
   }
   // named combos stack under the timer in screen space, newest at the bottom
   game.comboNames.slice(-3).forEach((c, i) => {
@@ -1532,4 +1629,4 @@ function render() {
 
 reset();
 Sheets.load().then(() => requestAnimationFrame(loop));
-window.__game = () => ({ goku, cell, player, boss, game, beams, projs, startKame, bossPhase });
+window.__game = () => ({ goku, cell, player, boss, game, beams, projs, startKame, bossPhase, instantKame, solarKame, setForm, reset, startFight });

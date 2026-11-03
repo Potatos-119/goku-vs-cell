@@ -1,13 +1,25 @@
-// The Cell Games arena: the background art in assets/img/cell-games.webp (the painted version
-// below is the fallback if it can't load). On top of it run the live bits: drifting dust, a news
+// The Cell Games arena: the background art in assets/img (the painted version below is the
+// fallback if it can't load). On top of it run the live bits: drifting dust, a news
 // helicopter, rocks lifted by power-ups and the cracks fighters leave in the ring.
 const Stage = (() => {
   const W = 320, H = 180, S = 4, HORIZON = 110, RING = 128, FLOOR = 162;
   let painted = null, decals = [], dust = [], debris = [], heliX = -30, clock = 0;
   let chunks = [], rings = [], shadows = [], birds = { x: -60, y: 30, t: 9 }, gusts = [];
-  const photo = new Image(); photo.src = 'assets/img/cell-games.webp';
-  // where the art's horizon (61% down the image) should sit, so the fighters stand on the tiles
-  const PHOTO_HORIZON = 0.61, PHOTO_HORIZON_Y = 116;
+  // two arenas. 'day' is the sharp, upscaled ring (assets/img/arena.jpg: the art with its sky
+  // extended, so it is drawn from the top of the view, 340 wide and centred, which puts the
+  // middle of the tiles on the floor line). 'classic' is the earlier painting, placed by its horizon.
+  const ARENAS = {
+    day: { src: 'assets/img/arena.jpg', x: -10, w: 340, top: () => 0 },
+    classic: { src: 'assets/img/cell-games.webp', x: 0, w: W, top: h => 116 - 0.61 * h },
+  };
+  const photos = {};
+  for (const k in ARENAS) { photos[k] = new Image(); photos[k].src = ARENAS[k].src; }
+  let arena = 'day';
+  try { if (ARENAS[localStorage.getItem('arena')]) arena = localStorage.getItem('arena'); } catch (e) { /* storage blocked */ }
+  function setArena(name) {
+    arena = name;
+    try { localStorage.setItem('arena', name); } catch (e) { /* not saved, still works */ }
+  }
 
   // seeded random so the scenery looks the same every time
   let seed = 11;
@@ -204,10 +216,11 @@ const Stage = (() => {
   }
 
   function drawBack(ctx, dim = 0) {
-    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+    const photo = photos[arena], a = ARENAS[arena];
     if (photo.complete && photo.naturalWidth) {
-      const k = W / photo.naturalWidth, h = photo.naturalHeight * k;
-      ctx.drawImage(photo, 0, PHOTO_HORIZON_Y - PHOTO_HORIZON * h, W, h);
+      const h = photo.naturalHeight * a.w / photo.naturalWidth;
+      ctx.drawImage(photo, a.x, a.top(h), a.w, h);
     } else {
       if (!painted) { painted = paint(); reset(); }
       ctx.drawImage(painted, 0, 0, W, H);
@@ -259,6 +272,6 @@ const Stage = (() => {
     }
   }
 
-  return { drawBack, drawFront, update, reset, crack, shock, lift, puff };
+  return { get arena() { return arena; }, arenas: Object.keys(ARENAS), setArena, drawBack, drawFront, update, reset, crack, shock, lift, puff };
 })();
 window.Stage = Stage;

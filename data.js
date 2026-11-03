@@ -27,6 +27,8 @@ const GOKU_BASE = {
   k2: { fr: ['5.0', '5.1', '5.2'], fps: 14, hit: { at: 1, dmg: 8, reach: 34 } },
   k3: { fr: ['5.7', '5.7', '5.8'], fps: 11, hit: { at: 0, dmg: 11, reach: 40, heavy: true, launch: true } },
   rush: { fr: ['1.2', '1.2', '4.2', '4.2', '4.3'], fps: 12, hit: { at: 2, dmg: 7, reach: 38 } },
+  // Dragon Rush: a lunging grab. Slow to come out, but it goes through a block and launches
+  grab: { fr: ['1.2', '1.2', '4.2', '4.2', '4.3'], fps: 10, hit: { at: 2, dmg: 6, reach: 34, grab: true, launch: true } },
   slash: { fr: ['3.5', '3.6', '3.6', '3.7'], fps: 11, hit: { at: 1, dmg: 10, reach: 46, heavy: true, wallBounce: true } },
   // air string: J J J in the air, ending in a spike that slams them into the ring
   air: { fr: ['5.3', '5.3'], fps: 13, loop: false, hit: { at: 0, dmg: 8, reach: 42 } },
@@ -37,8 +39,10 @@ const GOKU_BASE = {
   hurt: { fr: ['8.0'], fps: 1, loop: true },
   knock: { fr: ['8.1', '8.2', '8.3', '8.4'], fps: 10, loop: false },
   down: { fr: ['8.5'], fps: 1, loop: true },
-  teleIn: { fr: ['1.10', '1.9'], fps: 9, loop: false },
-  teleOut: { fr: ['1.9', '1.10'], fps: 12, loop: false },
+  // Instant Transmission. The sheet draws two Gokus side by side in frame 1.9 (solid, then
+  // flickering out), so each is cropped on its own; drawn together they showed a double.
+  teleIn: { fr: ['1.10', { id: '1.9', x: 37 }, { id: '1.9', w: 31 }], fps: 12, loop: false },
+  teleOut: { fr: [{ id: '1.9', w: 31 }, { id: '1.9', x: 37 }, '1.10'], fps: 14, loop: false },
   transform: { fr: ['10.1', '10.2', '10.3', '10.4', '10.3', '10.4', '10.5', '10.6', '10.7', '10.8', '10.8'], fps: 7, loop: false },
   // last second of the Super Saiyan cinematic, right before the music hits
   ssjRise: { fr: ['10.4', '10.5', '10.6', '10.7'], fps: 4, loop: false },
@@ -101,6 +105,7 @@ const CELL_TEMPLATE = {
   air2: { fr: ['13.4', '13.4'], fps: 13, loop: false, hit: { at: 0, dmg: 7, reach: 40 } },
   spike: { fr: ['13.6', '13.6', '13.6'], fps: 9, loop: false, hit: { at: 0, dmg: 10, reach: 40, spike: true } },
   rush: { fr: ['13.11', '13.11', '13.4', '13.4'], fps: 12, hit: { at: 2, dmg: 7, reach: 38 } },
+  grab: { fr: ['13.11', '13.11', '13.4', '13.4', '13.4'], fps: 10, hit: { at: 2, dmg: 6, reach: 34, grab: true, launch: true } },
   slash: { fr: ['13.7', '13.8', '13.8', '13.9'], fps: 10, hit: { at: 1, dmg: 11, reach: 44, heavy: true, wallBounce: true } },
   charge: { fr: ['12.6', '12.7', '12.8'], fps: 12, loop: true },
 };
@@ -131,6 +136,7 @@ const FX_ART = {
   finger: { sheet: 'cell', ref: { id: '15.0', x: 24, seed: 'tb' } },
   death: { sheet: 'cell', ref: { id: '15.1', x: 31, seed: 'tb' } },
   teleport: { sheet: 'cell', ref: '12.5' },
+  gokuTeleport: { sheet: 'goku', ref: '1.10' },
   // speed lines left behind by a dash
   gokuZip: { sheet: 'goku', ref: { id: '1.4', w: 52 } },
   cellZip: { sheet: 'cell', ref: '12.4' },
@@ -170,6 +176,8 @@ const COMBOS = {
     { name: 'AIR DASH EXTEND', steps: ['air2', 'air'], how: 'air J J, double-tap, J again' },
     { name: 'AERIAL KAMEHAMEHA', steps: ['air', 'beam'], how: 'air hit, then U (SSJ)' },
     { name: 'SAIYAN SKY BLAST', steps: ['launch', 'air', 'air2', 'beam'], how: 'launcher, W, J J, then U (SSJ)' },
+    { name: 'DRAGON RUSH CHASE', steps: ['grab', 'air'], how: 'J+K (or F) through a block, W, J' },
+    { name: 'COUNTER STRIKE', steps: ['counter', 'melee', 'melee'], how: 'hit them as they attack, keep going' },
   ],
   cell: [
     { name: 'NIGHTMARE STRING', steps: ['p1', 'p2', 'k2'], how: 'J J K' },
@@ -185,9 +193,11 @@ const COMBOS = {
     { name: 'AERIAL DEATH BEAM', steps: ['air', 'death'], how: 'air hit, then U (Semi-Perfect)' },
     { name: 'AERIAL KAMEHAMEHA', steps: ['air', 'beam'], how: 'air hit, then U (Perfect)' },
     { name: 'PERFECT SKY BLAST', steps: ['launch', 'air', 'air2', 'beam'], how: 'launcher, W, J J, then U (Perfect)' },
+    { name: 'DRAGON RUSH CHASE', steps: ['grab', 'air'], how: 'J+K (or F) through a block, W, J' },
+    { name: 'COUNTER STRIKE', steps: ['counter', 'melee', 'melee'], how: 'hit them as they attack, keep going' },
   ],
 };
-const MELEE = ['p1', 'p2', 'p3', 'p4', 'k1', 'k2', 'k3', 'rush', 'slash', 'air', 'air2', 'spike'];
+const MELEE = ['p1', 'p2', 'p3', 'p4', 'k1', 'k2', 'k3', 'rush', 'grab', 'slash', 'air', 'air2', 'spike'];
 
 // Move list shown in the pause menu and from the select screen: [input, what it does]
 const MOVES = {
@@ -195,6 +205,7 @@ const MOVES = {
     ['J  /  K', 'Punch / kick, chain: J J J J or K K K'],
     ['TOWARD + J', 'Rush punch'],
     ['TOWARD + K', 'Heavy slash: bounces them off the wall'],
+    ['J + K  /  F', 'Dragon Rush: grab through a block, launches'],
     ['J J J J  /  K K K', 'The last hit is a launcher'],
     ['W AFTER A LAUNCHER', 'Chase jump after them'],
     ['AIR: J J J', 'Air string, ends in a meteor spike'],
@@ -208,13 +219,14 @@ const MOVES = {
     ['HOLD I', 'Charge ki'],
     ['T', 'Super Saiyan (full ki)'],
     ['U', 'Kamehameha (SSJ, 50 ki, air too)'],
-    ['JUMP + U', 'Instant Kamehameha (SSJ, full ki)'],
+    ['JUMP / AIR HIT + U', 'Instant Kamehameha (SSJ, full ki)'],
     ['O', 'Dragon Fist (SSJ, full ki)'],
   ],
   cell: [
     ['J  /  K', 'Punch / kick, chain: J J K or K K'],
     ['TOWARD + J', 'Rush punch'],
     ['TOWARD + K', 'Heavy slash: bounces them off the wall'],
+    ['J + K  /  F', 'Dragon Rush: grab through a block, launches'],
     ['J J K  /  K K', 'The last hit is a launcher'],
     ['W AFTER A LAUNCHER', 'Chase jump after them'],
     ['AIR: J J J', 'Air string, ends in a meteor spike'],
@@ -229,7 +241,7 @@ const MOVES = {
     ['HOLD I', 'Charge ki'],
     ['T', 'Evolve to the next form (full ki)'],
     ['U', 'Death Beam (Semi) / Kamehameha (Perfect)'],
-    ['O', 'Solar Kamehameha (Perfect, full ki)'],
+    ['O  (AIR, AFTER A HIT TOO)', 'Solar Kamehameha finisher (Perfect, full ki)'],
   ],
 };
 const CONTROL_ROWS = [
@@ -237,6 +249,7 @@ const CONTROL_ROWS = [
   ['JUMP', 'W / Space', 'A'],
   ['BLOCK', 'S', 'LB / down'],
   ['PUNCH / KICK', 'J / K', 'X / Y'],
+  ['DRAGON RUSH', 'J + K / F', 'X + Y'],
   ['KI ATTACK', 'L', 'B'],
   ['BEAM / ULTIMATE', 'U / O', 'RT / R3'],
   ['CHARGE / TRANSFORM', 'I / T', 'LT / L3'],
