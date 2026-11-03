@@ -128,9 +128,47 @@ const Audio8 = (() => {
       a.play().catch(() => playMusic('boss'));
     },
     stop() { if (tracks.theme) tracks.theme.pause(); stopMusic(); },
-    winner() { music.stop(); track('winner', 'assets/audio/winner.wav', false, 0.8).play().catch(() => {}); },
+    winner() { music.stop(); jingle(VICTORY, 0.16); },
+    defeat() { music.stop(); jingle(DEFEAT, 0.3); },
   };
+
+  // [midi note, beats] lead lines over a sustained bass; _ is a rest
+  const VICTORY = { bpm: 150, lead: [[72, 0.5], [72, 0.5], [72, 0.5], [76, 1], [79, 1], [_, 0.5], [76, 0.5], [79, 3]], bass: [48, 52, 55, 60] };
+  const DEFEAT = { bpm: 70, lead: [[69, 1], [68, 1], [67, 1], [66, 1.5], [_, 0.5], [62, 1], [61, 3]], bass: [45, 44, 43, 38] };
+  function jingle(song, gap) {
+    init();
+    const beat = 60 / song.bpm;
+    let t = ac.currentTime + 0.05;
+    for (const [n, len] of song.lead) {
+      if (n) { tone('square', hz(n), hz(n), t, len * beat * 0.95, 0.16); tone('square', hz(n) * 1.005, hz(n) * 1.005, t, len * beat * 0.9, 0.05); }
+      t += len * beat;
+    }
+    song.bass.forEach((n, i) => tone('triangle', hz(n), hz(n), ac.currentTime + 0.05 + i * gap * 4, gap * 4 + 0.6, 0.4));
+  }
 
   return { init, playMusic, stopMusic, sfx, music };
 })();
 window.Audio8 = Audio8;
+
+// Spoken lines with the browser's built-in voice: higher and quicker for Goku, deep and slow for Cell.
+const Voice = {
+  on: true,
+  style: { goku: { pitch: 1.35, rate: 1.08 }, cell: { pitch: 0.45, rate: 0.92 } },
+  pick() {
+    if (this.voice !== undefined || !window.speechSynthesis) return this.voice;
+    const all = speechSynthesis.getVoices();
+    this.voice = all.find(v => /^en(-|_)US/.test(v.lang) && /Daniel|Alex|Fred|Google US/.test(v.name)) || all.find(v => /^en/.test(v.lang)) || null;
+    return this.voice;
+  },
+  speak(who, text, interrupt = true) {
+    if (!this.on || !window.speechSynthesis) return;
+    if (interrupt) speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    Object.assign(u, this.style[who] || {}, { volume: 0.9 });
+    const v = this.pick(); if (v) u.voice = v;
+    speechSynthesis.speak(u);
+  },
+  shout(who, text) { this.speak(who, text, true); },
+};
+if (window.speechSynthesis) speechSynthesis.onvoiceschanged = () => { Voice.voice = undefined; };
+window.Voice = Voice;

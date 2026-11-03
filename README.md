@@ -2,6 +2,12 @@
 
 A Dragon Ball boss fight in plain JavaScript and canvas: intro cutscene, then Goku against all three of Cell's forms.
 Cell starts Imperfect, turns Semi-Perfect at 2/3 health and Perfect at 1/3, unlocking new attacks each time.
+From Semi-Perfect on he can vanish out of your attacks and counter from behind, and he reads what you do:
+he punishes charging, whiffs and broken guards, blocks or dodges Kamehamehas and answers them with his own.
+
+The stage is the Cell Games ring, drawn in code: dust blows across it, rocks lift off the ground when
+someone powers up, and heavy knockdowns crack the tiles. Lines are spoken with the browser's speech voice
+(press V to turn voices off), and the win/lose jingles are generated in `audio.js`.
 
 ## Run
 
@@ -34,6 +40,7 @@ Blocking uses the green stamina bar under the ki bar. Holding block drains it sl
 | U | Kamehameha (Super Saiyan, 50 ki) |
 | O | Dragon Fist: Super Saiyan 3 ultimate (Super Saiyan, full ki) |
 | P | Pause |
+| V | Voices on/off |
 | Esc | Skip intro |
 
 ## Files
@@ -41,5 +48,6 @@ Blocking uses the green stamina bar under the ki bar. Holding block drains it sl
 - `game.js` – game loop, fighters, Cell AI, beams, cutscenes, HUD
 - `data.js` – which sprite-sheet frames make up each move
 - `sheets.js` – cuts the sheets into frames and removes the white background
-- `audio.js` – music player and generated sound effects
+- `audio.js` – music player, generated sound effects and jingles, spoken lines
+- `stage.js` – the Cell Games arena, dust, lifted rocks and cracks
 - `tools/frames.html?sheet=goku` – every sheet frame with its id

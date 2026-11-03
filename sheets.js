@@ -129,19 +129,27 @@ function recolorHair(d, w, h, clear) {
   if (biggest < 12) return;
   const hair = new Uint8Array(N);
   for (let i = 0; i < N; i++) if (lab[i] && sizes[lab[i]] >= biggest * 0.35) hair[i] = 1;
-  // grow back over the hair's own edge pixels
+  // grow back over the hair's own edge pixels; those stay as the dark outline
+  const edge = new Uint8Array(N);
   for (let pass = 0; pass < 2; pass++) {
     const grow = [];
     for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
       const i = y * w + x;
       if (!hair[i] && dark[i] && (at(hair, x + 1, y) || at(hair, x - 1, y) || at(hair, x, y + 1) || at(hair, x, y - 1))) grow.push(i);
     }
-    grow.forEach(i => hair[i] = 1);
+    grow.forEach(i => { hair[i] = 1; edge[i] = 1; });
   }
-  const ramp = [[110, 60, 0], [214, 150, 20], [246, 204, 52], [255, 240, 130]];
-  for (let i = 0; i < w * h; i++) if (hair[i]) {
-    const L = (d[i * 4] + d[i * 4 + 1] + d[i * 4 + 2]) / 3;
-    const c = ramp[L < 28 ? 0 : L < 55 ? 1 : L < 80 ? 2 : 3];
+  // Palette sampled from the sheet's own Super Saiyan frames (row 11), shadow -> highlight.
+  // Pixels are ranked by brightness inside the hair so even all-black hair gets the full range.
+  const ramp = [[229, 151, 10], [251, 196, 69], [254, 234, 187], [255, 250, 237]];
+  const L = i => d[i * 4] + d[i * 4 + 1] + d[i * 4 + 2];
+  const inner = [];
+  for (let i = 0; i < N; i++) if (hair[i] && !edge[i]) inner.push(L(i));
+  inner.sort((a, b) => a - b);
+  const q = f => inner[Math.min(inner.length - 1, Math.floor(inner.length * f))];
+  const cut = [q(0.3), q(0.6), q(0.85)];
+  for (let i = 0; i < N; i++) if (hair[i]) {
+    const c = edge[i] ? [96, 52, 18] : ramp[L(i) <= cut[0] ? 0 : L(i) <= cut[1] ? 1 : L(i) <= cut[2] ? 2 : 3];
     d[i * 4] = c[0]; d[i * 4 + 1] = c[1]; d[i * 4 + 2] = c[2];
   }
 }

@@ -4,8 +4,10 @@
 // emit: height above the floor where a projectile/beam leaves the hand.
 
 const GOKU_BASE = {
-  idle: { fr: ['0.2', '0.3', '0.4', '0.5'], fps: 7, loop: true },
-  walk: { fr: ['0.7', '0.8'], fps: 6, loop: true },
+  idle: { fr: ['0.2', '0.3', '0.4', '0.5', '0.4', '0.3'], fps: 8, loop: true },
+  // the sheet has no walk cycle: lean in to move forward, guard-step to back off
+  walk: { fr: ['1.0'], fps: 1, loop: true },
+  back: { fr: ['0.1'], fps: 1, loop: true },
   dash: { fr: ['1.2'], fps: 1, loop: true },
   jump: { fr: ['2.1', '2.2', '2.3'], fps: 9, loop: false },
   fall: { fr: ['2.4'], fps: 1, loop: true },
@@ -52,7 +54,8 @@ Object.assign(GOKU_SSJ, {
 // Written with Perfect Cell's rows (12-16); each form sits in the same layout 6 rows higher up.
 const CELL_TEMPLATE = {
   idle: { fr: ['12.0', '13.0', '13.1', '13.0'], fps: 4, loop: true },
-  walk: { fr: ['13.0', '13.1'], fps: 5, loop: true },
+  walk: { fr: ['13.11'], fps: 1, loop: true },
+  back: { fr: ['13.0', '13.1'], fps: 5, loop: true },
   dash: { fr: ['13.11'], fps: 1, loop: true },
   jump: { fr: ['13.11'], fps: 1, loop: true },
   fall: { fr: ['13.11'], fps: 1, loop: true },
