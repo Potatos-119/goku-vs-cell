@@ -9,6 +9,9 @@ A Dragon Ball boss fight in plain JavaScript and canvas. Pick a side on the sele
 
 From phase two on the boss can vanish out of your attacks and counter from behind, and it reads what you do:
 it punishes charging, whiffs and broken guards, blocks or dodges beams and answers them with its own.
+Ki blast spam doesn't work on it: it blocks them, jumps over them and comes down with an air attack, or
+Super Dashes straight through them (swatting them aside) and punishes you; the more you spam, the more
+often it does, and spammed blasts stun it for less.
 
 The stage is the Cell Games ring (`assets/img/arena.jpg`, a 2x upscale of the art with the sky extended
 to fill the 16:9 view; the earlier painting `assets/img/cell-games.webp` is the CLASSIC arena in Options)
@@ -36,6 +39,9 @@ and text stay sharp. Voice lines can be added as recordings: see `VOICE_CLIPS` i
   Perfect Cell's Solar Kamehameha (O on the ground, in the air or right after a hit): Cell flares his
   aura, vanishes, reappears high above and fires a huge Kamehameha down into the ring.
 - The combo counter shows the hits and the damage the combo has done.
+- **Ki blasts in combos**: L works in the air too, and a ki blast that hits can be cancelled like a
+  landed punch: J rushes in after it (an air hit in the air), or go into a dash, Q, U or another L. So
+  J J, L, J, J J... on the ground, or air J J, L, double-tap, J J, U in the air.
 - **Wall bounce**: the heavy slash (toward + K) bounces them off the screen edge for a follow-up.
 - Juggles are limited and long combos hit softer, so nothing loops forever.
 - **Named combos** pop up with a +8 ki bonus when you land them. P opens the pause menu with the full

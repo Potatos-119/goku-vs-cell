@@ -178,6 +178,8 @@ const COMBOS = {
     { name: 'SAIYAN SKY BLAST', steps: ['launch', 'air', 'air2', 'beam'], how: 'launcher, W, J J, then U (SSJ)' },
     { name: 'DRAGON RUSH CHASE', steps: ['grab', 'air'], how: 'J+K (or F) through a block, W, J' },
     { name: 'COUNTER STRIKE', steps: ['counter', 'melee', 'melee'], how: 'hit them as they attack, keep going' },
+    { name: 'KI BLAST RUSH', steps: ['kiBall', 'rush'], how: 'L hits, then J to rush in after it' },
+    { name: 'AERIAL KI RELAY', steps: ['air', 'kiBall', 'air'], how: 'air hit, L, double-tap, J' },
   ],
   cell: [
     { name: 'NIGHTMARE STRING', steps: ['p1', 'p2', 'k2'], how: 'J J K' },
@@ -195,6 +197,8 @@ const COMBOS = {
     { name: 'PERFECT SKY BLAST', steps: ['launch', 'air', 'air2', 'beam'], how: 'launcher, W, J J, then U (Perfect)' },
     { name: 'DRAGON RUSH CHASE', steps: ['grab', 'air'], how: 'J+K (or F) through a block, W, J' },
     { name: 'COUNTER STRIKE', steps: ['counter', 'melee', 'melee'], how: 'hit them as they attack, keep going' },
+    { name: 'FINGER RUSH', steps: ['finger', 'rush'], how: 'L hits, then J to rush in after it' },
+    { name: 'AERIAL FINGER RELAY', steps: ['air', 'finger', 'air'], how: 'air hit, L, double-tap, J' },
   ],
 };
 const MELEE = ['p1', 'p2', 'p3', 'p4', 'k1', 'k2', 'k3', 'rush', 'grab', 'slash', 'air', 'air2', 'spike'];
@@ -212,7 +216,8 @@ const MOVES = {
     ['AFTER A HIT', 'Cancel into L, U, Q or a dash'],
     ['AIR HIT + U', 'Kamehameha out of the air combo'],
     ['AIR HIT + DASH', 'Air dash, then J again for more hits'],
-    ['L', 'Ki blast (8 ki)'],
+    ['L', 'Ki blast (8 ki, air too)'],
+    ['AFTER L HITS', 'J rushes in, or cancel into a dash, Q, U, L'],
     ['DOUBLE-TAP A / D', 'Dash, once in the air too'],
     ['Q', 'Vanish behind them (15 ki, air too)'],
     ['S', 'Block. Tap as a hit lands: PERFECT'],
@@ -233,7 +238,8 @@ const MOVES = {
     ['AFTER A HIT', 'Cancel into L, U, Q or a dash'],
     ['AIR HIT + U', 'Death Beam / Kamehameha out of the air combo'],
     ['AIR HIT + DASH', 'Air dash, then J again for more hits'],
-    ['L', 'Finger beam (8 ki)'],
+    ['L', 'Finger beam (8 ki, air too)'],
+    ['AFTER L HITS', 'J rushes in, or cancel into a dash, Q, U, L'],
     ['TOWARD + L', 'Barrage (Semi-Perfect, 15 ki)'],
     ['DOUBLE-TAP A / D', 'Dash, once in the air too'],
     ['Q', 'Vanish behind them (15 ki, air too)'],

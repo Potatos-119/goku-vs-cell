@@ -162,7 +162,7 @@ function reset(side = (game && game.side) || 'goku') {
   for (const a in lastPress) delete lastPress[a];
   dashReq = null; lastTap.dir = 0;
   Object.assign(cam, { x: W / 2, y: H / 2, z: 1, focus: null });
-  Stage.reset(); Object.assign(ai, { think: 0.8, vanishCd: 3, ultCd: 6 });
+  Stage.reset(); Object.assign(ai, { think: 0.8, vanishCd: 3, ultCd: 6, spam: 0 });
   game = { mode: 'title', comboNames: [], menu: [], training: false, dummyFight: false, ct: 0, chaseT: 0, cine: null, combo: { n: 0, t: 0, dmg: 0, moves: [], done: new Set() }, learned: (game && game.learned) || new Set(), side, pick: side === 'cell' ? 1 : 0, time: 120, freeze: 0, shake: 0, flash: 0, phase: 0, slow: 1, banner: null, dlg: null, skip: false, result: null, t: 0, kameCd: 4 };
 }
 
@@ -180,6 +180,11 @@ const JUGGLE_MAX = 5;
 const COUNTER_STATES = ['attack', 'airAtk', 'cast', 'kameCharge', 'windup'];
 function damage(def, src, dmg, heavy, dir, kind = 'melee', opts = {}) {
   if ((def.inv > 0 && kind !== 'ult') || ['down', 'tele', 'transform', 'evolve'].includes(def.state) || def.hp <= 0 || game.mode !== 'fight') return false;
+  // a Super Dash swats ki blasts aside, and so does a boss being spammed with them while it attacks
+  // or dashes in, so spam gets plowed through instead of locking it down
+  if (kind === 'proj' && ((def.superDash && def.state === 'dash') || (def === boss && ai.spam >= 2 && ['attack', 'dash'].includes(def.state)))) {
+    sparks.push({ x: def.x + def.facing * 10, y: def.y - 30, t: 0, c: '#ffffff' }); sfx.parry(); return 'deflect';
+  }
   // someone already flying can be juggled a few times, but not by beams (that would never end)
   const juggling = def.state === 'knock';
   // a Dragon Rush only catches someone standing on the ring
@@ -249,7 +254,12 @@ function damage(def, src, dmg, heavy, dir, kind = 'melee', opts = {}) {
       // an air hit keeps the attacker up a moment so the string can continue
       if (src.state === 'airAtk') { src.vy = -170; src.vx = dir * 20; }
     }
-    else { def.play('hurt'); def.stun = 0.3 * Math.max(0.55, 1 - 0.06 * def.comboTaken) * (counter ? 1.6 : 1); def.vx = dir * 70; sfx.punch(); }
+    else {
+      // a boss being spammed with ki blasts shakes them off quicker, so spam can't lock them down
+      const spammed = def === boss && kind === 'proj' && ai.spam >= 2 ? 0.55 : 1;
+      def.play('hurt'); def.stun = 0.3 * Math.max(0.55, 1 - 0.06 * def.comboTaken) * (counter ? 1.6 : 1) * spammed;
+      def.vx = dir * 70; sfx.punch();
+    }
     if (def === player && Math.random() < 0.3) sfx.hurt();
     if (broke && def.state === 'hurt') def.stun = 0.9;
   }
@@ -294,6 +304,7 @@ function dash(f, dir) {
   const air = f.y < FLOOR - 2, fwd = dir === f.facing;
   if (air && f.airDashed) return;
   if (f === player) dashReq = null;
+  f.superDash = false;
   f.play(air ? (fwd ? 'airDash' : 'airBack') : (fwd ? 'dash' : 'backdash'), 'dash');
   f.t2 = air ? 0.22 : fwd ? 0.25 : 0.2;
   f.vx = dir * (fwd ? 330 : 250) * f.speed;
@@ -316,12 +327,15 @@ function startAttack(f, name) {
 
 function cast(f, name) {
   f.play(name, 'cast'); f.vx = 0;
+  // fired in the air: hang there a moment, like an air hit
+  if (f.y < FLOOR - 4) f.vy = Math.min(f.vy, -60);
 }
 
 function spawnProjectile(f) {
   const kind = { kiCast: 'kiBall', finger: 'finger', death: 'death', barrage: 'finger' }[f.anim];
   const [hx, hy] = f.hand(f.anim);
   const stats = { kiBall: [300, 6, false], finger: [330, 8, false], death: [560, 12, true] }[kind];
+  if (f === player && f.emitted === 1) ai.spam++; // a barrage counts once
   projs.push({ owner: f, kind, x: hx, y: hy, dir: f.facing, vx: stats[0] * f.facing, dmg: stats[1] * f.dmgMul, heavy: stats[2] });
   sfx.blast();
 }
@@ -397,8 +411,8 @@ function updateFighter(f, foe, dt) {
   if (f.state === 'dash' && f.dashAir) f.y = Math.min(FLOOR - 2, f.y + f.vy * dt); // air dash: no gravity
   else if (airborne && f.state !== 'tele' && !f.floating) {
     // someone being juggled falls a little slower, so air combos have room to continue
-    // (and so does the attacker mid air-string, so the two stay level)
-    f.vy += GRAV * ((f.state === 'knock' && f.juggle > 0) || f.state === 'airAtk' ? 0.7 : 1) * dt; f.y += f.vy * dt;
+    // (and so does the attacker mid air-string or air ki blast, so the two stay level)
+    f.vy += GRAV * ((f.state === 'knock' && f.juggle > 0) || ['airAtk', 'cast'].includes(f.state) ? 0.7 : 1) * dt; f.y += f.vy * dt;
     if (f.y >= FLOOR) { f.y = FLOOR; f.vy = 0; landed(f); }
   }
   if (f.y >= FLOOR) f.airDashed = false;
@@ -420,7 +434,7 @@ function updateFighter(f, foe, dt) {
     case 'cast':
       { const shots = [].concat(f.A().emitAt);
         while (f.emitted < shots.length && f.fi >= shots[f.emitted]) { f.emitted++; spawnProjectile(f); } }
-      if (f.animDone) f.play('idle');
+      if (f.animDone) { if (f.y < FLOOR - 1) f.play('fall', 'jump'); else f.play('idle'); }
       break;
     case 'hurt':
       if ((f.stun -= dt) <= 0) { if (f.y < FLOOR) f.play('fall', 'jump'); else f.play('idle'); }
@@ -447,6 +461,7 @@ function updateFighter(f, foe, dt) {
         if (Math.abs(foe.x - f.x) < 24 && Math.abs(foe.y - f.y) < 12) { f.t2 = 0; f.vx = 0; f.facing = foe.x > f.x ? 1 : -1; }
       }
       if ((f.t2 -= dt) <= 0) {
+        f.superDash = false;
         if (f.y < FLOOR - 1) { f.vx *= 0.4; f.play('fall', 'jump'); } else { f.vx = 0; f.play('idle'); }
       }
       break;
@@ -573,6 +588,22 @@ function cancel(g, foe, dashDir) {
   return false;
 }
 
+// After an air hit (or an air ki blast) lands: vanish, air-dash in to restart the string, the
+// full-ki finisher, a beam or another ki blast.
+function airCancel(g, foe, dashDir) {
+  const isGoku = g.who === 'goku';
+  if (g.ki >= 15 && act('vanish')) { g.ki -= 15; teleport(g, foe); return true; }
+  if (dashDir && !g.airDashed) { dash(g, dashDir); return true; }
+  if (isGoku && g.form === 'ssj' && g.ki >= 100 && act('beam')) { instantKame(g); return true; }
+  if (!isGoku && g.form === 'perfect' && g.ki >= 100 && act('ult')) { solarKame(g); return true; }
+  if (act('beam')) {
+    if (g.ki >= 50 && (isGoku ? g.form === 'ssj' : g.form === 'perfect')) { g.ki -= 50; startKame(g, false, false, true); return true; }
+    if (!isGoku && g.form === 'semi' && g.ki >= 20) { g.ki -= 20; cast(g, 'death'); return true; }
+  }
+  if (g.ki >= 8 && act('ki')) { g.ki -= 8; cast(g, isGoku ? 'kiCast' : 'finger'); return true; }
+  return false;
+}
+
 // Combo recognition: every landed hit adds a token; a named combo fires when its steps appear in
 // order within the current combo (the last step must be the hit that just landed).
 function comboToken(tok) {
@@ -652,22 +683,21 @@ function playerInput(dt) {
     if (airBeam && isGoku && g.ki >= 100 && act('beam')) return instantKame(g);
     if (airBeam && !isGoku && g.ki >= 100 && act('ult')) return solarKame(g);
     if (airBeam && g.ki >= 50 && act('beam')) { g.ki -= 50; return startKame(g); }
+    if (g.ki >= 8 && act('ki')) { g.ki -= 8; return cast(g, isGoku ? 'kiCast' : 'finger'); }
     if (act('punch') || act('kick')) g.play('air', 'airAtk');
   } else if (g.state === 'airAtk') {
     // after an air hit lands: vanish, air-dash to restart the string, or finish with a beam / ki blast
     if (g.hitLanded) {
-      if (g.ki >= 15 && act('vanish')) { g.ki -= 15; return teleport(g, foe); }
-      if (dashDir && !g.airDashed) return dash(g, dashDir);
-      // full ki ends the air combo with the cinematic finisher
-      if (isGoku && g.form === 'ssj' && g.ki >= 100 && act('beam')) return instantKame(g);
-      if (!isGoku && g.form === 'perfect' && g.ki >= 100 && act('ult')) return solarKame(g);
-      if (act('beam')) {
-        if (g.ki >= 50 && (isGoku ? g.form === 'ssj' : g.form === 'perfect')) { g.ki -= 50; return startKame(g, false, false, true); }
-        if (!isGoku && g.form === 'semi' && g.ki >= 20) { g.ki -= 20; return cast(g, 'death'); }
-      }
-      if (g.ki >= 8 && act('ki')) { g.ki -= 8; return cast(g, isGoku ? 'kiCast' : 'finger'); }
+      if (airCancel(g, foe, dashDir)) return;
     }
     if (AIR_CHAIN[g.anim] && (act('punch') || act('kick'))) g.next = AIR_CHAIN[g.anim];
+  } else if (g.state === 'cast' && g.hitLanded) {
+    // the ki blast hit: J rushes in after it (an air hit in the air), or cancel like a landed punch
+    if (g.y < FLOOR - 1) { if (!airCancel(g, foe, dashDir) && (act('punch') || act('kick'))) g.play('air', 'airAtk'); }
+    else if (!cancel(g, foe, dashDir)) {
+      if (act('punch')) { g.facing = foe.x > g.x ? 1 : -1; startAttack(g, 'rush'); }
+      else if (act('kick')) { g.facing = foe.x > g.x ? 1 : -1; startAttack(g, 'slash'); }
+    }
   } else if (g.state === 'attack' && !g.hitDone && g.at < 0.07 && ['p1', 'rush', 'k1', 'slash'].includes(g.anim)
       && act(['p1', 'rush'].includes(g.anim) ? 'kick' : 'punch')) {
     // the second button of J+K came a moment late: still a Dragon Rush
@@ -691,7 +721,7 @@ function playerInput(dt) {
 // ---------- boss AI ----------
 // The boss reads what the player does: it punishes charging, whiffs and broken guards, deals
 // with a Kamehameha, anti-airs jump-ins and, from phase two on, vanishes out of trouble.
-const ai = { think: 0.8, vanishCd: 3, ultCd: 6 };
+const ai = { think: 0.8, vanishCd: 3, ultCd: 6, spam: 0 }; // spam: how hard the player is spamming ki blasts
 const AI_REACT = [0.42, 0.3, 0.2]; // seconds between decisions in each phase
 
 // blink out (leaving an afterimage), reappear behind the player and attack straight away
@@ -701,20 +731,50 @@ function vanish(c, foe) {
   teleport(c, foe); c.t2 = 0.18; c.counter = true;
 }
 
+// Super Dash: a flying charge straight at the player that swats ki blasts aside on the way in
+function superDash(c) {
+  c.facing = player.x > c.x ? 1 : -1;
+  c.play('dash'); c.superDash = true; c.t2 = clamp((Math.abs(player.x - c.x) - 30) / 340, 0.12, 0.5);
+  c.vx = c.facing * 340 * c.speed; ai.think = 0;
+  Stage.puff(c.x, c.facing); sfx.whoosh();
+}
+
+// shots it reacts to, per phase (more often the more the player spams them)
+const SHOT_REACT = [0.6, 0.75, 0.9];
+
 function bossAI(dt) {
   const c = boss, g = player, ph = game.phase, isCell = c.who === 'cell';
-  game.kameCd -= dt; ai.vanishCd -= dt; ai.ultCd -= dt;
-  for (const p of projs) if (p.owner === g && !p.seen && Math.abs(p.x - c.x) < 70) {
+  game.kameCd -= dt; ai.vanishCd -= dt; ai.ultCd -= dt; ai.spam = Math.max(0, ai.spam - dt * 0.6);
+  // ki blasts on the way: vanish, Super Dash through them, jump over or block
+  for (const p of projs) {
+    if (p.owner !== g || p.seen) continue;
+    const gap = (c.x - p.x) * Math.sign(p.vx), eta = gap / Math.abs(p.vx);
+    if (gap < 0 || eta > 0.38) continue;
     p.seen = true;
-    if (c.free && ph >= 1 && ai.vanishCd <= 0 && Math.random() < 0.25 + ph * 0.15) return vanish(c, g);
+    if (!c.free || Math.random() > SHOT_REACT[ph] + ai.spam * 0.05) continue;
+    const dist = Math.abs(g.x - c.x), r = Math.random();
+    c.facing = g.x > c.x ? 1 : -1;
+    if (ph >= 1 && ai.vanishCd <= 0 && r < 0.2) return vanish(c, g);
+    if (dist > 70 && (ai.spam >= 2 || r < 0.45)) return superDash(c);
+    if (dist > 90 && r < 0.7) { c.play('jump'); c.vy = JUMP_V; c.vx = c.facing * 170; return; }
+    c.play('block'); c.t2 = eta + 0.2; c.vx = 0; return;
   }
+  // jumped over a shot (or in): come down with an air attack
+  if (c.state === 'jump' && c.vy > 0 && Math.abs(g.x - c.x) < 40 && g.y - c.y < 40) { c.facing = g.x > c.x ? 1 : -1; return c.play('air', 'airAtk'); }
   if (!c.free) return;
   c.facing = g.x > c.x ? 1 : -1;
   if (c.state === 'walk') c.vx = (c.anim === 'back' ? -1 : 1) * c.facing * 75 * c.speed;
+  // reflex, not a decision: against ki blast spam it acts the moment it's free. Up close a jab beats
+  // the next blast's startup (a counter hit); further out it Super Dashes in through them.
+  if (ai.spam >= 1.5 && g.state === 'cast' && g.y >= FLOOR - 4) {
+    const d = Math.abs(g.x - c.x);
+    if (d < 46) { c.queue = isCell ? ['p2', 'k2'] : ['p2', 'p3', 'k3']; ai.think = 0.6; return startAttack(c, 'p1'); }
+    if (d < 220) return superDash(c);
+  }
   if ((ai.think -= dt) > 0) return;
   ai.think = rand(0.8, 1.2) * AI_REACT[ph] / c.speed;
   const dist = Math.abs(g.x - c.x), close = dist < 48, r = Math.random();
-  const dashIn = () => { c.play('dash'); c.t2 = 0.24; c.vx = c.facing * 280 * c.speed; Stage.puff(c.x, c.facing); };
+  const dashIn = () => { c.superDash = false; c.play('dash'); c.t2 = 0.24; c.vx = c.facing * 280 * c.speed; Stage.puff(c.x, c.facing); };
   const combo = () => {
     const list = isCell
       ? [['p2', 'k2'], ['p1', 'p2', 'k2'], ['k1', 'k2'], ['p1', 'k1'], ['p1', 'p2', 'k1', 'k2']]
@@ -756,7 +816,8 @@ function bossAI(dt) {
   if (g.y < FLOOR - 20 && g.vy > 0 && dist < 70) return close ? startAttack(c, isCell ? 'k2' : 'k3') : shoot();
   // openings: whiffed attack, landing, ki blast recovery, broken guard
   const open = g.guardBroken || ['land', 'cast', 'transform', 'evolve'].includes(g.state) || (g.state === 'attack' && g.hitDone && dist > 40);
-  if (open) return close ? combo() : dist < 150 ? dashIn() : shoot();
+  // shooting from far away gets Super Dashed once they've been at it a while
+  if (open) return close ? combo() : dist < 150 ? dashIn() : g.state === 'cast' && ai.spam >= 1 ? superDash(c) : shoot();
   if (close) {
     // a turtling player gets grabbed through the guard
     if (g.state === 'block' && r < 0.25 + ph * 0.1) return startAttack(c, 'grab');
@@ -788,7 +849,10 @@ function updateProjectiles(dt) {
     const foe = foeOf(p.owner), len = art(FX_ART[p.kind]).width * p.owner.scale, b = foe.box();
     const x0 = p.dir > 0 ? p.x : p.x - len, x1 = p.dir > 0 ? p.x + len : p.x;
     if (x1 > b.x0 && x0 < b.x1 && p.y > b.y0 && p.y < b.y1 && foe.visible) {
-      if (damage(foe, p.owner, p.dmg, p.heavy, p.dir, 'proj', { token: p.kind })) p.dead = true;
+      const hit = damage(foe, p.owner, p.dmg, p.heavy, p.dir, 'proj', { token: p.kind });
+      if (hit) p.dead = true;
+      // a ki blast that connects can be cancelled like a landed punch
+      if (hit && hit !== 'deflect' && p.owner.state === 'cast') p.owner.hitLanded = true;
     }
     for (const q of projs) if (q !== p && q.owner !== p.owner && Math.abs(q.x - p.x) < 14 && Math.abs(q.y - p.y) < 14) {
       p.dead = q.dead = true; sparks.push({ x: p.x, y: p.y, t: 0, c: '#ffffff' }); sfx.punch();
