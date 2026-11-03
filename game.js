@@ -31,6 +31,7 @@ class Fighter {
       who, x, y: FLOOR, vx: 0, vy: 0, facing, hp: maxHp, maxHp, ki: 0, form: 'base',
       state: 'idle', anim: 'idle', at: 0, t2: 0, stun: 0, inv: 0, dmgMul: 1, speed: 1,
       visible: true, queue: [], next: null, hitDone: false, emitted: 0, blockT: 0,
+      stamina: 100, staminaDelay: 0, guardBroken: false,
       // Cell's sheet is drawn smaller than Goku's; 1.25 keeps pixels whole at 4x
       scale: who === 'cell' ? 1.25 : 1,
     });
@@ -77,8 +78,11 @@ function setCellForm(form) {
 // kind: 'melee' | 'proj' | 'beam' | 'ult' (the Dragon Fist can't be blocked or dodged)
 function damage(def, src, dmg, heavy, dir, kind = 'melee') {
   if ((def.inv > 0 && kind !== 'ult') || ['down', 'knock', 'tele', 'transform'].includes(def.state) || def.hp <= 0 || game.mode !== 'fight') return false;
-  const blocking = kind !== 'ult' && def.state === 'block' && def.facing === -dir;
+  let blocking = kind !== 'ult' && def.state === 'block' && def.facing === -dir;
   if (blocking && def === goku && kind !== 'beam' && def.blockT < PARRY_WINDOW) return perfectBlock(def, src, kind);
+  // every blocked hit wears down Goku's guard; when stamina runs out the guard breaks and the hit lands
+  let broke = false;
+  if (blocking && def === goku && (def.stamina -= dmg * 1.6) <= 0) { guardBreak(def); blocking = false; broke = true; }
   if (blocking) {
     dmg *= 0.15; def.vx = dir * 90; def.ki = Math.min(100, def.ki + 3);
     sparks.push({ x: def.x - dir * 8, y: def.y - 28, t: 0, c: '#9fe7ff' });
@@ -96,14 +100,22 @@ function damage(def, src, dmg, heavy, dir, kind = 'melee') {
     if (heavy || def.hp <= 0) { def.play('knock'); def.vy = -230; def.vx = dir * 160; def.y -= 1; sfx.kick(); }
     else { def.play('hurt'); def.stun = 0.3; def.vx = dir * 70; sfx.punch(); }
     if (def === goku && Math.random() < 0.3) sfx.hurt();
+    if (broke && def.state === 'hurt') def.stun = 0.9;
   }
   return true;
+}
+
+function guardBreak(f) {
+  Object.assign(f, { stamina: 0, guardBroken: true, staminaDelay: 0.8 });
+  popups.push({ text: 'GUARD BREAK!', x: f.x, y: f.y - 54, t: 0, c: '#ff7a5a' });
+  sfx.hurt();
+  if (f.state === 'block') { f.play('hurt'); f.stun = 0.9; }
 }
 
 // Block just as a hit lands: no damage, a big ki refund, and a punch or kick leaves Cell dizzy.
 const PARRY_WINDOW = 0.18;
 function perfectBlock(def, src, kind) {
-  def.ki = Math.min(100, def.ki + 25); def.inv = 0.25;
+  def.ki = Math.min(100, def.ki + 25); def.stamina = Math.min(100, def.stamina + 15); def.inv = 0.25;
   popups.push({ text: 'PERFECT!  +KI', x: def.x, y: def.y - 54, t: 0, c: '#8ff' });
   sparks.push({ x: def.x + def.facing * 10, y: def.y - 30, t: 0, c: '#ffffff' });
   game.freeze = 0.15; game.flash = 0.35; sfx.parry();
@@ -161,6 +173,12 @@ function updateFighter(f, foe, dt) {
   f.at += dt;
   if (f.inv > 0) f.inv -= dt;
   if (f.state === 'block') f.blockT += dt;
+  if (f === goku) {
+    // holding block drains stamina; it refills shortly after letting go
+    if (f.state === 'block') { f.stamina -= 6 * dt; f.staminaDelay = 0.6; if (f.stamina <= 0) guardBreak(f); }
+    else if ((f.staminaDelay -= dt) <= 0) f.stamina = Math.min(100, f.stamina + 28 * dt);
+    if (f.guardBroken && f.stamina >= 35) f.guardBroken = false;
+  }
   const airborne = f.y < FLOOR || f.vy < 0;
   if (airborne) {
     f.vy += GRAV * dt; f.y += f.vy * dt;
@@ -186,7 +204,9 @@ function updateFighter(f, foe, dt) {
     case 'hurt':
       if ((f.stun -= dt) <= 0) { if (f.y < FLOOR) f.play('fall', 'jump'); else f.play('idle'); }
       break;
+    case 'knock': keepOnScreen(f); break;
     case 'down':
+      keepOnScreen(f);
       if ((f.t2 -= dt) <= 0 && f.hp > 0) { if (f.A('getup')) f.play('getup', 'appear'); else f.play('idle'); f.inv = 0.7; }
       break;
     case 'jump': if (f.vy > 0) f.play('fall', 'jump'); break;
@@ -220,6 +240,13 @@ function updateFighter(f, foe, dt) {
   }
 }
 
+// A lying sprite is much wider than a standing one, so push it in from the screen edge.
+function keepOnScreen(f) {
+  const im = f.img, s = f.scale;
+  const back = (f.facing > 0 ? im.ax : im.width - im.ax) * s, front = (f.facing > 0 ? im.width - im.ax : im.ax) * s;
+  f.x = clamp(f.x, Math.min(back, W / 2), Math.max(W - front, W / 2));
+}
+
 function finishTransform(f) {
   f.form = 'ssj'; f.dmgMul = 1.35; f.speed = 1.15; f.play('idle');
   game.flash = 1; game.shake = 8; sfx.explode();
@@ -247,7 +274,7 @@ function playerInput(dt) {
   const g = goku, dir = (keys.d ? 1 : 0) - (keys.a ? 1 : 0);
   if (g.free) {
     g.facing = cell.x > g.x ? 1 : -1;
-    if (keys.s) { g.play('block'); g.blockT = 0; g.vx = 0; return; }
+    if (keys.s && !g.guardBroken) { g.play('block'); g.blockT = 0; g.vx = 0; return; }
     if (keys.i) { g.play('charge'); g.vx = 0; sfx.charge(0.5); return; }
     if (tap('w') || tap(' ')) { g.play('jump'); g.vy = -370; g.vx = dir * 120; sfx.whoosh(); return; }
     if (tap('shift')) { g.play('dash'); g.t2 = 0.2; g.vx = (dir || g.facing) * 300; sfx.whoosh(); return; }
@@ -403,14 +430,15 @@ function drawBeam(b) {
 }
 
 // ---------- cutscenes ----------
-function wait(sec) { return new Promise(r => game.skip ? r() : timers.push({ t: sec, r })); }
+// real: count in real seconds even while the KO slow-motion is on
+function wait(sec, real = false) { return new Promise(r => game.skip ? r() : timers.push({ t: sec, r, real })); }
 function say(who, text) {
   return new Promise(r => {
     if (game.skip) return r();
     game.dlg = { who, text, shown: 0, done: r };
   });
 }
-function banner(text, dur) { game.banner = { text, t: 0, dur }; return wait(dur); }
+function banner(text, dur) { game.banner = { text, t: 0, dur }; return wait(dur, true); }
 
 async function intro() {
   game.mode = 'intro'; game.skip = false;
@@ -517,7 +545,7 @@ function step(raw) {
     if (tap('enter')) { if (d.shown < d.text.length) d.shown = d.text.length; else { game.dlg = null; d.done(); } }
   }
   const dt = raw * game.slow;
-  timers = timers.filter(t => (t.t -= dt) > 0 || (t.r(), false));
+  timers = timers.filter(t => (t.t -= t.real ? raw : dt) > 0 || (t.r(), false));
   if (game.banner && (game.banner.t += raw) > game.banner.dur) game.banner = null;
   game.shake = Math.max(0, game.shake - raw * 20);
   game.flash = Math.max(0, game.flash - raw * 2.5);
@@ -587,7 +615,9 @@ function drawHUD() {
   ctx.fillStyle = '#000'; [1, 2].forEach(k => ctx.fillRect(W - 132 + Math.round(100 * k / 3), 7, 1, 7));
   const kiFull = goku.ki >= 100 && Math.floor(game.t * 6) % 2;
   bar(32, 17, 70, 4, goku.ki / 100, kiFull ? '#ffffff' : '#4fd2ff');
-  text(ult ? 'GOKU  SSJ3' : goku.form === 'ssj' ? 'GOKU  SSJ' : 'GOKU', 32, 22, 9, '#fff');
+  const broken = goku.guardBroken && Math.floor(game.t * 8) % 2;
+  bar(32, 24, 50, 2, goku.stamina / 100, broken ? '#ff5a3a' : goku.guardBroken ? '#a0503a' : '#9be36b');
+  text(ult ? 'GOKU  SSJ3' : goku.form === 'ssj' ? 'GOKU  SSJ' : 'GOKU', 32, 28, 9, '#fff');
   text(CELL_INFO[cell.form].name, W - 32, 16, 9, '#fff', 'right');
   text(String(Math.max(0, Math.ceil(game.time))), W / 2, 4, 16, '#ffe04a', 'center');
   let hint = '';

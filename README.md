@@ -25,6 +25,8 @@ Then open http://localhost:8765 and press Enter.
 | Toward Cell + J | Rushing punch |
 | Toward Cell + K | Heavy slash (knockdown) |
 | Tap S as a hit lands | Perfect block: no damage, +25 ki, punches leave Cell dizzy |
+
+Blocking uses the green stamina bar under the ki bar. Holding block drains it slowly and each blocked hit costs more; at zero your guard breaks, the hit lands and you can't block until it refills. Perfect blocks give stamina back.
 | L | Ki blast |
 | Hold I | Charge ki |
 | Q | Teleport behind Cell |
