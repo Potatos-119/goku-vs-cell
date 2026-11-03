@@ -33,8 +33,19 @@ for (const [a, codes] of Object.entries(BINDINGS)) for (const c of codes) (CODE_
 const codeOf = e => e.code || { ' ': 'Space', enter: 'Enter', escape: 'Escape', shift: 'ShiftLeft', arrowleft: 'ArrowLeft', arrowright: 'ArrowRight', arrowup: 'ArrowUp', arrowdown: 'ArrowDown' }[e.key.toLowerCase()] || 'Key' + e.key.toUpperCase();
 
 const keys = {}, pressed = new Set(), lastPress = {}, kbHeld = {}, padHeld = {};
+// double-tap a direction = dash. Detected as the keys are pressed (not once per frame), so two taps
+// during a hit-freeze still count; the request then waits in the input buffer like any other press.
+const lastTap = { dir: 0, t: -1 };
+let dashReq = null;
 function setHeld(src, action, down) {
-  if (down && !kbHeld[action] && !padHeld[action]) { pressed.add(action); lastPress[action] = game ? game.ct : 0; }
+  if (down && !kbHeld[action] && !padHeld[action]) {
+    pressed.add(action); lastPress[action] = game ? game.ct : 0;
+    if (game && (action === 'left' || action === 'right')) {
+      const d = action === 'right' ? 1 : -1;
+      if (lastTap.dir === d && game.ct - lastTap.t < 0.25) { dashReq = { dir: d, t: game.ct }; lastTap.dir = 0; }
+      else Object.assign(lastTap, { dir: d, t: game.ct });
+    }
+  }
   src[action] = down;
   keys[action] = !!(kbHeld[action] || padHeld[action]);
 }
@@ -140,9 +151,10 @@ function reset(side = (game && game.side) || 'goku') {
   projs = []; beams = []; sparks = []; ghosts = []; popups = []; trails = []; zips = []; clash = null; timers = [];
   // the game clock restarts with each fight, so forget presses timed on the old clock
   for (const a in lastPress) delete lastPress[a];
+  dashReq = null; lastTap.dir = 0;
   Object.assign(cam, { x: W / 2, y: H / 2, z: 1, focus: null });
   Stage.reset(); Object.assign(ai, { think: 0.8, vanishCd: 3, ultCd: 6 });
-  game = { mode: 'title', menu: [], training: false, dummyFight: false, ct: 0, chaseT: 0, cine: null, combo: { n: 0, t: 0, moves: [], done: new Set() }, learned: (game && game.learned) || new Set(), side, pick: side === 'cell' ? 1 : 0, time: 120, freeze: 0, shake: 0, flash: 0, phase: 0, slow: 1, banner: null, dlg: null, skip: false, result: null, t: 0, kameCd: 4 };
+  game = { mode: 'title', comboNames: [], menu: [], training: false, dummyFight: false, ct: 0, chaseT: 0, cine: null, combo: { n: 0, t: 0, moves: [], done: new Set() }, learned: (game && game.learned) || new Set(), side, pick: side === 'cell' ? 1 : 0, time: 120, freeze: 0, shake: 0, flash: 0, phase: 0, slow: 1, banner: null, dlg: null, skip: false, result: null, t: 0, kameCd: 4 };
 }
 
 function setForm(f, form) {
@@ -154,12 +166,13 @@ function setForm(f, form) {
 // ---------- combat ----------
 // kind: 'melee' | 'proj' | 'beam' | 'ult' (ultimates can't be blocked or dodged)
 // opts: launch / spike / wallBounce from the attack, token for combo recognition
-const JUGGLE_MAX = 3;
+const JUGGLE_MAX = 5;
 function damage(def, src, dmg, heavy, dir, kind = 'melee', opts = {}) {
   if ((def.inv > 0 && kind !== 'ult') || ['down', 'tele', 'transform', 'evolve'].includes(def.state) || def.hp <= 0 || game.mode !== 'fight') return false;
   // someone already flying can be juggled a few times, but not by beams (that would never end)
   const juggling = def.state === 'knock';
-  if (juggling && (def.juggle >= JUGGLE_MAX || kind === 'beam')) return false;
+  // beams don't count toward the limit: they carry a flying enemy instead of re-launching them
+  if (juggling && kind !== 'beam' && def.juggle >= JUGGLE_MAX) return false;
   // from phase two on, the boss sometimes vanishes right before a hit lands and counters from behind
   if (def === boss && kind !== 'ult' && kind !== 'beam' && game.phase >= 1 && ai.vanishCd <= 0
       && ['idle', 'walk', 'block', 'pose', 'dash'].includes(def.state) && Math.random() < 0.12 + 0.1 * game.phase) {
@@ -181,7 +194,8 @@ function damage(def, src, dmg, heavy, dir, kind = 'melee', opts = {}) {
     if (src === player) { game.combo.n++; game.combo.t = 0; comboToken(opts.token || (kind === 'melee' ? src.anim : kind)); }
     else Object.assign(game.combo, { n: 0, moves: [], done: new Set() });
     // long combos hit softer and stun for less, so there are no infinites
-    dmg *= Math.max(0.45, 1 - 0.07 * def.comboTaken);
+    // (beams keep more of their damage: they're the combo's finisher)
+    dmg *= Math.max(kind === 'beam' ? 0.75 : 0.45, 1 - 0.07 * def.comboTaken);
     def.comboTaken++;
     sparks.push({ x: def.x - dir * 6, y: def.y - 30, t: 0, c: '#fff6b8' });
     game.freeze = heavy ? 0.12 : 0.06; shake(heavy ? 6 : 3);
@@ -192,10 +206,13 @@ function damage(def, src, dmg, heavy, dir, kind = 'melee', opts = {}) {
   if (!blocking && !armored) {
     def.queue = []; def.next = null;
     if (juggling || heavy || opts.launch || opts.spike || def.hp <= 0) {
-      def.juggle = juggling ? def.juggle + 1 : 0;
+      def.juggle = juggling ? def.juggle + (kind === 'beam' ? 0 : 1) : 0;
       def.play('knock'); def.y -= 1; sfx.kick();
       if (opts.spike) { def.vy = 420; def.vx = dir * 40; def.spiked = true; }
       else if (opts.launch) { def.vy = -390; def.vx = dir * 45; if (src === player) { comboToken('launch'); game.chaseT = 0.55; } }
+      // a beam holds a flying enemy up and drives them back; its last tick blasts them away
+      else if (juggling && kind === 'beam' && !heavy) { def.vy = -125; def.vx = dir * 60; }
+      else if (kind === 'beam') { def.vy = -300; def.vx = dir * 210; }
       // air hits pop them up gently and lift the attacker the same, so the air string stays together
       else if (juggling && src.state === 'airAtk') { def.vy = -170; def.vx = dir * 25; }
       else if (juggling) { def.vy = -210; def.vx = dir * 70; }
@@ -248,10 +265,15 @@ function meleeCheck(f, foe) {
 function dash(f, dir) {
   const air = f.y < FLOOR - 2, fwd = dir === f.facing;
   if (air && f.airDashed) return;
+  if (f === player) dashReq = null;
   f.play(air ? (fwd ? 'airDash' : 'airBack') : (fwd ? 'dash' : 'backdash'), 'dash');
   f.t2 = air ? 0.22 : fwd ? 0.25 : 0.2;
   f.vx = dir * (fwd ? 330 : 250) * f.speed;
   f.vy = air ? 0 : fwd ? 0 : -140;
+  // in an air combo the dash homes in on the flying enemy's height
+  const foe = foeOf(f);
+  f.homing = air && fwd && foe.state === 'knock';
+  if (f.homing) f.vy = clamp((foe.y - f.y) * 8, -240, 240);
   f.dashAir = air; if (air) f.airDashed = true;
   zips.push({ im: art(f.who === 'goku' ? FX_ART.gokuZip : FX_ART.cellZip), x: f.x, y: f.y - 24 * f.scale, dir, scale: f.scale, t: 0 });
   if (!air) Stage.puff(f.x, dir);
@@ -288,11 +310,14 @@ function teleport(f, foe) {
 
 // quick: answering a Kamehameha, charging fast enough to meet it in a beam clash.
 // big: Cell's Solar Kamehameha, a huge beam that can't be blocked.
-function startKame(f, quick = false, big = false) {
+// combo: cancelled out of a landed hit, so it charges fast and the enemy is kept up in the air.
+function startKame(f, quick = false, big = false, combo = false) {
   Voice.shout(f.who, big ? 'Solar Kamehameha!' : 'Kamehameha!');
   f.big = big;
   f.play('kameCharge', 'kameCharge');
-  f.t2 = quick ? Math.max(0.12, foeOf(f).t2 + 0.03) : big ? 1.6 : f.who === 'goku' ? 0.9 : 1.3;
+  f.t2 = combo ? 0.25 : quick ? Math.max(0.12, foeOf(f).t2 + 0.03) : big ? 1.6 : f.who === 'goku' ? 0.9 : 1.3;
+  const foe = foeOf(f);
+  if (combo && foe.state === 'knock') foe.vy = Math.min(foe.vy, -160);
   f.vx = 0; if (big) f.inv = f.t2;
   // fired from the air: hang there until the beam is done
   if (f.y < FLOOR - 4) { f.floating = true; f.vy = 0; }
@@ -302,8 +327,8 @@ function startKame(f, quick = false, big = false) {
 function fireKame(f) {
   f.play('kameFire', 'kameFire'); f.t2 = f.big ? 2 : f.who === 'goku' ? 1.5 : 1.7;
   const [hx, hy] = f.hand('kameFire'), foe = foeOf(f);
-  // from the air the beam angles down at the enemy (at most ~40 degrees)
-  const ang = f.floating ? clamp(Math.atan2(foe.y - 22 - hy, Math.max(20, Math.abs(foe.x - hx))), 0, 0.7) : 0;
+  // from the air the beam angles at the enemy (up to ~30 degrees up or ~40 down)
+  const ang = f.floating ? clamp(Math.atan2(foe.y - 22 - hy, Math.max(20, Math.abs(foe.x - hx))), -0.5, 0.7) : 0;
   beams.push({ owner: f, x0: hx, y: hy, ang, dir: f.facing, len: 0, t: 0, tick: 0, big: f.big, dps: f.big ? 34 : f.who === 'goku' ? 22 : 18 });
   sfx.beam(f.t2); shake(f.big ? 9 : 4);
 }
@@ -338,8 +363,11 @@ function updateFighter(f, foe, dt) {
     if (f.guardBroken && f.stamina >= 35) f.guardBroken = false;
   }
   const airborne = f.y < FLOOR || f.vy < 0;
-  if (airborne && f.state !== 'tele' && !f.floating && !(f.state === 'dash' && f.dashAir)) {
-    f.vy += GRAV * dt; f.y += f.vy * dt;
+  if (f.state === 'dash' && f.dashAir) f.y = Math.min(FLOOR - 2, f.y + f.vy * dt); // air dash: no gravity
+  else if (airborne && f.state !== 'tele' && !f.floating) {
+    // someone being juggled falls a little slower, so air combos have room to continue
+    // (and so does the attacker mid air-string, so the two stay level)
+    f.vy += GRAV * ((f.state === 'knock' && f.juggle > 0) || f.state === 'airAtk' ? 0.7 : 1) * dt; f.y += f.vy * dt;
     if (f.y >= FLOOR) { f.y = FLOOR; f.vy = 0; landed(f); }
   }
   if (f.y >= FLOOR) f.airDashed = false;
@@ -382,6 +410,11 @@ function updateFighter(f, foe, dt) {
     case 'jump': if (f.vy > 0 && f.anim !== 'fall') f.play('fall', 'jump'); break;
     case 'land': if (f.animDone) f.play('idle'); break;
     case 'dash':
+      // a homing air dash stops once it reaches them, instead of flying past
+      if (f.homing) {
+        f.vy = clamp((foe.y - f.y) * 8, -240, 240);
+        if (Math.abs(foe.x - f.x) < 24 && Math.abs(foe.y - f.y) < 12) { f.t2 = 0; f.vx = 0; f.facing = foe.x > f.x ? 1 : -1; }
+      }
       if ((f.t2 -= dt) <= 0) {
         if (f.y < FLOOR - 1) { f.vx *= 0.4; f.play('fall', 'jump'); } else { f.vx = 0; f.play('idle'); }
       }
@@ -498,8 +531,8 @@ function cancel(g, foe, dashDir) {
     if (!isGoku && g.ki >= 8) { g.ki -= 8; cast(g, 'finger'); return true; }
   }
   if (act('beam')) {
-    if (isGoku && g.form === 'ssj' && g.ki >= 50) { g.ki -= 50; startKame(g); return true; }
-    if (!isGoku && g.form === 'perfect' && g.ki >= 50) { g.ki -= 50; startKame(g); return true; }
+    if (isGoku && g.form === 'ssj' && g.ki >= 50) { g.ki -= 50; startKame(g, false, false, true); return true; }
+    if (!isGoku && g.form === 'perfect' && g.ki >= 50) { g.ki -= 50; startKame(g, false, false, true); return true; }
     if (!isGoku && g.form === 'semi' && g.ki >= 20) { g.ki -= 20; cast(g, 'death'); return true; }
   }
   return false;
@@ -520,22 +553,15 @@ function comboToken(tok) {
     c.done.add(combo.name);
     game.learned.add(combo.name);
     player.ki = Math.min(100, player.ki + 8);
-    popups.push({ text: combo.name + '!', x: W / 2, y: 54, t: 0, c: '#ffd23a' });
+    game.comboNames.push({ text: combo.name + '!', t: 0 });
     sfx.parry();
   }
 }
 
-const lastTap = { dir: 0, t: -1 };
 function playerInput(dt) {
   const g = player, foe = boss, isGoku = g.who === 'goku';
   const dir = (keys.right ? 1 : 0) - (keys.left ? 1 : 0);
-  // double-tapping a direction within a quarter second dashes that way
-  const tapDir = tap('right') ? 1 : tap('left') ? -1 : 0;
-  let dashDir = 0;
-  if (tapDir) {
-    if (tapDir === lastTap.dir && game.t - lastTap.t < 0.25) { dashDir = tapDir; lastTap.dir = 0; }
-    else Object.assign(lastTap, { dir: tapDir, t: game.t });
-  }
+  let dashDir = dashReq && game.ct - dashReq.t <= BUFFER ? dashReq.dir : 0;
   if (act('dash')) dashDir = dir || g.facing;
   if (g.free) {
     g.facing = foe.x > g.x ? 1 : -1;
@@ -591,7 +617,16 @@ function playerInput(dt) {
     if (airBeam && g.ki >= 50 && act('beam')) { g.ki -= 50; return startKame(g); }
     if (act('punch') || act('kick')) g.play('air', 'airAtk');
   } else if (g.state === 'airAtk') {
-    if (g.hitLanded && g.ki >= 15 && act('vanish')) { g.ki -= 15; return teleport(g, foe); }
+    // after an air hit lands: vanish, air-dash to restart the string, or finish with a beam / ki blast
+    if (g.hitLanded) {
+      if (g.ki >= 15 && act('vanish')) { g.ki -= 15; return teleport(g, foe); }
+      if (dashDir && !g.airDashed) return dash(g, dashDir);
+      if (act('beam')) {
+        if (g.ki >= 50 && (isGoku ? g.form === 'ssj' : g.form === 'perfect')) { g.ki -= 50; return startKame(g, false, false, true); }
+        if (!isGoku && g.form === 'semi' && g.ki >= 20) { g.ki -= 20; return cast(g, 'death'); }
+      }
+      if (g.ki >= 8 && act('ki')) { g.ki -= 8; return cast(g, isGoku ? 'kiCast' : 'finger'); }
+    }
     if (AIR_CHAIN[g.anim] && (act('punch') || act('kick'))) g.next = AIR_CHAIN[g.anim];
   } else if (g.state === 'attack' && g.hitLanded && cancel(g, foe, dashDir)) {
     // a landed hit can be cancelled into a special, a dash or (after a launcher) a chasing jump
@@ -1101,12 +1136,12 @@ function drawMenu() {
   text(m.title, W / 2, 6, 15, '#ffe04a', 'center');
   let y = 28;
   if (m.page === 'moves') {
-    for (const [input, what] of MOVES[who]) { small(input, 14, y, '#ffd23a', 'left', 5); small(what, 118, y, '#fff', 'left', 5); y += 8; }
+    for (const [input, what] of MOVES[who]) { small(input, 14, y, '#ffd23a', 'left', 5); small(what, 118, y, '#fff', 'left', 5); y += 7; }
   } else if (m.page === 'combos') {
     for (const c of COMBOS[who]) {
       const got = game.learned.has(c.name);
       small(got ? '[X]' : '[ ]', 12, y, got ? '#8f8' : '#888', 'left', 5);
-      small(c.name, 32, y, got ? '#8f8' : '#ffd23a', 'left', 5); small(c.how, 140, y, '#ddd', 'left', 5); y += 11;
+      small(c.name, 32, y, got ? '#8f8' : '#ffd23a', 'left', 5); small(c.how, 140, y, '#ddd', 'left', 5); y += 9;
     }
     small('LAND A COMBO IN A FIGHT OR IN TRAINING TO TICK IT OFF  (+8 KI EACH TIME)', W / 2, y + 2, '#9ff');
   } else if (m.page === 'controls') {
@@ -1220,6 +1255,8 @@ function step(raw) {
   for (const gh of ghosts) gh.t += raw;
   ghosts = ghosts.filter(gh => gh.t < 0.3);
   for (const pp of popups) pp.t += raw;
+  for (const c of game.comboNames) c.t += raw;
+  game.comboNames = game.comboNames.filter(c => c.t < 1.6);
   popups = popups.filter(pp => pp.t < 0.9);
   if (game.cine) updateCine(raw);
   updateCamera(raw);
@@ -1321,8 +1358,15 @@ function drawHUD() {
     const pop = Math.max(0, 0.15 - game.combo.t) * 40;
     text(`${game.combo.n} HITS!`, 8, 44, 12 + pop, '#ffd23a', 'left', '#7a1a00');
   }
+  // named combos stack under the timer in screen space, newest at the bottom
+  game.comboNames.slice(-3).forEach((c, i) => {
+    const pop = Math.max(0, 0.12 - c.t) * 40;
+    ctx.globalAlpha = Math.min(1, (1.6 - c.t) * 3);
+    text(c.text, W / 2, 24 + i * 12, 10 + pop, '#ffd23a', 'center', '#7a1a00');
+    ctx.globalAlpha = 1;
+  });
   const hint = hintFor(player);
-  if (hint && game.mode === 'fight' && !beams.length) text(hint, W / 2, 32, 8, '#9ff', 'center');
+  if (hint && game.mode === 'fight' && !beams.length && !game.comboNames.length) text(hint, W / 2, 32, 8, '#9ff', 'center');
 }
 
 // Icon in a dark frame. crop: draw just the top square of a tall portrait.

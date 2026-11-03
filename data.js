@@ -167,6 +167,9 @@ const COMBOS = {
     { name: 'KAMEHAMEHA CANCEL', steps: ['melee', 'beam'], how: 'land a hit, then U (SSJ)' },
     { name: 'VANISH STRIKE', steps: ['melee', 'vanish', 'melee'], how: 'land a hit, Q, then J' },
     { name: 'WALL SPLAT', steps: ['wall', 'melee'], how: 'toward + K near the edge, hit the rebound' },
+    { name: 'AIR DASH EXTEND', steps: ['air2', 'air'], how: 'air J J, double-tap, J again' },
+    { name: 'AERIAL KAMEHAMEHA', steps: ['air', 'beam'], how: 'air hit, then U (SSJ)' },
+    { name: 'SAIYAN SKY BLAST', steps: ['launch', 'air', 'air2', 'beam'], how: 'launcher, W, J J, then U (SSJ)' },
   ],
   cell: [
     { name: 'NIGHTMARE STRING', steps: ['p1', 'p2', 'k2'], how: 'J J K' },
@@ -178,6 +181,10 @@ const COMBOS = {
     { name: 'KAMEHAMEHA CANCEL', steps: ['melee', 'beam'], how: 'land a hit, then U (Perfect)' },
     { name: 'VANISH STRIKE', steps: ['melee', 'vanish', 'melee'], how: 'land a hit, Q, then J' },
     { name: 'WALL SPLAT', steps: ['wall', 'melee'], how: 'toward + K near the edge, hit the rebound' },
+    { name: 'AIR DASH EXTEND', steps: ['air2', 'air'], how: 'air J J, double-tap, J again' },
+    { name: 'AERIAL DEATH BEAM', steps: ['air', 'death'], how: 'air hit, then U (Semi-Perfect)' },
+    { name: 'AERIAL KAMEHAMEHA', steps: ['air', 'beam'], how: 'air hit, then U (Perfect)' },
+    { name: 'PERFECT SKY BLAST', steps: ['launch', 'air', 'air2', 'beam'], how: 'launcher, W, J J, then U (Perfect)' },
   ],
 };
 const MELEE = ['p1', 'p2', 'p3', 'p4', 'k1', 'k2', 'k3', 'rush', 'slash', 'air', 'air2', 'spike'];
@@ -192,6 +199,8 @@ const MOVES = {
     ['W AFTER A LAUNCHER', 'Chase jump after them'],
     ['AIR: J J J', 'Air string, ends in a meteor spike'],
     ['AFTER A HIT', 'Cancel into L, U, Q or a dash'],
+    ['AIR HIT + U', 'Kamehameha out of the air combo'],
+    ['AIR HIT + DASH', 'Air dash, then J again for more hits'],
     ['L', 'Ki blast (8 ki)'],
     ['DOUBLE-TAP A / D', 'Dash, once in the air too'],
     ['Q', 'Vanish behind them (15 ki, air too)'],
@@ -210,6 +219,8 @@ const MOVES = {
     ['W AFTER A LAUNCHER', 'Chase jump after them'],
     ['AIR: J J J', 'Air string, ends in a meteor spike'],
     ['AFTER A HIT', 'Cancel into L, U, Q or a dash'],
+    ['AIR HIT + U', 'Death Beam / Kamehameha out of the air combo'],
+    ['AIR HIT + DASH', 'Air dash, then J again for more hits'],
     ['L', 'Finger beam (8 ki)'],
     ['TOWARD + L', 'Barrage (Semi-Perfect, 15 ki)'],
     ['DOUBLE-TAP A / D', 'Dash, once in the air too'],

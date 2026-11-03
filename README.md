@@ -20,6 +20,10 @@ helicopter, rocks that lift when someone powers up, and cracks where fighters ge
   meteor **spike** that slams them into the ring and bounces them back up.
 - **Cancels**: once a hit lands you can cancel the rest of the move into a ki blast (L), a beam (U),
   a vanish (Q) or a dash.
+- **Air combos**: after an air hit lands, double-tap toward them to air-dash in (it homes in on them),
+  then J J again; or press **U** to fire the Kamehameha (Death Beam for Semi-Perfect Cell) straight out of
+  the air combo. Beams carry a flying enemy and blast them away on the last tick. Longest route:
+  J J J J, W, J J, dash, J J, U.
 - **Wall bounce**: the heavy slash (toward + K) bounces them off the screen edge for a follow-up.
 - Juggles are limited and long combos hit softer, so nothing loops forever.
 - **Named combos** pop up with a +8 ki bonus when you land them. P opens the pause menu with the full
