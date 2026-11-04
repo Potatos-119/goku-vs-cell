@@ -1,128 +1,138 @@
 # Goku vs Cell
 
-A Dragon Ball boss fight in plain JavaScript and canvas. Pick a side on the select screen:
+A Dragon Ball boss fight I made in plain JavaScript and canvas, without an engine or a build step. You
+pick a side on the select screen and fight the other one.
 
-- **Goku**: stop Cell before he becomes perfect. Cell starts Imperfect and turns Semi-Perfect at 2/3 health.
-  At 1/3 he sends in the **Cell Juniors**: three of them, one after another, while he watches from the back
-  of the ring. Beat all three and he comes back and goes Perfect for the last stretch.
-- **Cell**: absorb a Saiyan's power. Fill your ki and press T to evolve yourself; Goku is the boss, going Super
-  Saiyan at 2/3 health and all out (Dragon Fist included) at 1/3.
+If you play Goku, you're trying to stop Cell before he gets perfect. He starts out Imperfect and turns
+Semi-Perfect at 2/3 health. At 1/3 he sends in the Cell Juniors, three of them, one after another, while
+he stands at the back of the ring with his arms folded. Beat all three and he comes back and goes Perfect
+for the last stretch.
 
-From phase two on the boss can vanish out of your attacks and counter from behind, and it reads what you do:
-it punishes charging, whiffs and broken guards, blocks or dodges beams and answers them with its own.
-Ki blast spam doesn't work on it: it blocks them, jumps over them and comes down with an air attack, or
-Super Dashes straight through them (swatting them aside) and punishes you; the more you spam, the more
-often it does, and spammed blasts stun it for less.
+If you play Cell, it's the other way around. You fill your ki and press T to evolve yourself, and Goku is
+the boss. He goes Super Saiyan at 2/3 health and all out at 1/3, Dragon Fist and all.
 
-The stage is the Cell Games ring (`assets/img/arena.jpg`, a 2x upscale of the art with the sky extended
-to fill the 16:9 view; the earlier painting `assets/img/cell-games.webp` is the CLASSIC arena in Options)
-with live effects on top: dust, a news helicopter, rocks that lift when someone powers up, and cracks
-where fighters get slammed. On big or retina screens the game draws at twice the resolution, so the art
-and text stay sharp. Voice lines can be added as recordings: see `VOICE_CLIPS` in `audio.js`.
+The boss gets meaner as it goes. From phase two it can vanish out of your attacks and hit you from behind.
+It also watches what you do: charge in front of it, whiff, or let your guard break and it punishes you.
+It blocks or dodges beams, or fires its own back. And spamming ki blasts won't work. It blocks them, jumps
+over them, or Super Dashes straight through them and makes you pay, and the more you spam the more often
+it does that.
 
-## Combat
+## How to run it
 
-- **Chains**: J J J J or K K K (Goku), J J K or K K (Cell). The last hit is a **launcher**.
-- **Chase**: press W right after a launcher to jump after them, then **J J J** in the air: two hits and a
-  meteor **spike** that slams them into the ring and bounces them back up.
-- **Cancels**: once a hit lands you can cancel the rest of the move into a ki blast (L), a beam (U),
-  a vanish (Q) or a dash.
-- **Air combos**: after an air hit lands, double-tap toward them to air-dash in (it homes in on them),
-  then J J again; or press **U** to fire the Kamehameha (Death Beam for Semi-Perfect Cell) straight out of
-  the air combo. Beams carry a flying enemy and blast them away on the last tick. Longest route:
-  J J J J, W, J J, dash, J J, U.
-- **Dragon Rush**: J + K together (or F) lunges into a grab that goes straight through a block and
-  launches them, so W, J J J follows. It's slow to come out, so hitting them first beats it. The boss
-  uses it on you if you sit behind your guard.
-- **Counter hits**: catch someone while their own attack, ki blast or beam is still starting up and the
-  hit does +25% damage and stuns for longer ("COUNTER!").
-- **Finishers at full ki**: SSJ Goku's Instant Kamehameha (U in the air, or U after an air hit) and
-  Perfect Cell's Solar Kamehameha (O on the ground, in the air or right after a hit): Cell flares his
-  aura, vanishes, reappears high above and fires a huge Kamehameha down into the ring.
-- The combo counter shows the hits and the damage the combo has done.
-- **Ki blasts in combos**: L works in the air too, and a ki blast that hits can be cancelled like a
-  landed punch: J rushes in after it (an air hit in the air), or go into a dash, Q, U or another L. So
-  J J, L, J, J J... on the ground, or air J J, L, double-tap, J J, U in the air.
-- **Cell's own tools**: his grab is **Absorb** (heals him and drains their ki), **G** is his **Barrier**, a
-  burst that throws them off and works even while he's being hit (30 ki), **E** calls in a **Cell Junior**
-  that flies at them and launches them (Perfect, 35 ki, also after a landed hit), and holding **I**
-  regenerates him while he charges. The boss Cell uses all of these too.
-- **Wall bounce**: the heavy slash (toward + K) bounces them off the screen edge for a follow-up.
-- Juggles are limited and long combos hit softer, so nothing loops forever.
-- **Named combos** pop up with a +8 ki bonus when you land them. P opens the pause menu with the full
-  **Move List**, **Combo List** (with the ones you've landed ticked) and **Controls**.
-- **Training mode** (pick it after choosing a fighter): the dummy can't be KO'd, health and ki refill, and
-  a checklist shows every combo with a hint for the next one to try. The dummy can be set to fight back.
-
-## Options
-
-Pause menu or the menu after picking a fighter: music and sound volume, music on/off, calm mode
-(less shake and flashing), arena (DAY or CLASSIC). Settings are remembered. The fight is always shown whole; the camera only
-pushes in for cinematics.
-
-## Music
-
-- `assets/audio/bg-theme.mp3` loops during fights (a 4-minute cut of the background OST).
-- `assets/audio/ssj-transform.mp3` plays when Goku goes Super Saiyan: a 15-second cut of Blue Saiyan
-  (57.4s-72.5s of the track) that builds up and hits 5.05 seconds in. The transformation is a short
-  cinematic timed to it, so his hair turns gold exactly on that hit (`SSJ_PEAK` in `game.js`); then the
-  fight theme comes back.
-
-Swap either file to change the music; the paths are in `TRACKS` at the top of the music section in `audio.js`.
-
-## Run
-
-The game reads sprite pixels from a canvas, which browsers block for pages opened as files, so serve the folder:
+The game reads sprite pixels off a canvas, and browsers don't allow that for a page opened straight from
+disk, so you have to serve the folder:
 
 ```bash
-python3 -m http.server 8765
+python3 -m http.server 8766
 ```
 
-Then open http://localhost:8765 and press Enter.
+Then open http://localhost:8766 and press Enter.
+
+## Fighting
+
+The basic chains are J J J J or K K K for Goku, and J J K or K K for Cell. The last hit of a chain
+launches them. Press W right after and you jump up after them, then J J J in the air does two hits and a
+spike that slams them into the ring and bounces them back up.
+
+Once a hit lands you can cancel the rest of the move into a ki blast (L), a beam (U), a vanish (Q) or a
+dash. In the air it's the same idea: after an air hit, double-tap toward them to dash in (it homes in on
+them) and keep going, or press U to fire the Kamehameha (Death Beam if you're Semi-Perfect Cell) right
+out of the combo. A beam carries a flying enemy along and blasts them away at the end. The longest route
+I've found is J J J J, W, J J, dash, J J, U.
+
+Ki blasts work in combos too. L works in the air, and if the blast hits you can cancel it like a punch:
+J rushes in after it, or go into a dash, Q, U or another L. So on the ground something like J J, L, J,
+J J, and in the air J J, L, double-tap, J J, U.
+
+A few more things:
+
+- J + K together (or F) is a grab, Dragon Rush for Goku and Absorb for Cell. It goes through a block and
+  launches them, so W, J J J follows. It's slow, though, and hitting them first beats it. The boss will do
+  it to you if you sit behind your guard too long.
+- Hit someone while their own attack, ki blast or beam is still starting up and you get a counter hit:
+  25% more damage and a longer stun.
+- The heavy slash (toward + K) bounces them off the edge of the screen for a follow-up.
+- Juggles are capped and long combos hit softer, so nothing loops forever.
+- At full ki you get a finisher. SSJ Goku's is the Instant Kamehameha (U in the air, or U after an air hit).
+  Perfect Cell's is the Solar Kamehameha (O on the ground, in the air or right after a hit): he flares his
+  aura, vanishes, shows up high above and fires a huge Kamehameha down into the ring.
+- The combo counter shows hits and damage. Land a named combo and you get its name on screen and +8 ki.
+
+Cell has a few tools Goku doesn't. His grab is Absorb, which heals him and drains your ki. G is his
+Barrier, a burst that throws you off and works even while he's getting hit (30 ki). As Perfect Cell, E
+calls in a Cell Junior that flies at you and launches you (35 ki, also after a landed hit). Holding I
+heals him a little while he charges. The boss Cell uses all of these on you too.
+
+P pauses. The pause menu has the full move list, a combo list (the ones you've landed get ticked) and
+the controls. There's also a training mode, which you can pick after choosing a fighter. The dummy can't
+be KO'd, health and ki refill, and a checklist shows every combo with a hint for the next one to try.
+You can set the dummy to fight back.
 
 ## Controls
 
-| Key | Action |
+| Key | What it does |
 |---|---|
 | A / D | Move |
 | W / Space | Jump |
-| S | Block: turns to face the attacker, a ki barrier flares on each blocked hit. When the boss vanishes behind you a red ! flashes just before the counter, so you can block it |
-| Double-tap A / D (or Shift) | Dash forward / hop back; works once per jump in the air |
-| J / K | Punch / kick (press again to chain a combo) |
-| Toward Cell + J | Rushing punch |
-| Toward Cell + K | Heavy slash (knockdown) |
-| Tap S as a hit lands | Perfect block: no damage, +25 ki, punches leave Cell dizzy |
-| J + K / F | Dragon Rush (Goku) / Absorb (Cell): a grab that beats block and launches |
-| G (Cell) | Barrier: burst them away, even mid-combo (30 ki) |
-| E (Perfect Cell) | Call a Cell Junior to attack (35 ki) |
-| L | Ki blast (Goku) / finger beam (Cell); toward + L = barrage (Semi-Perfect+) |
+| S | Block. You turn to face the attacker and a ki barrier flares on each blocked hit. When the boss vanishes behind you, a red ! flashes just before it attacks, so you can still block it |
+| Tap S as a hit lands | Perfect block: no damage, +25 ki, and punches leave them dizzy |
+| Double-tap A / D (or Shift) | Dash forward or hop back, once per jump in the air |
+| J / K | Punch / kick, press again to chain |
+| Toward + J | Rushing punch |
+| Toward + K | Heavy slash (knockdown, wall bounce) |
+| J + K / F | Grab: Dragon Rush (Goku) or Absorb (Cell) |
+| L | Ki blast (Goku) / finger beam (Cell). Toward + L is Cell's barrage (Semi-Perfect and up) |
 | Hold I | Charge ki |
-| T (Cell, full ki) | Evolve to the next form |
-| Q | Vanish behind the enemy (in the air too) |
-| T | Super Saiyan (full ki) |
-| U | Kamehameha (SSJ Goku or Perfect Cell, 50 ki; in the air it angles down at the enemy) / Death Beam (Semi-Perfect Cell) |
-| Jump + U at full ki | Instant Kamehameha: charge in the air, vanish behind the enemy, fire point-blank (SSJ Goku); works after an air hit too |
-| O | Ultimate at full ki: Dragon Fist (SSJ Goku) / Solar Kamehameha cinematic (Perfect Cell; in the air or after a hit too) |
+| T | At full ki: Super Saiyan (Goku) or evolve to the next form (Cell) |
+| Q | Vanish behind them, in the air too |
+| U | Kamehameha (SSJ Goku or Perfect Cell, 50 ki; from the air it angles down) / Death Beam (Semi-Perfect Cell) |
+| Jump + U at full ki | Instant Kamehameha (SSJ Goku), also right after an air hit |
+| O | At full ki: Dragon Fist (SSJ Goku) / Solar Kamehameha (Perfect Cell) |
+| G | Cell's Barrier (30 ki) |
+| E | Perfect Cell calls a Cell Junior (35 ki) |
 | P | Pause |
-| M | Music on/off (remembered next time) |
-| R | Calm mode: much less screen shake and flashing (remembered next time) |
-| Esc | Skip intro / back to character select after a fight |
+| M | Music on/off |
+| R | Calm mode: a lot less screen shake and flashing |
+| Esc | Skip the intro, or go back to character select after a fight |
 
-Keys are read by position, so the layout above works on AZERTY and other keyboards too. A gamepad works as
-well: A jump, X punch, Y kick (X + Y Dragon Rush), B ki blast, LB block, RB dash, LT charge, RT beam, Back
-vanish, Start pause, L3 transform, R3 ultimate, stick or d-pad to move. A press made just before you can act
-(while landing or recovering) is remembered for a moment, so attacks don't get swallowed.
+The keys are read by position, so this layout also works on AZERTY and other keyboards. A gamepad works
+too: A jump, X punch, Y kick (X + Y grab), B ki blast, LB block, RB dash, LT charge, RT beam, Back
+vanish, Start pause, L3 transform, R3 ultimate, and the stick or d-pad to move. If you press something a
+moment before you're able to act (while landing, say), the game remembers it, so inputs don't get eaten.
 
-Blocking uses the green stamina bar under the ki bar. Holding block drains it slowly and each blocked hit
-costs more; at zero your guard breaks, the hit lands and you can't block until it refills. Perfect blocks
-give stamina back.
+Blocking uses the green stamina bar under your ki bar. Holding block drains it slowly and every hit you
+block takes a chunk. If it hits zero your guard breaks, the hit lands, and you can't block again until it
+refills. Perfect blocks give some back.
+
+## Stage, music and options
+
+The arena is the Cell Games ring. `assets/img/arena.jpg` is the art upscaled 2x with the sky extended so
+it fills a 16:9 screen. The older painting, `assets/img/cell-games.webp`, is still there as the CLASSIC
+arena in the options. On top of it there's dust, a news helicopter, rocks that float up when someone
+powers up, and cracks wherever someone gets slammed. On big or retina screens the game draws at twice
+the resolution so everything stays sharp. The camera stays still during the fight and only pushes in for
+cinematics.
+
+Music:
+
+- `assets/audio/bg-theme.mp3` loops during fights. It's a 4-minute cut of the background OST.
+- `assets/audio/ssj-transform.mp3` plays when Goku goes Super Saiyan. It's 15 seconds of Blue Saiyan
+  (57.4s to 72.5s of the track), and the build-up hits 5.05 seconds in. The transformation is a short
+  cinematic timed to that hit, so his hair turns gold right on it (`SSJ_PEAK` in `game.js`). After that
+  the fight theme comes back.
+
+To change the music, swap either file. The paths are in `TRACKS` in `audio.js`. There's also a
+`VOICE_CLIPS` table there if you want to add recorded voice lines.
+
+The options (from the pause menu, or the menu after you pick a fighter) cover music and sound volume,
+music on/off, calm mode and the arena. They're saved between visits.
 
 ## Files
 
-- `game.js` – game loop, fighters, Cell AI, beams, cutscenes, HUD
-- `data.js` – which sprite-sheet frames make up each move
-- `sheets.js` – cuts the sheets into frames and removes the white background
-- `assets/sheets/cell.png` – Cell's three forms plus the Cell Juniors (rows 17-21); `cell-faces.png` – his portraits
-- `audio.js` – music player, generated sound effects and jingles, spoken lines
-- `stage.js` – the Cell Games arena and its live effects
-- `tools/frames.html?sheet=goku` – every sheet frame with its id
+- `game.js`: the game loop, fighters, boss AI, beams, cutscenes and HUD
+- `data.js`: which sprite-sheet frames make up each move, plus the move and combo lists
+- `sheets.js`: cuts the sheets into frames and removes the white background
+- `audio.js`: the music player, generated sound effects and jingles, and the voice clip hook
+- `stage.js`: the arena and its live effects
+- `assets/sheets/cell.png`: Cell's three forms plus the Cell Juniors (rows 17-21). `cell-faces.png` has his portraits
+- `tools/frames.html?sheet=goku`: shows every frame of a sheet with its id
