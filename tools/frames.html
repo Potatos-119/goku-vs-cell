@@ -8,12 +8,32 @@ b{display:block;color:#ffd84a;margin:4px 0}
 </style></head>
 <body><div id="o"></div>
 <script src="../sheets.js"></script>
+<script src="../data.js"></script>
 <script>
 // Shows every frame of one sheet at 2x with its id, for mapping frames to animations.
 const q = new URLSearchParams(location.search);
 const sheet = q.get('sheet') || 'goku', from = +(q.get('from') || 0), to = +(q.get('to') || 99), S = +(q.get('s') || 2);
 for (const k in SHEET_CFG) SHEET_CFG[k].src = '../' + SHEET_CFG[k].src;
+// a sheet cut by exact rectangles (goku2) has no rows: list the rectangles the game uses instead
+function showRects() {
+  const used = new Map();
+  for (const [form, anims] of Object.entries(ANIMS.goku)) for (const [name, a] of Object.entries(anims))
+    for (const r of a.fr) if (r.sheet === sheet && !r.ssj) used.set(JSON.stringify(r.rect), [name, r]);
+  for (const [name, a] of Object.entries(FX_ART)) if (a.ref && a.ref.sheet === sheet) used.set(JSON.stringify(a.ref.rect), [name, a.ref]);
+  const div = document.createElement('div'); div.className = 'row';
+  div.innerHTML = `<b>${sheet}: rectangles used by the game</b>`;
+  for (const [name, ref] of used.values()) {
+    const f = Sheets.frame(sheet, ref);
+    const c = document.createElement('canvas'); c.width = f.width; c.height = f.height;
+    c.style.width = f.width * S + 'px'; c.style.height = f.height * S + 'px';
+    c.getContext('2d').drawImage(f, 0, 0);
+    const w = document.createElement('div'); w.className = 'f'; w.append(c, name + ' [' + ref.rect.join(',') + ']');
+    div.append(w);
+  }
+  document.getElementById('o').append(div);
+}
 Sheets.load().then(() => {
+  if (SHEET_CFG[sheet].raw) return showRects();
   const rows = Sheets.sheets[sheet].rows;
   rows.forEach((r, ri) => {
     if (ri < from || ri > to) return;

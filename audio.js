@@ -23,15 +23,25 @@ const Audio8 = (() => {
     sfxBus = ac.createGain(); sfxBus.gain.value = gainOf(vol.sfx) * 0.7; sfxBus.connect(master);
     musicGain = ac.createGain(); musicGain.gain.value = 0.35; musicGain.connect(musicBus);
     for (const name in tracks) route(tracks[name]);
-    noiseBuf = ac.createBuffer(1, ac.sampleRate, ac.sampleRate);
+    // two seconds of noise, so looped layers don't repeat audibly
+    noiseBuf = ac.createBuffer(1, ac.sampleRate * 2, ac.sampleRate);
     const d = noiseBuf.getChannelData(0);
     for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    buildKit();
   }
 
   const hz = n => 440 * Math.pow(2, (n - 69) / 12);
   // up to +/- one semitone, and +/- about 2 dB
   const vary = () => Math.pow(2, (Math.random() * 2 - 1) / 12);
   const level = () => 0.8 + Math.random() * 0.4;
+  // the same effect fired again within `gap` seconds is skipped, so spam (ki blasts, beam struggles,
+  // combo whiffs) stays punchy instead of piling into mush
+  const lastAt = {};
+  function busy(k, gap) {
+    const t = ac.currentTime, last = lastAt[k];
+    if (last !== undefined && t >= last && t - last < gap) return true;
+    lastAt[k] = t; return false;
+  }
 
   function tone(type, f0, f1, t, dur, vol, dest = sfxBus) {
     const o = ac.createOscillator(), g = ac.createGain();
@@ -52,6 +62,115 @@ const Audio8 = (() => {
     g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.001, t + dur);
     s.connect(bq); bq.connect(g); g.connect(dest);
     s.start(t); s.stop(t + dur + 0.02);
+  }
+
+  // Rise into a noisy ki sweep, then let it crack and fall away.
+  function sweepNoise(t, dur, vol, filter = 'bandpass', f0 = 500, f1 = 4000, dest = sfxBus) {
+    const s = ac.createBufferSource(), g = ac.createGain(), bq = ac.createBiquadFilter();
+    s.buffer = noiseBuf; s.loop = true; bq.type = filter;
+    bq.frequency.setValueAtTime(f0, t); bq.frequency.exponentialRampToValueAtTime(Math.max(30, f1), t + dur);
+    g.gain.setValueAtTime(0.001, t); g.gain.linearRampToValueAtTime(vol, t + Math.min(0.16, dur * 0.28));
+    g.gain.setValueAtTime(vol, t + dur * 0.55); g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+    s.connect(bq); bq.connect(g); g.connect(dest); s.start(t, Math.random() * 1.5); s.stop(t + dur + 0.02);
+  }
+
+  // ---- anime fight sound kit ----
+  // Every effect is built from layers the way fighting-game hits are: a sharp crack on top, a body
+  // pushed through a soft clipper for crunch, and a low thump; big moments also go into a short
+  // generated "arena" reverb so they ring out instead of stopping dead.
+  let verbIn = null, crunch = null;
+  function buildKit() {
+    const len = Math.floor(ac.sampleRate * 1.6), ir = ac.createBuffer(2, len, ac.sampleRate);
+    for (let c = 0; c < 2; c++) {
+      const d = ir.getChannelData(c);
+      for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3.2);
+    }
+    const conv = ac.createConvolver(); conv.buffer = ir;
+    const damp = ac.createBiquadFilter(); damp.type = 'lowpass'; damp.frequency.value = 3800;
+    const ret = ac.createGain(); ret.gain.value = 0.5;
+    verbIn = ac.createGain(); verbIn.connect(conv); conv.connect(damp); damp.connect(ret); ret.connect(sfxBus);
+    crunch = ac.createWaveShaper();
+    const curve = new Float32Array(1024);
+    for (let i = 0; i < 1024; i++) { const x = i / 511.5 - 1; curve[i] = Math.tanh(x * 3) / Math.tanh(3); }
+    crunch.curve = curve; crunch.oversample = '2x';
+    const cg = ac.createGain(); cg.gain.value = 0.8; crunch.connect(cg); cg.connect(sfxBus);
+  }
+  // one sound's output: straight to the effects bus, plus `wet` of it into the reverb
+  function voice(wet = 0.15, gain = 1) {
+    const g = ac.createGain(); g.gain.value = gain; g.connect(sfxBus);
+    if (wet > 0) { const s = ac.createGain(); s.gain.value = wet; g.connect(s); s.connect(verbIn); }
+    return g;
+  }
+  // the same, but through the clipper first
+  function dirty(wet = 0.2) {
+    const g = ac.createGain(); g.connect(crunch);
+    if (wet > 0) { const s = ac.createGain(); s.gain.value = wet; g.connect(s); s.connect(verbIn); }
+    return g;
+  }
+  function filt(type, f, dest, q = 0.7) {
+    const b = ac.createBiquadFilter(); b.type = type; b.frequency.value = f; b.Q.value = q; b.connect(dest); return b;
+  }
+  // electric ki crackle: tiny bright snaps scattered over a span
+  function crackle(t, span, n, vol, dest) {
+    for (let i = 0; i < n; i++) {
+      const at = t + Math.random() * span, f = 2500 + Math.random() * 5000;
+      noise(at, 0.012 + Math.random() * 0.02, vol * (0.5 + Math.random() * 0.5), 'bandpass', f, f * 0.7, dest);
+    }
+  }
+
+  // Held sounds (the aura while charging ki, the roar of a beam) are kept per fighter, so starting
+  // one again replaces it instead of stacking, and the game stops it when the move ends.
+  const sustained = new Map();
+  function startSustain(owner, kind) {
+    init(); stopSustain(owner);
+    const t = ac.currentTime, beam = kind === 'beam', srcs = [];
+    const out = voice(beam ? 0.3 : 0.22, 0);
+    out.gain.setValueAtTime(0.0001, t);
+    out.gain.exponentialRampToValueAtTime(beam ? 0.6 : 0.9, t + (beam ? 0.06 : 0.3));
+    const layer = (type, f, q, gain) => {
+      const s = ac.createBufferSource(), g = ac.createGain();
+      s.buffer = noiseBuf; s.loop = true; g.gain.value = gain;
+      const b = filt(type, f, g, q); s.connect(b); g.connect(out); s.start(t, Math.random() * 1.5); srcs.push(s);
+      return { b, g };
+    };
+    const osc = (type, f, gain, dest = out) => {
+      const o = ac.createOscillator(), g = ac.createGain(); o.type = type; o.frequency.value = f; g.gain.value = gain;
+      o.connect(g); g.connect(dest); o.start(t); srcs.push(o); return o;
+    };
+    // a slow wobble on a gain, for the flutter of an aura or a beam
+    const wobble = (param, rate, depth) => {
+      const l = ac.createOscillator(), g = ac.createGain(); l.frequency.value = rate; g.gain.value = depth;
+      l.connect(g); g.connect(param); l.start(t); srcs.push(l);
+    };
+    if (beam) {
+      // Kamehameha roar: a dense rushing core, a low rumble, a hum under it and a sizzle on top
+      const core = layer('bandpass', 700, 0.6, 0.7); wobble(core.g.gain, 6, 0.15);
+      layer('lowpass', 220, 0.7, 0.8);
+      osc('sawtooth', 55, 0.25, filt('lowpass', 300, out)); osc('sawtooth', 82.6, 0.12, filt('lowpass', 300, out));
+      const sizzle = layer('highpass', 4500, 0.7, 0.09); wobble(sizzle.g.gain, 17, 0.04);
+    } else {
+      // aura: a fluttering roar that opens up the longer you hold it, rumble and sub underneath
+      const roar = layer('lowpass', 380, 1.2, 0.55);
+      roar.b.frequency.setTargetAtTime(1200, t, 1.5);
+      wobble(roar.g.gain, 9, 0.18); wobble(roar.g.gain, 13.7, 0.12);
+      // a slow swell under the flutter, so the aura breathes ("whoom... whoom") instead of hissing flat
+      const body = layer('bandpass', 180, 0.9, 0.5); wobble(body.g.gain, 1.7, 0.22);
+      const sub = osc('sine', 46, 0.22); sub.frequency.setTargetAtTime(60, t, 2);
+      layer('highpass', 5000, 0.7, 0.035);
+    }
+    // electric crackles sprinkled over the held sound
+    const spark = setInterval(() => { if (Math.random() < 0.5) crackle(ac.currentTime, 0.06, 1, beam ? 0.1 : 0.14, out); }, 70);
+    sustained.set(owner, { out, srcs, spark, beam });
+  }
+
+  function stopSustain(owner) {
+    const v = sustained.get(owner);
+    if (!v || !ac) return;
+    sustained.delete(owner); clearInterval(v.spark);
+    const t = ac.currentTime;
+    v.out.gain.cancelScheduledValues(t);
+    v.out.gain.setTargetAtTime(0.0001, t, v.beam ? 0.12 : 0.08);
+    for (const s of v.srcs) { try { s.stop(t + 0.7); } catch (e) { /* already stopped */ } }
   }
 
   // ---- Boss theme: D minor, 160 bpm, 8th-note steps. Dm | Bb | C | A ----
@@ -106,35 +225,219 @@ const Audio8 = (() => {
 
   const sfx = {
     // hits, whooshes and blasts repeat a lot: each play gets a slightly different pitch and level
-    punch() { init(); const t = ac.currentTime, p = vary(), v = level(); noise(t, 0.08, 0.6 * v, 'lowpass', 2500 * p, 400 * p); tone('sine', 160 * p, 50 * p, t, 0.12, 0.8 * v); },
-    kick() { init(); const t = ac.currentTime, p = vary(), v = level(); noise(t, 0.12, 0.6 * v, 'lowpass', 1800 * p, 300 * p); tone('sine', 120 * p, 40 * p, t, 0.16, 0.9 * v); },
-    whoosh() { init(); const p = vary(); noise(ac.currentTime, 0.18, 0.25 * level(), 'bandpass', 600 * p, 3000 * p); },
-    blast() { init(); const t = ac.currentTime, p = vary(); tone('square', 1100 * p, 180 * p, t, 0.25, 0.25 * level()); noise(t, 0.2, 0.25, 'bandpass', 3000 * p, 800 * p); },
+    // light hit: a slap, a crunchy body and a short thump
+    punch() {
+      init(); if (busy('punch', 0.02)) return;
+      const t = ac.currentTime, p = vary(), v = level(), out = voice(0.12), dirt = dirty(0.1);
+      noise(t, 0.005, 0.5 * v, 'highpass', 7000, 7000, out); // the anime "snap" at the very front
+      noise(t, 0.018, 0.55 * v, 'highpass', 3500 * p, 2500, out);
+      noise(t, 0.09, 0.75 * v, 'bandpass', 1500 * p, 450 * p, dirt);
+      tone('sine', 190 * p, 52, t, 0.13, 0.85 * v, out);
+    },
+    // medium hit: lower and longer
+    kick() {
+      init(); if (busy('kick', 0.02)) return;
+      const t = ac.currentTime, p = vary(), v = level(), out = voice(0.18), dirt = dirty(0.15);
+      noise(t, 0.006, 0.5 * v, 'highpass', 6000, 6000, out);
+      noise(t, 0.022, 0.5 * v, 'highpass', 2800 * p, 1800, out);
+      noise(t, 0.14, 0.85 * v, 'bandpass', 1000 * p, 260 * p, dirt);
+      tone('sine', 150 * p, 42, t, 0.2, 1 * v, out);
+      tone('triangle', 320 * p, 80, t, 0.08, 0.3 * v, out);
+    },
+    // heavy hit (launchers, knockdowns, wall bounces, slams): a crack, a boom and a rumble that rings
+    smash() {
+      init(); const t = ac.currentTime, p = vary(), v = level(), out = voice(0.35), dirt = dirty(0.3);
+      noise(t, 0.03, 0.8 * v, 'highpass', 2600 * p, 1600, out);
+      noise(t, 0.32, 1 * v, 'lowpass', 3200 * p, 160, dirt);
+      tone('sine', 110 * p, 30, t, 0.5, 1.1 * v, out);
+      tone('triangle', 260 * p, 60, t, 0.18, 0.35 * v, dirt);
+      noise(t + 0.05, 0.7, 0.25 * v, 'lowpass', 500, 90, out);
+      // a second crack a beat later ("ba-BOOM"), the shockwave catching up with the fist
+      noise(t + 0.04, 0.05, 0.4 * v, 'bandpass', 1800 * p, 900, dirt);
+      tone('sine', 58 * p, 26, t + 0.02, 0.6, 0.45 * v, out);
+    },
+    // a hit on a guard: a dull thud and the ki shield's shimmer
+    block() {
+      init(); const t = ac.currentTime, p = vary(), out = voice(0.2, 1.6);
+      tone('sine', 150 * p, 70, t, 0.11, 0.6, out);
+      noise(t, 0.06, 0.35, 'bandpass', 2200 * p, 1200, out);
+      tone('sine', 1320 * p, 1250 * p, t + 0.01, 0.22, 0.06, out);
+      tone('sine', 1980 * p, 1900 * p, t + 0.01, 0.18, 0.04, out);
+    },
+    // a swing, dash or jump: air rising past, then closing back in behind
+    whoosh() {
+      init(); if (busy('whoosh', 0.03)) return;
+      const t = ac.currentTime, p = vary(), d = 0.18 + Math.random() * 0.1, out = voice(0.1, 2.8);
+      sweepNoise(t, d, 0.42 * level(), 'bandpass', 450 * p, 2800 * p, out);
+      sweepNoise(t + d * 0.4, d * 0.8, 0.2, 'bandpass', 2400 * p, 700 * p, out);
+      noise(t, d, 0.25, 'lowpass', 700, 200, out);
+    },
+    // a ki blast leaving the hand
+    // "dshoom": a snap off the palm, a low push and a puff of air falling away (not a laser "pew")
+    blast() {
+      init(); if (busy('blast', 0.03)) return;
+      const t = ac.currentTime, p = vary(), v = level(), out = voice(0.22), dirt = dirty(0.15);
+      noise(t, 0.012, 0.45 * v, 'highpass', 5000, 3000, out);
+      tone('sine', 260 * p, 70, t, 0.16, 0.8 * v, out);
+      noise(t, 0.24, 0.7 * v, 'bandpass', 2200 * p, 380 * p, dirt);
+      tone('sawtooth', 380 * p, 120 * p, t, 0.14, 0.12 * v, filt('lowpass', 1400, out));
+      sweepNoise(t + 0.03, 0.3, 0.22 * v, 'bandpass', 2500 * p, 800 * p, out);
+    },
+    // a ki blast bursting on someone (or two blasts cancelling out)
+    kiHit() {
+      init(); if (busy('kiHit', 0.035)) return;
+      const t = ac.currentTime, p = vary(), v = level(), out = voice(0.3), dirt = dirty(0.2);
+      noise(t, 0.025, 0.6 * v, 'highpass', 4000, 2000, out);
+      noise(t, 0.25, 0.8 * v, 'lowpass', 4500 * p, 250, dirt);
+      tone('sine', 160 * p, 40, t, 0.25, 0.8 * v, out);
+      crackle(t, 0.15, 4, 0.15, out);
+    },
+    // beams pushing against each other, and a beam burning into someone
+    // (fired several times a second during a struggle): a grinding surge with an electric buzz under it
+    clash() {
+      init(); if (busy('clash', 0.04)) return;
+      const t = ac.currentTime, p = vary(), v = level(), out = voice(0.3, 0.9), dirt = dirty(0.25);
+      const f = 900 + Math.random() * 1400, v2 = v * 0.75;
+      noise(t, 0.16, 0.6 * v2, 'bandpass', f, f * 0.45, dirt);
+      tone('sawtooth', 62 * p, 48 * p, t, 0.18, 0.3 * v, filt('lowpass', 400, out));
+      tone('sine', 80 * p, 40, t, 0.16, 0.6 * v, out);
+      crackle(t, 0.12, 4, 0.22, out);
+    },
+    // gathering a beam ("Ka... me... ha... me..."): a rising whine whose vibrato speeds up as it fills,
+    // gathering wind and pressure underneath, crackling more towards the end
     charge(dur = 1.4) {
-      init(); const t = ac.currentTime;
-      tone('sawtooth', 160, 1400, t, dur, 0.12);
-      tone('square', 80, 700, t, dur, 0.06);
-      noise(t, dur, 0.15, 'bandpass', 400, 4000);
+      init(); const t = ac.currentTime, d = Math.max(0.2, dur), out = voice(0.35, 1.8);
+      const o = ac.createOscillator(), o2 = ac.createOscillator(), vib = ac.createOscillator();
+      const g = ac.createGain(), g2 = ac.createGain(), vg = ac.createGain();
+      o.type = 'sawtooth'; o2.type = 'sine';
+      o.frequency.setValueAtTime(110, t); o.frequency.exponentialRampToValueAtTime(440, t + d);
+      o2.frequency.setValueAtTime(330, t); o2.frequency.exponentialRampToValueAtTime(1760, t + d);
+      vib.frequency.setValueAtTime(5, t); vib.frequency.linearRampToValueAtTime(16, t + d);
+      vg.gain.setValueAtTime(4, t); vg.gain.linearRampToValueAtTime(30, t + d);
+      vib.connect(vg); vg.connect(o.frequency); vg.connect(o2.frequency);
+      const lp = filt('lowpass', 500, g, 2);
+      lp.frequency.setValueAtTime(500, t); lp.frequency.exponentialRampToValueAtTime(3500, t + d);
+      // a second saw a few cents sharp makes the whine shimmer instead of buzzing thin
+      const o3 = ac.createOscillator(); o3.type = 'sawtooth';
+      o3.frequency.setValueAtTime(110.6, t); o3.frequency.exponentialRampToValueAtTime(442.3, t + d);
+      vg.connect(o3.frequency); o3.connect(lp); o3.start(t); o3.stop(t + d + 0.15);
+      o.connect(lp); g2.gain.value = 0.35; o2.connect(g2); g2.connect(g);
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.26, t + d * 0.85);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + d + 0.12);
+      g.connect(out);
+      for (const n of [o, o2, vib]) { n.start(t); n.stop(t + d + 0.15); }
+      sweepNoise(t, d + 0.1, 0.3, 'bandpass', 250, 3200, out);
+      tone('sine', 40, 75, t, d + 0.1, 0.35, out);
+      crackle(t + d * 0.3, d * 0.7, Math.round(6 + d * 10), 0.18, out);
+      // the air rushing in to the hands just before the release
+      sweepNoise(t + d * 0.6, d * 0.45, 0.2, 'highpass', 6000, 1500, out);
     },
-    beam(dur = 1.6) {
-      init(); const t = ac.currentTime;
-      noise(t, dur, 0.55, 'lowpass', 5000, 600);
-      tone('square', 90, 60, t, dur, 0.2);
-      tone('sawtooth', 220, 110, t, dur, 0.1);
+    // "...HA!": the beam bursting out of the hands; the held roar starts with beamLoop
+    beam() {
+      init(); const t = ac.currentTime, out = voice(0.5), dirt = dirty(0.4);
+      noise(t, 0.05, 0.6, 'highpass', 3000, 1500, out);
+      noise(t, 0.6, 0.9, 'lowpass', 6000, 300, dirt);
+      tone('sine', 130, 32, t, 0.7, 1, out);
+      tone('sawtooth', 220, 55, t, 0.35, 0.25, dirt);
+      sweepNoise(t, 0.5, 0.35, 'bandpass', 5000, 900, out);
+      tone('sine', 62, 24, t, 1.1, 0.5, out); // sub drop: the ground taking the recoil
     },
-    hurt() { init(); const t = ac.currentTime, p = vary(); tone('square', 520 * p, 90 * p, t, 0.22, 0.25 * level()); noise(t, 0.1, 0.4, 'lowpass', 3000, 500); },
-    explode() { init(); const t = ac.currentTime; noise(t, 1.2, 0.8, 'lowpass', 3000, 80); tone('sine', 90, 30, t, 0.9, 0.9); },
+    // Special Beam Cannon: a thin screaming "zzhiiiu" that drills across in half a second. A narrow
+    // high tone (not the Kamehameha's wide roar) with a fast whirr on its level and pitch for the spiral
+    cannon() {
+      init(); const t = ac.currentTime, p = vary(), d = 0.55, out = voice(0.3, 1.6), dirt = dirty(0.15);
+      noise(t, 0.01, 0.9, 'highpass', 4500, 4500, out); // the crack off the fingertip
+      const o = ac.createOscillator(), o2 = ac.createOscillator(), g = ac.createGain(), spin = ac.createGain();
+      const lfo = ac.createOscillator(), lg = ac.createGain(), fm = ac.createGain();
+      o.type = 'sawtooth'; o2.type = 'square';
+      o.frequency.setValueAtTime(2200 * p, t); o.frequency.exponentialRampToValueAtTime(900 * p, t + d);
+      o2.frequency.setValueAtTime(1104 * p, t); o2.frequency.exponentialRampToValueAtTime(452 * p, t + d);
+      // the spiral: a 45-60 Hz whirr pulsing the level and wobbling the pitch
+      lfo.frequency.setValueAtTime(60, t); lfo.frequency.linearRampToValueAtTime(42, t + d);
+      lg.gain.value = 0.45; fm.gain.value = 60; lfo.connect(lg); lg.connect(spin.gain); lfo.connect(fm); fm.connect(o.frequency);
+      spin.gain.value = 0.55;
+      const bp = filt('bandpass', 2400 * p, spin, 3); bp.frequency.setValueAtTime(3200 * p, t); bp.frequency.exponentialRampToValueAtTime(1300 * p, t + d);
+      o.connect(bp); o2.connect(bp); spin.connect(g);
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.4, t + 0.015);
+      g.gain.setValueAtTime(0.4, t + d * 0.35); g.gain.exponentialRampToValueAtTime(0.0001, t + d);
+      g.connect(out);
+      for (const n of [o, o2, lfo]) { n.start(t); n.stop(t + d + 0.05); }
+      // the drill: a narrow band of noise screaming down with the tone
+      noise(t, d, 0.6, 'bandpass', 7000 * p, 2200 * p, dirt);
+      tone('sine', 140 * p, 50, t, 0.14, 0.45, out); // a small kick of recoil, much lighter than a beam's
+    },
+    chargeLoop(owner) { startSustain(owner, 'charge'); },
+    beamLoop(owner) { startSustain(owner, 'beam'); },
+    stopSustain,
+    // the player taking a hard one: a dull crunch into the body, the wind knocked out, a dark sting
+    // falling away under the hit (it plays on top of punch/kick, so it stays low and doesn't zap)
+    hurt() {
+      init(); if (busy('hurt', 0.06)) return;
+      const t = ac.currentTime, p = vary(), v = level(), out = voice(0.18, 1.4), dirt = dirty(0.1);
+      noise(t, 0.14, 0.55 * v, 'bandpass', 800 * p, 220 * p, dirt);
+      tone('sine', 105 * p, 38, t, 0.24, 0.7 * v, out);
+      tone('triangle', 260 * p, 110 * p, t + 0.01, 0.16, 0.2 * v, filt('lowpass', 800, out));
+    },
+    // a guard shattering: a crack, shield shards ringing and scattering, a heavy drop under it
+    guardBreak() {
+      init(); const t = ac.currentTime, p = vary(), out = voice(0.45, 1.2), dirt = dirty(0.3);
+      noise(t, 0.025, 0.7, 'highpass', 4000, 2500, out);
+      [2300, 3450, 5170, 6900].forEach((f, i) => { const r = f * p * (0.98 + Math.random() * 0.04); tone('sine', r, r * 0.97, t + 0.005, 0.25 - i * 0.04, 0.08, out); });
+      crackle(t + 0.01, 0.25, 10, 0.25, out);
+      noise(t, 0.2, 0.6, 'lowpass', 2500, 150, dirt);
+      tone('sine', 95 * p, 32, t, 0.35, 0.8, out);
+    },
+    explode() {
+      init(); const t = ac.currentTime, p = vary(), v = level(), out = voice(0.5), dirt = dirty(0.4);
+      noise(t, 0.04, 0.8 * v, 'highpass', 3000, 1200, out);
+      noise(t, 1.1, 1 * v, 'lowpass', 3500 * p, 70, dirt);
+      tone('sine', 85 * p, 24, t, 1.2, 1.1 * v, out);
+      tone('triangle', 200 * p, 40, t, 0.3, 0.35 * v, dirt);
+      noise(t + 0.08, 1.6, 0.35 * v, 'lowpass', 420, 60, out);
+      crackle(t + 0.05, 0.5, 6, 0.12, out);
+    },
+    // powering up (Super Saiyan, Cell evolving): the aura roars up from a rumble to a gale,
+    // crackling harder as it peaks, then bursts
     powerup() {
-      init(); const t = ac.currentTime;
-      noise(t, 1.6, 0.35, 'bandpass', 300, 5000);
-      [50, 53, 57, 62, 65, 69, 74].forEach((n, i) => tone('square', hz(n + 12), hz(n + 12), t + i * 0.12, 0.3, 0.12));
+      init(); const t = ac.currentTime, out = voice(0.4), dirt = dirty(0.4), b = t + 1.25;
+      sweepNoise(t, 1.5, 0.7, 'lowpass', 200, 3000, out);
+      sweepNoise(t, 1.5, 0.3, 'bandpass', 300, 5000, out);
+      tone('sine', 38, 90, t, 1.5, 0.45, out);
+      crackle(t + 0.2, 1.2, 22, 0.2, out);
+      noise(b, 0.6, 0.7, 'lowpass', 5000, 200, dirt);
+      tone('sine', 120, 35, b, 0.6, 0.8, out);
     },
-    ko() { init(); const t = ac.currentTime; [69, 65, 62, 57, 50].forEach((n, i) => tone('square', hz(n), hz(n), t + i * 0.16, 0.25, 0.15)); },
-    blip() { init(); tone('square', 880, 880, ac.currentTime, 0.04, 0.08); },
+    // the final blow: a huge hit that rings out into a slow-motion rumble while the K.O. banner shows
+    ko() {
+      init(); const t = ac.currentTime, out = voice(0.7), dirt = dirty(0.5);
+      noise(t, 0.05, 0.8, 'highpass', 3000, 1200, out);
+      noise(t, 0.9, 0.9, 'lowpass', 4000, 80, dirt);
+      tone('sine', 70, 22, t, 1.6, 1, out);
+      tone('sine', 140, 45, t, 0.5, 0.4, out);
+      noise(t + 0.1, 1.8, 0.3, 'lowpass', 300, 50, out);
+      sweepNoise(t + 0.05, 1.4, 0.2, 'bandpass', 3000, 300, out);
+    },
+    blip() { init(); if (busy('blip', 0.03)) return; tone('square', 880, 880, ac.currentTime, 0.04, 0.08); },
   };
 
-  sfx.parry = () => { init(); const t = ac.currentTime; [88, 95, 100].forEach((n, i) => tone('square', hz(n), hz(n), t + i * 0.05, 0.12, 0.14)); noise(t, 0.08, 0.3, 'highpass', 5000, 5000); };
-  sfx.teleport = () => { init(); const t = ac.currentTime; tone('square', 1800, 300, t, 0.12, 0.12); noise(t, 0.1, 0.2, 'highpass', 4000, 4000); };
+  // a perfect block rings out like struck metal
+  sfx.parry = () => {
+    init(); const t = ac.currentTime, out = voice(0.55);
+    [[1870, 0.22], [2810, 0.14], [4190, 0.09], [935, 0.12]].forEach(([f, g]) => tone('sine', f, f * 0.995, t, 0.7, g, out));
+    noise(t, 0.03, 0.5, 'highpass', 5000, 3000, out);
+    tone('sine', 160, 60, t, 0.12, 0.6, out);
+  };
+  // Instant Transmission / vanish: a quick "shwip" with a faint ring after it
+  sfx.teleport = () => {
+    init(); if (busy('teleport', 0.05)) return;
+    const t = ac.currentTime, p = vary(), out = voice(0.3, 2);
+    noise(t, 0.008, 0.35, 'highpass', 6000, 6000, out); // the pop out of the air
+    // two fast rising zips a hair apart: the flicker of a body vanishing
+    sweepNoise(t, 0.09, 0.55, 'bandpass', 1400 * p, 9000 * p, out);
+    sweepNoise(t + 0.05, 0.08, 0.24, 'bandpass', 1800 * p, 10000 * p, out);
+    tone('sine', 1500 * p, 4200 * p, t, 0.07, 0.08, out);
+    tone('sine', 3300 * p, 3250 * p, t + 0.08, 0.3, 0.03, out); // a faint ring left behind
+  };
 
   // Music files in assets/audio: the fight theme loops, and when Goku goes Super Saiyan it
   // fades into the transformation theme (the generated chiptune is the fallback if a file is missing).

@@ -17,6 +17,19 @@ It blocks or dodges beams, or fires its own back. And spamming ki blasts won't w
 over them, or Super Dashes straight through them and makes you pay, and the more you spam the more often
 it does that.
 
+## In action
+
+| | |
+|---|---|
+| ![Spirit Bomb](assets/gifs/spirit-bomb.gif) | ![Beam clash](assets/gifs/beam-clash.gif) |
+| **Spirit Bomb**: power down from Super Saiyan (T), then O. Goku gathers it up in the sky and throws it down | **Beam clash**: Perfect Cell's Solar Kamehameha answered with a counter beam (U), then mash J |
+| ![Instant Kamehameha](assets/gifs/instant-kamehameha.gif) | ![Special Beam Cannon](assets/gifs/special-beam-cannon.gif) |
+| **Instant Kamehameha**: Q then U at full ki | **Special Beam Cannon**: Cell's Y, straight through a guard |
+| ![Ki barrage](assets/gifs/ki-barrage.gif) | ![Victory](assets/gifs/goku-victory.gif) |
+| **Ki barrage**: toward + L | **Victory**: Goku sits down to rest |
+
+The GIFs are recorded from the game itself.
+
 ## How to run it
 
 The game reads sprite pixels off a canvas, and browsers don't allow that for a page opened straight from
@@ -36,7 +49,7 @@ spike that slams them into the ring and bounces them back up.
 
 Once a hit lands you can cancel the rest of the move into a ki blast (L), a beam (U), a vanish (Q) or a
 dash. In the air it's the same idea: after an air hit, double-tap toward them to dash in (it homes in on
-them) and keep going, or press U to fire the Kamehameha (Death Beam if you're Semi-Perfect Cell) right
+them) and keep going, or press U to fire the Kamehameha right
 out of the combo. A beam carries a flying enemy along and blasts them away at the end. The longest route
 I've found is J J J J, W, J J, dash, J J, U.
 
@@ -53,9 +66,23 @@ A few more things:
   25% more damage and a longer stun.
 - The heavy slash (toward + K) bounces them off the edge of the screen for a follow-up.
 - Juggles are capped and long combos hit softer, so nothing loops forever.
-- At full ki you get a finisher. SSJ Goku's is the Instant Kamehameha (U in the air, or U after an air hit).
+- At full ki you get a finisher. SSJ Goku's is the Instant Kamehameha: vanish (Q) and press U while he's gone, or start a Kamehameha (U)
+  and vanish (Q) while it charges. U on its own is always the regular Kamehameha, even at full ki.
   Perfect Cell's is the Solar Kamehameha (O on the ground, in the air or right after a hit): he flares his
   aura, vanishes, shows up high above and fires a huge Kamehameha down into the ring.
+- Base Goku's finisher is the Spirit Bomb (O at full ki, on the ground or in the air). He rises into the
+  sky and it gathers above his raised arms for a second and a half; he's open while it does, and a hit makes him lose it. Then he throws it: slow and
+  huge, it goes through a guard but can be dodged, and it bursts for 45 (15 if it lands near them).
+- You can answer a finisher. Before the beam fires, a ring closes in around you: U fires a counter beam
+  (30 ki) into a beam clash, Q vanishes (15 ki), S blocks. Vanish when the ring turns gold and it's a
+  clean dodge that leaves them open; too early and the beam grazes you. A block takes half and breaks your
+  guard. Do nothing and you take all of it. The boss answers yours the same way.
+- When two Kamehamehas meet you get a beam clash: mash J (or U) to push the ball of energy back at them.
+  You can force one: while their Kamehameha charges or fires, press U (30 ki), even out of a block or
+  while it's burning you.
+- Perfect Cell regenerates fully when he completes himself, with a bigger health bar than before. Beat the
+  Cell Juniors and Krillin throws you a Senzu Bean: full health, full ki and a bigger health bar (130) for
+  the last fight.
 - The combo counter shows hits and damage. Land a named combo and you get its name on screen and +8 ki.
 
 Cell has a few tools Goku doesn't. His grab is Absorb, which heals him and drains your ki. G is his
@@ -81,13 +108,15 @@ You can set the dummy to fight back.
 | Toward + J | Rushing punch |
 | Toward + K | Heavy slash (knockdown, wall bounce) |
 | J + K / F | Grab: Dragon Rush (Goku) or Absorb (Cell) |
-| L | Ki blast (Goku) / finger beam (Cell). Toward + L is Cell's barrage (Semi-Perfect and up) |
+| L | Ki blast (Goku) / finger beam (Cell). Toward + L is a barrage: Goku's four-blast ki barrage (15 ki), Cell's finger barrage (Semi-Perfect and up) |
 | Hold I | Charge ki |
 | T | At full ki: Super Saiyan (Goku) or evolve to the next form (Cell) |
-| Q | Vanish behind them, in the air too |
-| U | Kamehameha (SSJ Goku or Perfect Cell, 50 ki; from the air it angles down) / Death Beam (Semi-Perfect Cell) |
-| Jump + U at full ki | Instant Kamehameha (SSJ Goku), also right after an air hit |
-| O | At full ki: Dragon Fist (SSJ Goku) / Solar Kamehameha (Perfect Cell) |
+| Q | Vanish to their other side, in the air too. Press it again before they turn and you're back in front of them |
+| U | Kamehameha (SSJ Goku or Cell in any form, 50 ki; from the air it angles down). Cell in any form: toward + U is the Death Beam (20 ki), and so is U when he has under 50 ki. Against their Kamehameha: counter beam (30 ki) |
+| Y | Cell's Special Beam Cannon (35 ki, any form): a fast drilling beam that goes through a guard and through ki blasts |
+| Q then U, or U then Q, at full ki | Instant Kamehameha (SSJ Goku), on the ground or in the air |
+| T as Super Saiyan | Goku powers back down to base and keeps his ki (going back up is quick after that) |
+| O | At full ki: Spirit Bomb (base Goku) / Dragon Fist (SSJ Goku) / Solar Kamehameha (Perfect Cell) |
 | G | Cell's Barrier (30 ki) |
 | E | Perfect Cell calls a Cell Junior (35 ki) |
 | P | Pause |
@@ -134,5 +163,12 @@ music on/off, calm mode and the arena. They're saved between visits.
 - `sheets.js`: cuts the sheets into frames and removes the white background
 - `audio.js`: the music player, generated sound effects and jingles, and the voice clip hook
 - `stage.js`: the arena and its live effects
+- `assets/sheets/goku.png`: Goku's main sheet (base, Super Saiyan and the Super Saiyan 3 Dragon Fist)
+- `assets/sheets/goku1-source.png`: the bigger Goku sheet. Its rows are too irregular to cut up
+  automatically, so the frames the game uses are cut from it by exact rectangles (`G2(...)` in `data.js`):
+  the Spirit Bomb (Goku, the bomb and its explosion rings), the victory animation, and the HUD icon
+- `assets/gifs/`: the GIFs at the top of this README, recorded from the game
+- `assets/img/goku-face.png`: base Goku's HUD and dialogue icon, cut from the title of `goku1-source.png`
 - `assets/sheets/cell.png`: Cell's three forms plus the Cell Juniors (rows 17-21). `cell-faces.png` has his portraits
-- `tools/frames.html?sheet=goku`: shows every frame of a sheet with its id
+- `tools/frames.html?sheet=goku`: shows every frame of a sheet with its id. `?sheet=goku2` shows the
+  rectangles the game cuts from `goku1-source.png`

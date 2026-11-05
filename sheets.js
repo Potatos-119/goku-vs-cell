@@ -4,6 +4,11 @@ const SHEET_CFG = {
   goku: { src: 'assets/sheets/goku.png', gap: 4, minX: 22, maxX: 760 },
   cell: { src: 'assets/sheets/cell.png', gap: 1, minX: 0, maxX: 99999 },
   cellFaces: { src: 'assets/sheets/cell-faces.png', gap: 1, minX: 0, maxX: 99999 },
+  // base Goku's HUD portrait, cut from the title of the bigger sheet (goku1-source.png)
+  gokuFace: { src: 'assets/img/goku-face.png', gap: 1, minX: 0, maxX: 99999 },
+  // the bigger Goku sheet: its rows are too irregular to find automatically, so frames are cut
+  // from it by exact rectangles ({ sheet: 'goku2', rect: [x, y, w, h] }) and it isn't sliced
+  goku2: { src: 'assets/sheets/goku1-source.png', raw: true },
 };
 
 const isBg = (d, i) => d[i] > 232 && d[i + 1] > 232 && d[i + 2] > 232;
@@ -52,9 +57,16 @@ function sliceSheet(img, cfg) {
   return { canvas: cv, rows: rows.map(r => r.items) };
 }
 
+// a sheet that is only cut by exact rectangles: just its pixels, no rows
+function rawSheet(img) {
+  const cv = document.createElement('canvas'); cv.width = img.width; cv.height = img.height;
+  cv.getContext('2d').drawImage(img, 0, 0);
+  return { canvas: cv, rows: [] };
+}
+
 // Crop a rect, clear the white that is reachable from the chosen crop sides
 // (so enclosed white like beam cores survives), trim, and work out the body anchor.
-function cutOut(sheet, [sx, sy, w, h], seed, ssj) {
+function cutOut(sheet, [sx, sy, w, h], seed, ssj, frameId) {
   const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
   const cx = cv.getContext('2d', { willReadFrequently: true });
   cx.drawImage(sheet.canvas, sx, sy, w, h, 0, 0, w, h);
@@ -93,11 +105,14 @@ function cutOut(sheet, [sx, sy, w, h], seed, ssj) {
   cx.putImageData(img, 0, 0);
   const tw = Math.max(1, x1 - x0 + 1), th = Math.max(1, y1 - y0 + 1);
   // Super Saiyan hair stands up taller than the normal hair, so leave room above the head for it
-  const pad = hair ? SSJ_PAD : 0;
+  // Guard poses get a fitted spike overlay below; fallen poses keep their own silhouette so
+  // the upright hair cutout cannot drift away from the head on the ground.
+  const addSpikyOverlay = hair && !['8.1', '8.2', '8.3', '8.4', '8.5'].includes(frameId);
+  const pad = addSpikyOverlay ? SSJ_PAD : 0;
   const out = document.createElement('canvas'); out.width = tw + pad * 2; out.height = th + pad;
   const ox = out.getContext('2d');
   ox.drawImage(cv, x0, y0, tw, th, pad, pad, tw, th);
-  if (hair) addSsjHair(ox, hair, x0 - pad, y0 - pad, th);
+  if (addSpikyOverlay) addSsjHair(ox, hair, x0 - pad, y0 - pad, th, frameId);
   // anchor = centre of mass of the torso band, so attacks that stretch the box don't slide the body
   let sum = 0, n = 0;
   for (let y = y0 + Math.floor(th * 0.25); y <= y0 + Math.floor(th * 0.65); y++)
@@ -153,10 +168,12 @@ function ssjHairFromSheet() {
 }
 
 // hair: recoloured hair box in crop coordinates; (sx, sy): crop -> output offset
-function addSsjHair(ctx, hair, sx, sy, th) {
+function addSsjHair(ctx, hair, sx, sy, th, frameId) {
   const hw = hair.x1 - hair.x0 + 1, hh = hair.y1 - hair.y0 + 1;
   const upright = hair.y0 - (sy + SSJ_PAD) <= th * 0.2 && hw <= hh * 2.2;
-  if (!upright) return;
+  // the guard pose tucks the head down, but the spikes still sit right on it
+  const guard = frameId === '3.0' || frameId === '3.1';
+  if (!upright && !guard) return;
   ssjHairTemplate = ssjHairTemplate || ssjHairFromSheet();
   const t = ssjHairTemplate;
   // line the front of the spikes up with the front of his hair, a little above its top
@@ -202,6 +219,44 @@ function recolorHair(d, w, h, clear) {
     }
     grow.forEach(i => { hair[i] = 1; edge[i] = 1; });
   }
+  // Thin spikes too narrow to survive the erosion (and hair cut into strips by a flicker frame)
+  // would stay black. Keep growing through dark, non-blue pixels around the head, and fill the
+  // ones that are not on the silhouette's edge so they turn gold rather than outline.
+  let hy0 = h, hy1 = -1, hx0 = w, hx1 = -1;
+  for (let i = 0; i < N; i++) if (hair[i] && !edge[i]) { const x = i % w, y = (i / w) | 0; hx0 = Math.min(hx0, x); hx1 = Math.max(hx1, x); hy0 = Math.min(hy0, y); hy1 = Math.max(hy1, y); }
+  const neutral = i => d[i * 4 + 2] - d[i * 4] < 25;
+  const near = (x, y) => x >= hx0 - 12 && x <= hx1 + 12 && y >= hy0 - 6 && y <= hy1 + 2;
+  const spike = new Uint8Array(N), st = [];
+  for (let i = 0; i < N; i++) if (hair[i]) st.push(i);
+  while (st.length) {
+    const i = st.pop(), x = i % w, y = (i / w) | 0;
+    // diagonal steps too: spikes in pixel art are often joined only at their corners
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+      const nx = x + dx, ny = y + dy, j = ny * w + nx;
+      if (at(dark, nx, ny) && !hair[j] && neutral(j) && near(nx, ny)) { hair[j] = 1; spike[j] = 1; st.push(j); }
+    }
+  }
+  // Spikes cut off from the head by an arm or a flicker line: separate dark patches beside the
+  // hair (not inside its span, where the eyes are) join it too.
+  const seen = new Uint8Array(N);
+  for (let i = 0; i < N; i++) {
+    if (seen[i] || hair[i] || !dark[i] || !neutral(i) || !near(i % w, (i / w) | 0)) continue;
+    const blob = [i], q2 = [i]; seen[i] = 1; let sx = 0;
+    while (q2.length) {
+      const j = q2.pop(), x = j % w, y = (j / w) | 0; sx += x;
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+        const nx = x + dx, ny = y + dy, k = ny * w + nx;
+        if (at(dark, nx, ny) && !seen[k] && !hair[k] && neutral(k) && near(nx, ny)) { seen[k] = 1; blob.push(k); q2.push(k); }
+      }
+    }
+    const cx = sx / blob.length;
+    if (blob.length >= 6 && (cx < hx0 + 2 || cx > hx1 - 2)) blob.forEach(j => { hair[j] = 1; spike[j] = 1; });
+  }
+  for (let i = 0; i < N; i++) if (spike[i]) {
+    const x = i % w, y = (i / w) | 0;
+    const inside = [[1, 0], [-1, 0], [0, 1], [0, -1]].filter(([dx, dy]) => at(hair, x + dx, y + dy)).length;
+    edge[i] = inside >= 2 ? 0 : 1;
+  }
   // Palette sampled from the sheet's own Super Saiyan frames (row 11), shadow -> highlight.
   // Pixels are ranked by brightness inside the hair so even all-black hair gets the full range.
   const ramp = [[229, 151, 10], [251, 196, 69], [254, 234, 187], [255, 250, 237]];
@@ -227,7 +282,7 @@ const Sheets = {
   async load(base = '') {
     await Promise.all(Object.entries(SHEET_CFG).map(([name, cfg]) => new Promise((ok, fail) => {
       const img = new Image();
-      img.onload = () => { this.sheets[name] = sliceSheet(img, cfg); ok(); };
+      img.onload = () => { this.sheets[name] = cfg.raw ? rawSheet(img) : sliceSheet(img, cfg); ok(); };
       img.onerror = fail;
       img.src = base + cfg.src;
     })));
@@ -238,16 +293,18 @@ const Sheets = {
   },
   // ref: "r.i" or { id, x, y, w, h, seed: 'tblr', ssj, ax } to take part of a box
   // (for sprites merged with their beam) or to recolour Goku's hair.
+  // { sheet, rect: [x, y, w, h] } cuts an exact rectangle from another sheet instead.
   frame(sheet, ref) {
     const key = sheet + JSON.stringify(ref);
     if (!this.cache.has(key)) {
       const r = typeof ref === 'string' ? { id: ref } : ref;
-      let [x, y, w, h] = this.box(sheet, r.id);
+      if (r.sheet) sheet = r.sheet;
+      let [x, y, w, h] = r.rect || this.box(sheet, r.id);
       if (r.x) { x += r.x; w -= r.x; }
       if (r.w) w = Math.min(w, r.w);
       if (r.y) { y += r.y; h -= r.y; }
       if (r.h) h = Math.min(h, r.h);
-      const out = cutOut(this.sheets[sheet], [x, y, w, h], r.seed || 'tblr', r.ssj);
+      const out = cutOut(this.sheets[sheet], [x, y, w, h], r.seed || 'tblr', r.ssj, r.id);
       if (r.ax != null) out.ax = r.ax * out.width;
       this.cache.set(key, out);
     }
