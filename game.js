@@ -192,7 +192,7 @@ const JUGGLE_MAX = 5;
 // caught starting their own move: a counter hit, which hurts more and stuns for longer
 const COUNTER_STATES = ['attack', 'airAtk', 'cast', 'kameCharge', 'windup'];
 function damage(def, src, dmg, heavy, dir, kind = 'melee', opts = {}) {
-  if ((def.inv > 0 && kind !== 'ult') || ['down', 'tele', 'transform', 'evolve'].includes(def.state) || def.hp <= 0 || game.mode !== 'fight') return false;
+  if ((def.inv > 0 && kind !== 'ult') || (def.state === 'down' && !opts.otg) || ['tele', 'transform', 'evolve'].includes(def.state) || def.hp <= 0 || game.mode !== 'fight') return false;
   // a Super Dash swats ki blasts aside, and so does a boss being spammed with them while it attacks
   // or dashes in, so spam gets plowed through instead of locking it down
   if (kind === 'proj' && !opts.pierce && ((def.superDash && def.state === 'dash') || (def === boss && ai.spam >= 2 && ['attack', 'dash'].includes(def.state)))) {
@@ -478,12 +478,21 @@ function fireKame(f) {
 const SPIRIT_GATHER = 1.5, SPIRIT_R = 24, SPIRIT_DMG = 45;
 // He gathers it up in the sky: he rises to SPIRIT_HEIGHT above the ring and throws it down at them.
 const SPIRIT_HEIGHT = 40;
-function spiritBomb(f) {
-  f.ki = 0; f.vx = 0; f.vy = 0; f.floating = true; f.play('spirit', 'spirit'); f.t2 = SPIRIT_GATHER;
-  game.spirit = { owner: f, x: f.x, y: f.y - 60, r: 3, vx: 0, vy: 0, phase: 'gather', t: 0, boom: 0 };
+// Out of a combo (a landed hit, then O at full ki) it's a finisher: a quick gather while the hit
+// leaves them dazed, a faster throw, and it crushes them even if they're already down.
+const SPIRIT_COMBO_GATHER = 0.6, SPIRIT_COMBO_SPEED = 300;
+function spiritBomb(f, combo = false) {
+  const gather = combo ? SPIRIT_COMBO_GATHER : SPIRIT_GATHER;
+  f.ki = 0; f.vx = 0; f.vy = 0; f.floating = true; f.play('spirit', 'spirit'); f.t2 = gather;
+  game.spirit = { owner: f, x: f.x, y: f.y - 60, r: 3, vx: 0, vy: 0, phase: 'gather', t: 0, boom: 0, combo, gather };
+  const foe = foeOf(f);
+  if (combo && foe.state === 'hurt') {
+    foe.stun = Math.max(foe.stun, gather + 0.4);
+    popups.push({ text: 'DAZED!', x: foe.x, y: foe.y - 58, t: 0, c: '#ffd36a' });
+  }
   Voice.shout('goku', 'Everyone... lend me your energy!');
-  popups.push({ text: 'SPIRIT BOMB!', x: f.x, y: f.y - 118, t: 0, c: '#9ff' });
-  sfx.charge(SPIRIT_GATHER); shake(3);
+  popups.push({ text: 'SPIRIT BOMB!', x: f.x, y: Math.max(44, f.y - 118), t: 0, c: '#9ff' });
+  sfx.charge(gather); shake(3);
 }
 
 function updateSpirit(dt) {
@@ -497,7 +506,7 @@ function updateSpirit(dt) {
       popups.push({ text: 'SPIRIT BOMB LOST!', x: f.x, y: f.y - 66, t: 0, c: '#ff8a6a' });
       sb.phase = 'fizzle'; sb.t = 0; return;
     }
-    const k = Math.min(1, sb.t / SPIRIT_GATHER);
+    const k = Math.min(1, sb.t / sb.gather);
     sb.r = 3 + (SPIRIT_R - 3) * k;
     sb.x = f.x; sb.y = f.y - 58 * f.scale - sb.r;
     // energy streams in from all around
@@ -509,7 +518,8 @@ function updateSpirit(dt) {
       // throw it at them
       f.play('spiritThrow', 'spiritThrow'); f.t2 = 0.55;
       const tx = foe.x, ty = foe.y - 23 * foe.scale, d = Math.max(1, Math.hypot(tx - sb.x, ty - sb.y));
-      sb.vx = (tx - sb.x) / d * 175; sb.vy = (ty - sb.y) / d * 175;
+      const v = sb.combo ? SPIRIT_COMBO_SPEED : 175;
+      sb.vx = (tx - sb.x) / d * v; sb.vy = (ty - sb.y) / d * v;
       sb.phase = 'fly'; sb.t = 0; sfx.whoosh(); shake(5);
       Voice.shout('goku', 'HAAAAA!');
     }
@@ -522,9 +532,10 @@ function updateSpirit(dt) {
       sb.phase = 'boom'; sb.t = 0;
       game.flash = 1; shake(12); sfx.explode(); Stage.crack(sb.x, 2.5);
       const dir = sb.vx >= 0 ? 1 : -1;
-      if (direct) damage(foe, f, SPIRIT_DMG * f.dmgMul, true, dir, 'ult');
+      const opts = { token: 'spirit', otg: sb.combo };
+      if (direct) damage(foe, f, SPIRIT_DMG * f.dmgMul, true, dir, 'ult', opts);
       // a near miss still catches them in the blast
-      else if (foe.visible && Math.abs(foe.x - sb.x) < 46 && foe.y > FLOOR - 40) damage(foe, f, 15, true, dir, 'ult');
+      else if (foe.visible && Math.abs(foe.x - sb.x) < 46 && foe.y > FLOOR - 40) damage(foe, f, 15, true, dir, 'ult', opts);
     }
   } else if (sb.t > (sb.phase === 'boom' ? 0.6 : 0.3)) game.spirit = null;
 }
@@ -784,6 +795,7 @@ function cancel(g, foe, dashDir) {
   }
   if (dashDir) { dash(g, dashDir); return true; }
   if (!isGoku && g.form === 'perfect' && g.ki >= 100 && act('ult')) { solarKame(g); return true; }
+  if (isGoku && g.form === 'base' && g.ki >= 100 && act('ult')) { spiritBomb(g, true); return true; }
   if (!isGoku && g.form === 'perfect' && g.ki >= 35 && g.assistCd <= 0 && act('junior')) { g.ki -= 35; g.assistCd = 3; callJunior(g); return true; }
   if (g.ki >= 15 && act('vanish')) { g.ki -= 15; teleport(g, foe); return true; }
   if (!isGoku && g.ki >= CANNON_KI && act('cannon')) { g.ki -= CANNON_KI; specialBeamCannon(g); return true; }
@@ -806,6 +818,7 @@ function airCancel(g, foe, dashDir) {
   if (g.ki >= 15 && act('vanish')) { g.ki -= 15; teleport(g, foe); return true; }
   if (dashDir && !g.airDashed) { dash(g, dashDir); return true; }
   if (!isGoku && g.form === 'perfect' && g.ki >= 100 && act('ult')) { solarKame(g); return true; }
+  if (isGoku && g.form === 'base' && g.ki >= 100 && act('ult')) { spiritBomb(g, true); return true; }
   if (act('beam')) {
     if (deathBeamFirst(g)) { g.ki -= 20; cast(g, 'death'); return true; }
     if (g.ki >= 50 && canKame(g)) { g.ki -= 50; startKame(g, false, false, true); return true; }

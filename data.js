@@ -233,6 +233,8 @@ const COMBOS = {
     { name: 'COUNTER STRIKE', steps: ['counter', 'melee', 'melee'], how: 'hit them as they attack, keep going' },
     { name: 'KI BLAST RUSH', steps: ['kiBall', 'rush'], how: 'L hits, then J to rush in after it' },
     { name: 'AERIAL KI RELAY', steps: ['air', 'kiBall', 'air'], how: 'air hit, L, double-tap, J' },
+    { name: 'SPIRIT BOMB FINISH', steps: ['melee', 'spirit'], how: 'land a hit, then O at full ki (base)' },
+    { name: 'SKY SPIRIT BOMB', steps: ['launch', 'air', 'spirit'], how: 'launcher, W, J, then O at full ki (base)' },
   ],
   cell: [
     { name: 'NIGHTMARE STRING', steps: ['p1', 'p2', 'k2'], how: 'J J K' },
@@ -277,7 +279,7 @@ const MOVES = {
     ['T', 'Super Saiyan (full ki)'],
     ['U', 'Kamehameha (SSJ, 50 ki, air too)'],
     ['Q THEN U  /  U THEN Q', 'Instant Kamehameha (SSJ, full ki)'],
-    ['O', 'Spirit Bomb (base, full ki) / Dragon Fist (SSJ, full ki)'],
+    ['O', 'Spirit Bomb (base, full ki; also right after a hit) / Dragon Fist (SSJ, full ki)'],
     ['T  (AS SSJ)', 'Power down to base, keeping your ki'],
   ],
   cell: [

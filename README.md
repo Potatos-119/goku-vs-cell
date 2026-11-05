@@ -73,6 +73,9 @@ A few more things:
 - Base Goku's finisher is the Spirit Bomb (O at full ki, on the ground or in the air). He rises into the
   sky and it gathers above his raised arms for a second and a half; he's open while it does, and a hit makes him lose it. Then he throws it: slow and
   huge, it goes through a guard but can be dodged, and it bursts for 45 (15 if it lands near them).
+  It also finishes a combo: land a hit (on the ground or in the air) at full ki and press O. The hit
+  leaves them dazed, the bomb gathers in 0.6 seconds, flies faster, and still crushes them if they're
+  already down. Named combos: SPIRIT BOMB FINISH and SKY SPIRIT BOMB (launcher, W, J, then O).
 - You can answer a finisher. Before the beam fires, a ring closes in around you: U fires a counter beam
   (30 ki) into a beam clash, Q vanishes (15 ki), S blocks. Vanish when the ring turns gold and it's a
   clean dodge that leaves them open; too early and the beam grazes you. A block takes half and breaks your
