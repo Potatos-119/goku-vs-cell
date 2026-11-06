@@ -15,6 +15,9 @@ const GOKU_BASE = {
   back: { fr: ['0.2', '0.3', '0.4', '0.5', '0.4', '0.3'], fps: 9, loop: true },
   // dashes (double-tap a direction): the sheet's own dash run, a back-flip hop, and flying in the air
   dash: { fr: ['1.0', '1.1', '1.2', '1.3'], fps: 16, loop: false },
+  // skidding out of a ground dash: the streaks he arrives in, then the low ready crouch (cosmetic:
+  // he can act straight away; see then in game.js)
+  dashStop: { fr: ['0.0', '0.1'], fps: 14, loop: false, then: 'idle' },
   backdash: { fr: ['1.7'], fps: 1, loop: true },
   airDash: { fr: ['1.6'], fps: 1, loop: true },
   airBack: { fr: ['1.7'], fps: 1, loop: true },
@@ -22,9 +25,14 @@ const GOKU_BASE = {
   jump: { fr: ['2.0', '2.1', '2.2', '2.3'], fps: 12, loop: false },
   fall: { fr: ['2.4'], fps: 1, loop: true },
   land: { fr: ['2.5'], fps: 12, loop: false },
-  block: { fr: ['3.0'], fps: 1, loop: true },
+  // guard: arms come up, then he holds them there
+  block: { fr: ['3.0', '3.1'], fps: 10, loop: false },
   // a hit on the guard shoves him down into a deeper crouch, then he stays braced there
-  blockHit: { fr: ['3.1', '3.3'], fps: 12, loop: false },
+  blockHit: { fr: ['3.3', '3.1'], fps: 12, loop: false },
+  // a heavy hit on the guard knocks him back off his feet a little, arms still crossed
+  blockHeavy: { fr: ['3.2', '3.3', '3.1'], fps: 9, loop: false },
+  // blocking in the air (hold S while airborne): the same crossed-arm hop
+  airBlock: { fr: ['3.2'], fps: 1, loop: true },
   // turning to face the other way: a glimpse of the three-quarter turn (see turnT in game.js)
   turn: { fr: ['0.8'], fps: 1, loop: true },
   // back on his feet after a knockdown: crouch, then rise
@@ -49,7 +57,9 @@ const GOKU_BASE = {
   air: { fr: ['5.0', { id: '5.3', w: 43 }, { id: '5.3', w: 43 }], fps: 16, loop: false, hit: { at: 1, dmg: 8, reach: 42 } },
   air2: { fr: ['4.5', '4.6', '4.6'], fps: 16, loop: false, hit: { at: 1, dmg: 7, reach: 42 } },
   spike: { fr: ['5.0', { id: '5.3', x: 49, plain: true }, { id: '5.3', x: 49, plain: true }, { id: '5.3', x: 49, plain: true }], fps: 11, loop: false, hit: { at: 1, dmg: 10, reach: 40, spike: true } },
-  kiCast: { fr: ['9.0', '9.2', { id: '9.3', w: 31 }, '9.4'], fps: 13, emitAt: 2, emit: 33 },
+  // the sheet's whole ki blast: stance, both hands flaring, draw back, thrust (the ball it throws is
+  // the projectile itself, cut from the same frame, so it carries on from exactly where it was drawn)
+  kiCast: { fr: ['9.0', '9.1', '9.2', { id: '9.3', w: 31 }, '9.4'], fps: 18, emitAt: 3, emit: 33 },
   // ki barrage (toward + L): both hands charge, then left, right, left, right
   barrage: { fr: ['9.1', '9.2', { id: '9.3', w: 31 }, '9.4', { id: '9.5', w: 31 }, '9.2', { id: '9.3', w: 31 }, '9.4', { id: '9.5', w: 31 }], fps: 14, emitAt: [2, 4, 6, 8], emit: 33 },
   charge: { fr: ['10.3', '10.4'], fps: 12, loop: true },
@@ -65,8 +75,12 @@ const GOKU_BASE = {
   ssjRise: { fr: ['10.4', '10.5', '10.6', '10.7'], fps: 4, loop: false },
   // Spirit Bomb (base Goku's full-ki finisher), from the bigger sheet: stance, one hand up, both
   // arms raised while the bomb gathers above them, then the throw
-  spirit: { fr: [G2(118, 2139, 31, 53), G2(165, 2137, 31, 55), G2(226, 2132, 44, 60)], fps: 6, loop: false },
-  spiritThrow: { fr: [G2(295, 2141, 36, 51)], fps: 1, loop: true },
+  // the first frame is the red swirl of energy he gathers in his hands
+  spirit: { fr: [G2(68, 2143, 36, 49), G2(118, 2139, 31, 53), G2(165, 2137, 31, 55), G2(226, 2132, 44, 60)], fps: 6, loop: false },
+  // the throw, then hunched over, spent, as it flies
+  spiritThrow: { fr: [G2(295, 2141, 36, 51), G2(353, 2145, 33, 47)], fps: 5, loop: false },
+  // facing the camera (boss Goku's taunt, and between lines in the story scenes)
+  taunt: { fr: ['0.10'], fps: 1, loop: true, breathe: true },
   // the fight is won: he walks it off, gives a thumbs up, and sits down to rest (in his undershirt,
   // which is fine here: the fight is over, so it never has to come back)
   win: { fr: GOKU_WIN, fps: 5, loop: false },
@@ -78,23 +92,30 @@ const GOKU_SSJ = Object.fromEntries(Object.entries(GOKU_BASE).map(([k, a]) => [k
   ...a, fr: a.fr.map(r => ({ ...(typeof r === 'string' ? { id: r } : r), ssj: true })),
 }]));
 Object.assign(GOKU_SSJ, {
-  idle: { fr: ['11.0', '11.1', '11.2', '11.1'], fps: 6, loop: true },
-  // moving uses the sheet's real Super Saiyan stance too
-  walk: { fr: ['11.0', '11.1', '11.2', '11.1'], fps: 9, loop: true },
-  back: { fr: ['11.0', '11.1', '11.2', '11.1'], fps: 7, loop: true },
-  charge: { fr: ['10.8'], fps: 1, loop: true },
-  // "Ka... me... ha... me...": hands pulled back to the hip, then the ball of light held there;
-  // "HA!": the thrust, then the beam
-  kameCharge: { fr: ['11.4', '11.3'], fps: 6, loop: false },
+  // standing: the sheet's Super Saiyan pose, arms down, breathing (moving and fighting use his
+  // fighting stance, the base frames with gold hair)
+  idle: { fr: ['10.9'], fps: 1, loop: true, breathe: true },
+  // powering up: the same two frames as normal Goku with the aura turned gold, then the full flare
+  charge: { fr: [{ id: '10.3', ssj: true, aura: 'gold' }, { id: '10.4', ssj: true, aura: 'gold' }, { id: '10.3', ssj: true, aura: 'gold' }, '10.8'], fps: 12, loop: true },
+  // "Ka... me... ha... me...": the sheet's whole sequence, hands sweeping round to the hip, the
+  // ball of light swirling between them, pulled back; "HA!": the thrust, then the beam. The charge
+  // is timed so it always reaches the last frame as the beam fires (see startKame)
+  kameCharge: { fr: ['11.0', '11.1', '11.2', '11.3', '11.4'], fps: 6, loop: false },
   kameFire: { fr: ['11.5', { id: '11.6', w: 31 }], fps: 14, loop: false, emitAt: 1, emit: 23 },
   // powering back down to base: the gold aura, the flash, black hair again (the transformation backwards)
-  powerDown: { fr: ['10.8', '10.6', '10.1'], fps: 6, loop: false },
+  powerDown: { fr: ['10.8', '10.7', '10.6', '10.5', '10.1'], fps: 8, loop: false },
+  // up in the air (before the bigger Spirit Bomb) he powers down in the bigger sheet's mid-air frames:
+  // floating gold, the burst of light, the white outline, and then he's normal Goku again
+  powerDownAir: { fr: [G2(578, 2128, 50, 64), G2(454, 2114, 74, 78), G2(406, 2135, 35, 57)], fps: 7, loop: false },
+  // falling or floating: the bigger sheet's own Super Saiyan in the air, arms out
+  fall: { fr: [G2(535, 2136, 36, 56)], fps: 1, loop: true },
   // the same victory, hair gold
   win: { fr: GOKU_WIN.map(r => ({ ...r, ssj: true })), fps: 5, loop: false },
   // Dragon Fist: power up to Super Saiyan 3, rush in, dragon
-  ult1: { fr: ['12.1', '12.2', '12.3', '12.4', '12.3', '12.7', '12.5'], fps: 7, loop: false },
-  // the launch into the rush, then the rising fist as the dragon bursts out
-  ult2: { fr: ['13.2', '13.4'], fps: 8, loop: false },
+  // the outline flash, the explosion of light, the hair growing out, the aura, then he settles
+  ult1: { fr: ['12.1', '12.6', '12.2', '12.3', '12.4', '12.3', '12.7', '12.8', '12.9'], fps: 9, loop: false },
+  // squaring up, the launch into the rush, then the rising fist as the dragon bursts out
+  ult2: { fr: ['13.0', '13.1', '13.2', '13.4'], fps: 10, loop: false },
   ult3: { fr: ['13.5', { id: '13.6', ax: 0.3 }], fps: 10, loop: false },
 });
 
@@ -114,6 +135,8 @@ const CELL_TEMPLATE = {
   land: { fr: ['12.0'], fps: 12, loop: false },
   block: { fr: ['14.3'], fps: 1, loop: true },
   blockHit: { fr: ['14.2'], fps: 1, loop: true },
+  blockHeavy: { fr: ['14.2', '14.0'], fps: 8, loop: false },
+  airBlock: { fr: ['14.0'], fps: 1, loop: true },
   p1: { fr: ['13.1', '13.2', '13.2', '13.1'], fps: 13, hit: { at: 1, dmg: 6, reach: 32 } },
   p2: { fr: ['13.3', '13.4', '13.4'], fps: 12, hit: { at: 1, dmg: 7, reach: 34 } },
   k1: { fr: ['13.5', '13.6', '13.6', '13.5'], fps: 12, hit: { at: 1, dmg: 8, reach: 40 } },
@@ -124,7 +147,9 @@ const CELL_TEMPLATE = {
   // drilling beam. The sheet draws it in every form, next to the finger beam (frame x.2 of row 16).
   cannon: { fr: ['13.10', '13.10', '13.10', '13.10', { id: '16.2', w: 40 }, { id: '16.2', w: 40 }, { id: '16.2', w: 40 }], fps: 8, emitAt: 4, emit: 30 },
   kameCharge: { fr: ['15.2', '16.3'], fps: 6, loop: true },
-  kameFire: { fr: [{ id: '16.4', w: 25 }], fps: 1, loop: true, emit: 19 },
+  // "HA!": the sheet's first, smaller beam frame, then the full one (the beam itself is drawn
+  // separately, so both are cut down to Cell)
+  kameFire: { fr: [{ id: '15.3', w: 25 }, { id: '16.4', w: 25 }], fps: 10, loop: false, emit: 19 },
   power: { fr: ['12.6', '12.7', '12.8'], fps: 12, loop: true },
   // Barrier: the aura flares into a burst that throws the enemy off
   barrier: { fr: ['12.6', '12.7', '12.8'], fps: 16, loop: true },
@@ -236,6 +261,7 @@ const COMBOS = {
     { name: 'AERIAL KI RELAY', steps: ['air', 'kiBall', 'air'], how: 'air hit, L, double-tap, J' },
     { name: 'SPIRIT BOMB FINISH', steps: ['melee', 'spirit'], how: 'land a hit, then O at full ki (base)' },
     { name: 'SKY SPIRIT BOMB', steps: ['launch', 'air', 'spirit'], how: 'launcher, W, J, then O at full ki (base)' },
+    { name: 'DUNK SHOT', steps: ['spike', 'bounce', 'melee'], how: 'in the air S + J (the dunk), hit them off the bounce' },
   ],
   cell: [
     { name: 'NIGHTMARE STRING', steps: ['p1', 'p2', 'k2'], how: 'J J K' },
@@ -256,6 +282,7 @@ const COMBOS = {
     { name: 'AERIAL FINGER RELAY', steps: ['air', 'finger', 'air'], how: 'air hit, L, double-tap, J' },
     { name: 'FAMILY REUNION', steps: ['melee', 'junior'], how: 'land a hit, then E (Perfect)' },
     { name: 'ABSORPTION', steps: ['grab', 'air'], how: 'J+K (or F) through a block, W, J' },
+    { name: 'DUNK SHOT', steps: ['spike', 'bounce', 'melee'], how: 'in the air S + J (the dunk), hit them off the bounce' },
   ],
 };
 const MELEE = ['p1', 'p2', 'p3', 'p4', 'k1', 'k2', 'k3', 'rush', 'grab', 'slash', 'air', 'air2', 'spike'];
@@ -275,7 +302,8 @@ const MOVES = {
     ['AFTER L HITS', 'J rushes in, or cancel into a dash, Q, U, L'],
     ['DOUBLE-TAP A / D', 'Dash, once in the air too'],
     ['Q', 'Vanish to their other side (15 ki, air too)'],
-    ['S', 'Block. Tap as a hit lands: PERFECT'],
+    ['S', 'Block (in the air too). Tap as a hit lands: PERFECT'],
+    ['S + J IN THE AIR', 'Dunk: slam them down, they bounce off the ring'],
     ['HOLD I', 'Charge ki'],
     ['T', 'Super Saiyan (full ki)'],
     ['U', 'Kamehameha (SSJ, 50 ki, air too)'],
@@ -300,7 +328,8 @@ const MOVES = {
     ['E', 'A Cell Junior flies in and attacks (Perfect, 35 ki)'],
     ['DOUBLE-TAP A / D', 'Dash, once in the air too'],
     ['Q', 'Vanish to their other side (15 ki, air too)'],
-    ['S', 'Block. Tap as a hit lands: PERFECT'],
+    ['S', 'Block (in the air too). Tap as a hit lands: PERFECT'],
+    ['S + J IN THE AIR', 'Dunk: slam them down, they bounce off the ring'],
     ['HOLD I', 'Charge ki and regenerate'],
     ['T', 'Evolve to the next form (full ki)'],
     ['U', 'Kamehameha (50 ki). TOWARD + U: Death Beam (20 ki), any form'],

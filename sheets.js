@@ -66,7 +66,7 @@ function rawSheet(img) {
 
 // Crop a rect, clear the white that is reachable from the chosen crop sides
 // (so enclosed white like beam cores survives), trim, and work out the body anchor.
-function cutOut(sheet, [sx, sy, w, h], seed, ssj, frameId) {
+function cutOut(sheet, [sx, sy, w, h], seed, ssj, frameId, aura) {
   const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
   const cx = cv.getContext('2d', { willReadFrequently: true });
   cx.drawImage(sheet.canvas, sx, sy, w, h, 0, 0, w, h);
@@ -101,6 +101,7 @@ function cutOut(sheet, [sx, sy, w, h], seed, ssj, frameId) {
     if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
   }
   const hair = ssj ? recolorHair(d, w, h, clear) : null;
+  if (aura === 'gold') goldAura(d, w, h, clear);
   if (ssj) for (let i = 0; i < w * h; i++) if (!clear[i]) ssjGi(d, i * 4);
   cx.putImageData(img, 0, 0);
   const tw = Math.max(1, x1 - x0 + 1), th = Math.max(1, y1 - y0 + 1);
@@ -119,6 +120,34 @@ function cutOut(sheet, [sx, sy, w, h], seed, ssj, frameId) {
     for (let x = x0; x <= x1; x++) if (!clear[y * w + x]) { sum += x - x0; n++; }
   out.ax = (n ? sum / n : tw / 2) + pad;
   return out;
+}
+
+// A blue ki aura -> Super Saiyan gold, in the colours of the sheet's own SSJ aura (frame 10.8). Only
+// the aura changes: it spreads from the pale blue flames through the white inside them, so the whites
+// of his eyes and his blue wristbands (darker blue) are left alone.
+function goldAura(d, w, h, clear) {
+  const N = w * h, isFlame = i => { const r = d[i * 4], g = d[i * 4 + 1], b = d[i * 4 + 2]; return r > 110 && g > 170 && b > 215 && b - r > 18; };
+  const isWhite = i => d[i * 4] > 225 && d[i * 4 + 1] > 225 && d[i * 4 + 2] > 225;
+  const m = new Uint8Array(N), st = [];
+  for (let i = 0; i < N; i++) if (!clear[i] && isFlame(i)) { m[i] = 1; st.push(i); }
+  while (st.length) {
+    const i = st.pop(), x = i % w, y = (i / w) | 0;
+    for (const [nx, ny] of [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]]) {
+      if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+      const j = ny * w + nx;
+      if (!m[j] && !clear[j] && (isFlame(j) || isWhite(j))) { m[j] = 1; st.push(j); }
+    }
+  }
+  // the flames' outer edge gets 10.8's orange rim, a yellow band inside it
+  const edge = i => { const x = i % w, y = (i / w) | 0; return x === 0 || y === 0 || x === w - 1 || y === h - 1 || clear[i - 1] || clear[i + 1] || clear[i - w] || clear[i + w]; };
+  const rim = new Uint8Array(N);
+  for (let i = 0; i < N; i++) if (m[i] && edge(i)) rim[i] = 2;
+  for (let i = 0; i < N; i++) if (m[i] && !rim[i]) { const x = i % w, y = (i / w) | 0; if ((x > 0 && rim[i - 1] === 2) || (x < w - 1 && rim[i + 1] === 2) || (y > 0 && rim[i - w] === 2) || (y < h - 1 && rim[i + w] === 2)) rim[i] = 1; }
+  for (let i = 0; i < N; i++) if (m[i]) {
+    const L = d[i * 4] + d[i * 4 + 1] + d[i * 4 + 2];
+    const c = rim[i] === 2 ? [244, 150, 16] : rim[i] === 1 ? [255, 204, 40] : L > 700 ? [255, 252, 222] : L > 620 ? [255, 236, 120] : L > 540 ? [255, 204, 40] : [244, 150, 16];
+    d[i * 4] = c[0]; d[i * 4 + 1] = c[1]; d[i * 4 + 2] = c[2];
+  }
 }
 
 // The sheet's real Super Saiyan colours: its gi is a yellower orange than normal Goku's.
@@ -291,7 +320,8 @@ const Sheets = {
     const [r, i] = id.split('.').map(Number);
     return this.sheets[sheet].rows[r][i];
   },
-  // ref: "r.i" or { id, x, y, w, h, seed: 'tblr', ssj, plain, ax } to take part of a box
+  // ref: "r.i" or { id, x, y, w, h, seed: 'tblr', ssj, plain, aura, ax } to take part of a box
+  // (aura: 'gold' turns a blue ki aura into a Super Saiyan one)
   // (plain: Super Saiyan recolour without the spiky hair overlay, for poses it doesn't sit on)
   // (for sprites merged with their beam) or to recolour Goku's hair.
   // { sheet, rect: [x, y, w, h] } cuts an exact rectangle from another sheet instead.
@@ -305,7 +335,7 @@ const Sheets = {
       if (r.w) w = Math.min(w, r.w);
       if (r.y) { y += r.y; h -= r.y; }
       if (r.h) h = Math.min(h, r.h);
-      const out = cutOut(this.sheets[sheet], [x, y, w, h], r.seed || 'tblr', r.ssj && r.plain ? 'plain' : r.ssj, r.id);
+      const out = cutOut(this.sheets[sheet], [x, y, w, h], r.seed || 'tblr', r.ssj && r.plain ? 'plain' : r.ssj, r.id, r.aura);
       if (r.ax != null) out.ax = r.ax * out.width;
       this.cache.set(key, out);
     }

@@ -29,6 +29,67 @@ const Audio8 = (() => {
     for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
     buildKit();
     loadKame();
+    loadBank();
+  }
+
+  // ---- Recorded sound effects ----
+  // The fight's hits, blasts and knockouts come from recordings in assets/audio. Some files hold many
+  // sounds back to back, so each event lists slices: [file, start s, length s, gain]. An event plays
+  // one of its slices at random, nudged a little in pitch so repeats don't sound copied. Until a file
+  // loads (or if it can't), the synthesised version of that sound plays instead.
+  // tools/sounds.html plays every slice, to audition them or retune the list.
+  const BANK_FILES = {
+    pack: 'assets/audio/dbz-fight-pack.mp3', // 40 punches, kicks, whooshes and impacts in a row
+    blasts: 'assets/audio/ki-blasts.mp3', // single ki blasts, then a rapid volley
+    charge: 'assets/audio/ki-charge.mp3', // the aura held while charging ki
+    ko: 'assets/audio/knockout.mp3', // six knockout hits
+    spirit: 'assets/audio/spirit-bomb.mp3', // the Spirit Bomb gathering, then thrown
+  };
+  const SLICES = {
+    punch: [['pack', 1.81, 0.30], ['pack', 9.52, 0.24], ['pack', 21.15, 0.24], ['pack', 27.63, 0.28], ['pack', 35.33, 0.28]],
+    kick: [['pack', 14.30, 0.27, 0.8], ['pack', 35.90, 0.32]],
+    smash: [['pack', 32.80, 0.47], ['pack', 45.28, 0.59]],
+    impact: [['pack', 10.19, 0.83], ['pack', 21.77, 1.0], ['pack', 39.91, 1.1]],
+    whoosh: [['pack', 7.05, 0.37, 0.7], ['pack', 39.06, 0.45, 0.7]],
+    explode: [['pack', 49.05, 1.10, 0.9], ['pack', 51.15, 1.19, 0.9]],
+    kiBlast: [['blasts', 0.27, 0.78], ['blasts', 1.38, 0.77, 0.9], ['blasts', 3.84, 0.80, 0.7], ['blasts', 4.93, 0.81, 0.9]],
+    barrage: [['blasts', 6.66, 1.5, 0.9]],
+    ko: [['ko', 0.30, 1.26], ['ko', 2.65, 1.21, 0.8], ['ko', 4.53, 1.65, 0.9], ['ko', 7.15, 1.19], ['ko', 12.22, 1.22]],
+    charge: [['charge', 0.16, 8.0]],
+    spiritGather: [['spirit', 0.14, 3.7]],
+    spiritThrow: [['spirit', 4.91, 0.74]],
+  };
+  const bankBuf = {};
+  function loadBank() {
+    if (typeof fetch !== 'function') return;
+    for (const [k, src] of Object.entries(BANK_FILES)) {
+      fetch(src).then(r => r.arrayBuffer()).then(b => ac.decodeAudioData(b)).then(buf => { bankBuf[k] = buf; }).catch(() => { /* synth only */ });
+    }
+  }
+  // play one of an event's slices; false if its file isn't loaded (so the caller can synthesise it)
+  function sample(ev, { gain = 1, pitch = true, dur, pick } = {}) {
+    if (!ac) return false;
+    const list = SLICES[ev].filter(sl => bankBuf[sl[0]]);
+    if (!list.length) return false;
+    const [file, start, len, g0 = 1] = pick != null ? SLICES[ev][pick] : list[Math.floor(Math.random() * list.length)];
+    if (!bankBuf[file]) return false;
+    const t = ac.currentTime, src = ac.createBufferSource(), g = ac.createGain(), L = Math.min(dur || len, len);
+    src.buffer = bankBuf[file]; src.playbackRate.value = pitch ? Math.pow(2, (Math.random() * 2 - 1) / 24) : 1;
+    const v = gain * g0;
+    g.gain.setValueAtTime(v, t); g.gain.setValueAtTime(v, t + Math.max(0.01, L - 0.08)); g.gain.linearRampToValueAtTime(0.0001, t + L);
+    src.connect(g); g.connect(sfxBus); src.start(t, start, L + 0.05);
+    return true;
+  }
+  // the recorded aura while charging ki: it fades in, then loops its steady part until the charge stops
+  function chargeSample(owner) {
+    if (!bankBuf.charge) return false;
+    stopSustain(owner);
+    const t = ac.currentTime, src = ac.createBufferSource(), out = ac.createGain();
+    src.buffer = bankBuf.charge; src.loop = true; src.loopStart = 1.6; src.loopEnd = 8.0;
+    out.gain.setValueAtTime(0.0001, t); out.gain.exponentialRampToValueAtTime(4.5, t + 0.25);
+    src.connect(out); out.connect(sfxBus); src.start(t, 0.16);
+    sustained.set(owner, { out, srcs: [src], spark: null, beam: false });
+    return true;
   }
 
   // ---- The recorded Kamehameha (assets/audio/kamehameha.mp3) ----
@@ -415,7 +476,7 @@ const Audio8 = (() => {
       tone('sine', 140 * p, 50, t, 0.14, 0.45, out); // a small kick of recoil, much lighter than a beam's
     },
     kameChant, kameBlast, stopKame,
-    chargeLoop(owner) { startSustain(owner, 'charge'); },
+    chargeLoop(owner) { init(); if (!chargeSample(owner)) startSustain(owner, 'charge'); },
     beamLoop(owner) { startSustain(owner, 'beam'); },
     stopSustain,
     // the player taking a hard one: a dull crunch into the body, the wind knocked out, a dark sting
@@ -468,6 +529,26 @@ const Audio8 = (() => {
     },
     blip() { init(); if (busy('blip', 0.03)) return; tone('square', 880, 880, ac.currentTime, 0.04, 0.08); },
   };
+
+  // The recordings take over these events once loaded; the synthesised versions above stay as the
+  // fallback. gap: a repeat within that many seconds is skipped, so spam doesn't pile up.
+  const synth = { ...sfx };
+  const recorded = (ev, fallback, gain, gap) => function () {
+    init(); if (gap && busy('rec_' + ev, gap)) return;
+    if (!sample(ev, { gain })) fallback.apply(null, arguments);
+  };
+  sfx.punch = recorded('punch', synth.punch, 2.0, 0.02);
+  sfx.kick = recorded('kick', synth.kick, 1.6, 0.02);
+  sfx.smash = recorded('smash', synth.smash, 1.4, 0.03);
+  sfx.impact = recorded('impact', synth.smash, 1.8, 0.05);
+  sfx.whoosh = recorded('whoosh', synth.whoosh, 1.0, 0.05);
+  sfx.blast = recorded('kiBlast', synth.blast, 1.2, 0.05);
+  sfx.barrage = recorded('barrage', synth.blast, 1.2, 0.3);
+  sfx.explode = recorded('explode', synth.explode, 1.4, 0.06);
+  sfx.ko = recorded('ko', synth.ko, 1.5, 0.3);
+  // the Spirit Bomb: the gathering hum for as long as it gathers, then the release as it's thrown
+  sfx.spiritGather = dur => { init(); if (!sample('spiritGather', { gain: 2.4, dur: Math.max(0.5, dur), pitch: false })) synth.charge(dur); };
+  sfx.spiritThrow = () => { init(); if (!sample('spiritThrow', { gain: 1.6, pitch: false })) synth.whoosh(); };
 
   // a perfect block rings out like struck metal
   sfx.parry = () => {
@@ -586,7 +667,9 @@ const Audio8 = (() => {
     thump(); beatTimer = setInterval(thump, 850);
   }
 
-  return { init, playMusic, stopMusic, sfx, music, duck, setVolume, vol, heartbeat };
+  // for tools/sounds.html: every slice, and a way to play any one of them
+  const bank = { files: BANK_FILES, slices: SLICES, play: (ev, i) => { init(); return sample(ev, { pick: i, pitch: false }); }, loaded: () => Object.keys(bankBuf) };
+  return { init, playMusic, stopMusic, sfx, music, duck, setVolume, vol, heartbeat, bank };
 })();
 window.Audio8 = Audio8;
 

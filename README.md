@@ -11,6 +11,14 @@ for the last stretch.
 If you play Cell, it's the other way around. You fill your ki and press T to evolve yourself, and Goku is
 the boss. He goes Super Saiyan at 2/3 health and all out at 1/3, Dragon Fist and all.
 
+Boss Goku fights with everything you can do as him. He chases his launchers into the air and finishes
+the air string with a Meteor Smash, or with a Kamehameha down at you once he's a Super Saiyan. He ends
+ground strings with the wall-bounce slash when you're near the edge, a launcher, a ki blast or a
+Kamehameha, and he hits back when he blocks one of your attacks. He jumps in, Instant Transmissions from
+the start, fires air Kamehamehas from a jump and throws ki barrages. Each phase he does all of it more
+often, and he uses the Instant Kamehameha from his Super Saiyan phase on. The numbers are `GOKU_BOSS`,
+`GOKU_CHASE`, `GOKU_CANCEL` and `GOKU_PUNISH` in `game.js`.
+
 The boss gets meaner as it goes. From phase two it can vanish out of your attacks and hit you from behind.
 It also watches what you do: charge in front of it, whiff, or let your guard break and it punishes you.
 It blocks or dodges beams, or fires its own back. And spamming ki blasts won't work. It blocks them, jumps
@@ -22,7 +30,7 @@ it does that.
 | | |
 |---|---|
 | ![Spirit Bomb](assets/gifs/spirit-bomb.gif) | ![Beam clash](assets/gifs/beam-clash.gif) |
-| **Spirit Bomb**: power down from Super Saiyan (T), then O. Goku gathers it up in the sky and throws it down | **Beam clash**: Perfect Cell's Solar Kamehameha answered with a counter beam (U), then mash J |
+| **Spirit Bomb**: power down from Super Saiyan (T), then O. Goku gathers it up in the sky and throws it down | **Beam clash**: Perfect Cell's Solar Kamehameha answered with a counter beam (U), then mash Space |
 | ![Instant Kamehameha](assets/gifs/instant-kamehameha.gif) | ![Special Beam Cannon](assets/gifs/special-beam-cannon.gif) |
 | **Instant Kamehameha**: Q then U at full ki | **Special Beam Cannon**: Cell's Y, straight through a guard |
 | ![Ki barrage](assets/gifs/ki-barrage.gif) | ![Victory](assets/gifs/goku-victory.gif) |
@@ -46,6 +54,11 @@ Then open http://localhost:8766 and press Enter.
 The basic chains are J J J J or K K K for Goku, and J J K or K K for Cell. The last hit of a chain
 launches them. Press W right after and you jump up after them, then J J J in the air does two hits and a
 spike that slams them into the ring and bounces them back up.
+
+The spike is also its own move, the dunk: S + J (or K) in the air, any time, even straight out of a jump.
+It reaches down at whoever's under you, so it works on someone standing too. They hit the ring and bounce
+back up, once per combo ("GROUND BOUNCE!"), and you get one more hit off the bounce (the DUNK SHOT combo).
+Boss Goku dunks you out of his air combos as well.
 
 Once a hit lands you can cancel the rest of the move into a ki blast (L), a beam (U), a vanish (Q) or a
 dash. In the air it's the same idea: after an air hit, double-tap toward them to dash in (it homes in on
@@ -84,9 +97,20 @@ A few more things:
   (30 ki) into a beam clash, Q vanishes (15 ki), S blocks. Vanish when the ring turns gold and it's a
   clean dodge that leaves them open; too early and the beam grazes you. A block takes half and breaks your
   guard. Do nothing and you take all of it. The boss answers yours the same way.
-- When two Kamehamehas meet you get a beam clash: mash J (or U) to push the ball of energy back at them.
+- When two Kamehamehas meet you get a beam clash: mash Space (J and U count too, and A on a gamepad) to
+  push the ball of energy back at them.
   You can force one: while their Kamehameha charges or fires, press U (30 ki), even out of a block or
   while it's burning you.
+- Blocking depends on the hit. A light one drives you into a crouch, a heavy one (or a launcher) knocks
+  you back off your feet, still guarding. Hold S in the air to block there too (arms crossed); a hit pushes
+  you away and you land guarding.
+- The last stand: beat the final boss and it isn't over yet. Cell flies up and charges a Solar Kamehameha
+  to take the planet with him, and Goku answers with a Kamehameha from the ring. It's the hardest beam
+  clash in the game. In Goku's story, win it and Cell is wiped out; lose it and Goku gets up for one last
+  Instant Kamehameha, point-blank... and Cell regenerates and finishes him. Cell's story is the same scene
+  from his side.
+- Goku powers down when it's over: back to his normal hair before his victory pose, and if he's knocked
+  out as a Super Saiyan, the gold flickers out of his hair as he lies there.
 - Perfect Cell regenerates fully when he completes himself, with a bigger health bar than before. Beat the
   Cell Juniors and Krillin throws you a Senzu Bean: full health, full ki and a bigger health bar (130) for
   the last fight.
@@ -107,8 +131,8 @@ You can set the dummy to fight back.
 | Key | What it does |
 |---|---|
 | A / D | Move |
-| W / Space | Jump |
-| S | Block. You turn to face the attacker and a ki barrier flares on each blocked hit. When the boss vanishes behind you, a red ! flashes just before it attacks, so you can still block it |
+| W / Space | Jump. In a beam clash, mash Space to push |
+| S | Block (hold it in the air for an air block). You turn to face the attacker and a ki barrier flares on each blocked hit. When the boss vanishes behind you, a red ! flashes just before it attacks, so you can still block it |
 | Tap S as a hit lands | Perfect block: no damage, +25 ki, and punches leave them dizzy |
 | Double-tap A / D (or Shift) | Dash forward or hop back, once per jump in the air |
 | J / K | Punch / kick, press again to chain |
@@ -116,6 +140,7 @@ You can set the dummy to fight back.
 | Toward + K | Heavy slash (knockdown, wall bounce) |
 | J + K / F | Grab: Dragon Rush (Goku) or Absorb (Cell) |
 | L | Ki blast (Goku) / finger beam (Cell). Toward + L is a barrage: Goku's four-blast ki barrage (15 ki), Cell's finger barrage (Semi-Perfect and up) |
+| S + J in the air | Dunk: slam them into the ring and bounce them back up |
 | Hold I | Charge ki |
 | T | At full ki: Super Saiyan (Goku) or evolve to the next form (Cell) |
 | Q | Vanish to their other side, in the air too. Press it again before they turn and you're back in front of them |
@@ -177,6 +202,23 @@ Kamehameha sound:
   quick counter beam skips the chant. The timings are in `KAME` in `audio.js`. If the file can't load,
   the synthesised charge and beam sounds play alone.
 
+Sound effects: the hits, ki blasts, knockouts, the charge and the Spirit Bomb are recordings, with the
+synthesised versions as a fallback while they load:
+
+- `assets/audio/dbz-fight-pack.mp3`: 40 punches, kicks, whooshes and impacts in one file
+- `assets/audio/ki-blasts.mp3`: single ki blasts (L) and a rapid volley (the barrage)
+- `assets/audio/ki-charge.mp3`: the aura while charging ki (I), looped
+- `assets/audio/knockout.mp3`: six knockout hits for the final blow
+- `assets/audio/spirit-bomb.mp3`: the Spirit Bomb gathering, then thrown
+
+Several files hold many sounds, so `SLICES` in `audio.js` lists which part of which file plays for each
+event. Open `tools/sounds.html` to hear every slice on its own and retune the list.
+
+Cut-ins: two anime close-ups in `assets/cutins/`. `goku-ssj-eyes.gif` (his eyes narrowing) plays in the
+music's build-up just before his hair turns gold, and `cell-perfect-reveal.gif` (his hand pulling away from
+his new face) plays when Cell becomes Perfect, as the boss or as you (Enter skips it). The game plays them
+from the `.png` frame sheets next to them, which hold each distinct frame once; the timing is the GIF's.
+
 To change the music, swap either file. The paths are in `TRACKS` in `audio.js`. There's also a
 `VOICE_CLIPS` table there if you want to add recorded voice lines.
 
@@ -188,12 +230,18 @@ music on/off, calm mode and the arena. They're saved between visits.
 - `game.js`: the game loop, fighters, boss AI, beams, cutscenes and HUD
 - `data.js`: which sprite-sheet frames make up each move, plus the move and combo lists
 - `sheets.js`: cuts the sheets into frames and removes the white background
-- `audio.js`: the music player, generated sound effects and jingles, and the voice clip hook
+- `audio.js`: the music player, the recorded and generated sound effects, jingles, and the voice clip hook
 - `stage.js`: the arena and its live effects
-- `assets/sheets/goku.png`: Goku's main sheet (base, Super Saiyan and the Super Saiyan 3 Dragon Fist)
+- `assets/sheets/goku.png`: Goku's main sheet (base, Super Saiyan and the Super Saiyan 3 Dragon Fist). The
+  game uses every real frame on it, including the Super Saiyan standing pose (10.9), the whole ki blast
+  (9.0 to 9.4), all four guard frames (3.0 to 3.3), the dash skid (0.0, 0.1) and the Super Saiyan 3 burst
+  (12.6). The Super Saiyan charge is the normal charge's two frames with the hair and aura turned gold
 - `assets/sheets/goku1-source.png`: the bigger Goku sheet. Its rows are too irregular to cut up
   automatically, so the frames the game uses are cut from it by exact rectangles (`G2(...)` in `data.js`):
-  the Spirit Bomb (Goku, the bomb and its explosion rings), the victory animation, and the HUD icon
+  the Spirit Bomb (all six of Goku's frames, the bomb and its explosion rings), the victory animation, and
+  the HUD icon
+- `assets/cutins/`: the two anime cut-ins (the original GIFs and the frame sheets the game draws)
+- `tools/sounds.html`: plays every recorded sound slice
 - `assets/gifs/`: the GIFs at the top of this README, recorded from the game
 - `assets/img/goku-face.png`: base Goku's HUD and dialogue icon, cut from the title of `goku1-source.png`
 - `assets/sheets/cell.png`: Cell's three forms plus the Cell Juniors (rows 17-21). `cell-faces.png` has his portraits

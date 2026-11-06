@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- the sound files are listed relative to the game's folder -->
+<base href="../">
+<title>Sound Bank</title>
+<style>
+  :root { --bg: #15161c; --panel: #20222b; --text: #e8e8ee; --dim: #9a9cab; --accent: #ffc23a; }
+  body { margin: 0; padding: 16px; background: var(--bg); color: var(--text); font: 14px/1.4 system-ui, sans-serif; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  p { color: var(--dim); margin: 0 0 16px; max-width: 70ch; }
+  .ev { background: var(--panel); border-radius: 8px; padding: 10px 12px; margin-bottom: 10px; }
+  .ev h2 { font-size: 15px; margin: 0 0 8px; color: var(--accent); }
+  button { background: #343746; color: var(--text); border: 0; border-radius: 6px; padding: 6px 10px; margin: 0 6px 6px 0; cursor: pointer; font: inherit; }
+  button:hover { background: #474b5f; }
+  button.main { background: #5a4313; }
+  code { color: var(--dim); font-size: 12px; }
+  #status { color: var(--dim); }
+</style>
+</head>
+<body>
+<h1>Sound bank</h1>
+<p>Every recorded sound the game uses, as the slices listed in <code>SLICES</code> in audio.js
+([file, start seconds, length seconds, gain]). Press a slice to hear it alone, or the event name to
+hear one at random the way the game plays it. To change what plays, edit the numbers in audio.js.</p>
+<p id="status">Click anything to start the audio.</p>
+<div id="list"></div>
+<script src="audio.js"></script>
+<script>
+  const A = Audio8, list = document.getElementById('list'), status = document.getElementById('status');
+  // the game event each list feeds
+  const USES = {
+    punch: 'light hits', kick: 'medium hits', smash: 'heavy hits, launchers', impact: 'slammed into the ring, ground bounce',
+    whoosh: 'jumps, dashes, swings', explode: 'beams firing, big blasts', kiBlast: 'a ki blast (L)', barrage: 'the ki barrage (toward + L)',
+    ko: 'the final blow', charge: 'charging ki (I), looped', spiritGather: 'the Spirit Bomb gathering', spiritThrow: 'the Spirit Bomb thrown',
+  };
+  for (const [ev, slices] of Object.entries(A.bank.slices)) {
+    const box = document.createElement('div'); box.className = 'ev';
+    box.innerHTML = `<h2>${ev} <code>— ${USES[ev] || ''}</code></h2>`;
+    const all = document.createElement('button'); all.className = 'main'; all.textContent = 'play ' + ev;
+    all.onclick = () => { A.init(); (A.sfx[ev] || (() => A.bank.play(ev, Math.floor(Math.random() * slices.length))))(); };
+    if (ev === 'charge' || ev.startsWith('spirit')) all.onclick = () => A.bank.play(ev, 0);
+    box.appendChild(all);
+    slices.forEach((sl, i) => {
+      const b = document.createElement('button');
+      b.textContent = `${sl[0]} ${sl[1].toFixed(2)}s +${sl[2].toFixed(2)}`;
+      b.onclick = () => { if (!A.bank.play(ev, i)) status.textContent = 'Still loading the sound files... try again in a second.'; };
+      box.appendChild(b);
+    });
+    list.appendChild(box);
+  }
+  document.addEventListener('click', () => { A.init(); setTimeout(() => { status.textContent = 'Loaded: ' + (A.bank.loaded().join(', ') || 'nothing yet'); }, 800); }, { once: true });
+</script>
+</body>
+</html>
