@@ -575,12 +575,21 @@ const Audio8 = (() => {
     bg: { src: 'assets/audio/bg-theme.mp3', vol: 0.45 },
     // a 15s cut that builds up and hits at SSJ_PEAK; plays once, then the fight theme resumes
     ssj: { src: 'assets/audio/ssj-transform.mp3', vol: 0.6, loop: false, then: 'bg' },
+    // Perfect Cell's theme, cut so its big hit lands PERFECT_HIT (6.1) seconds in, on his reveal; it
+    // carries on through the main theme (83 s in all), fades out and hands back to the fight theme.
+    // fadeIn / fade: seconds to fade in at the start and out before len (its length) runs out
+    perfect: { src: 'assets/audio/perfect-cell.mp3', vol: 0.55, loop: false, then: 'bg', len: 83.3, fadeIn: 0.4, fade: 2 },
   };
   const tracks = {};
   function track(name) {
     if (!tracks[name]) {
       const a = new Audio(TRACKS[name].src); a.loop = TRACKS[name].loop !== false; a.volume = TRACKS[name].vol;
       a.onended = () => { if (music.current === name && TRACKS[name].then) music.play(TRACKS[name].then); };
+      // a track cut out of a longer song fades out before its last note instead of stopping dead
+      a.ontimeupdate = () => {
+        const T = TRACKS[name];
+        if (T.len && T.fade && music.current === name && !a.fading) a.volume = Math.max(0, Math.min(T.vol, T.vol * (T.len - a.currentTime) / T.fade));
+      };
       tracks[name] = a;
       if (ac) route(a);
     }
@@ -608,7 +617,9 @@ const Audio8 = (() => {
       if (music.current === name) return;
       if (tracks[music.current]) fadeOut(tracks[music.current]);
       music.current = name;
-      const a = track(name); a.currentTime = 0; a.volume = TRACKS[name].vol;
+      const a = track(name), T = TRACKS[name]; a.currentTime = 0; a.volume = T.fadeIn ? 0 : T.vol;
+      // fading in: a cut that starts mid-song doesn't pop
+      if (T.fadeIn) { a.fading = true; const step = setInterval(() => { a.volume = Math.min(T.vol, a.volume + T.vol * 0.04 / T.fadeIn); if (a.volume >= T.vol) { clearInterval(step); a.fading = false; } }, 40); }
       if (!music.muted) a.play().catch(() => {});
     },
     toggleMute() {

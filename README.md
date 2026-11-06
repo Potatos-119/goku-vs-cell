@@ -60,6 +60,18 @@ It reaches down at whoever's under you, so it works on someone standing too. The
 back up, once per combo ("GROUND BOUNCE!"), and you get one more hit off the bounce (the DUNK SHOT combo).
 Boss Goku dunks you out of his air combos as well.
 
+F in the air is the re-launch: a rising kick (Cell's is a tail strike) that sends a juggled enemy flying
+back up, carries you up with them and gives you your air dash back. It works once per combo and buys the
+juggle a little room, so the string can keep going (the RELAUNCH combo: air hit, F, J). A second F in the
+same combo is just an air hit. Boss Goku uses it too.
+
+Hold L to charge a ki attack instead of tapping it. Goku holds both hands full of ki and the ball grows; let
+go and it flies, bigger, slower and harder the longer you held: up to 20 damage at a full second, twice
+the size, and it knocks down. Cell holds his Death Beam at his fingertip instead: up to 24 damage, and it
+knocks down from halfway. A tap is still the normal shot. It costs 8 ki to start and up to 12 more while it
+charges, and you can't move while you hold it, so the boss will come for you (it also charges its own
+from a distance now and then).
+
 Once a hit lands you can cancel the rest of the move into a ki blast (L), a beam (U), a vanish (Q) or a
 dash. In the air it's the same idea: after an air hit, double-tap toward them to dash in (it homes in on
 them) and keep going, or press U to fire the Kamehameha right
@@ -123,8 +135,10 @@ heals him a little while he charges. The boss Cell uses all of these on you too.
 
 P pauses. The pause menu has the full move list, a combo list (the ones you've landed get ticked) and
 the controls. There's also a training mode, which you can pick after choosing a fighter. The dummy can't
-be KO'd, health and ki refill, and a checklist shows every combo with a hint for the next one to try.
-You can set the dummy to fight back.
+be KO'd and a checklist shows every combo with a hint for the next one to try. TRAINING SETTINGS in the
+pause menu sets what the dummy does (stands still, blocks everything, jumps, walks up and throws single
+hits for you to practise blocking and perfect blocks, or fights back like the boss) and what refills: its
+health, yours, and your ki (refills, no refill, or always full). They're saved for next time.
 
 ## Controls
 
@@ -139,6 +153,8 @@ You can set the dummy to fight back.
 | Toward + J | Rushing punch |
 | Toward + K | Heavy slash (knockdown, wall bounce) |
 | J + K / F | Grab: Dragon Rush (Goku) or Absorb (Cell) |
+| Hold L | Charge it up: a bigger ki blast (Goku) or the Death Beam (Cell), stronger the longer you hold |
+| F in the air | Re-launch a juggled enemy, once per combo |
 | L | Ki blast (Goku) / finger beam (Cell). Toward + L is a barrage: Goku's four-blast ki barrage (15 ki), Cell's finger barrage (Semi-Perfect and up) |
 | S + J in the air | Dunk: slam them into the ring and bounce them back up |
 | Hold I | Charge ki |
@@ -188,6 +204,10 @@ cinematics.
 Music:
 
 - `assets/audio/bg-theme.mp3` loops during fights. It's a 4-minute cut of the background OST.
+- `assets/audio/perfect-cell.mp3` plays when Cell becomes Perfect (as the boss or as you). It's 83 seconds
+  of a Perfect Cell theme cover (22.8s to 106.1s of the track), cut so its big hit lands 6.1 seconds in
+  (`PERFECT_HIT` in `game.js`): his aura flares, the close-up of his reveal plays, and he appears as Perfect
+  Cell right on the hit. The theme carries on through the fight, then fades back into the fight music.
 - `assets/audio/ssj-transform.mp3` plays when Goku goes Super Saiyan. It's 15 seconds of Blue Saiyan
   (57.4s to 72.5s of the track), and the build-up hits 5.05 seconds in. The transformation is a short
   cinematic timed to that hit, so his hair turns gold right on it (`SSJ_PEAK` in `game.js`). After that
@@ -206,7 +226,7 @@ Sound effects: the hits, ki blasts, knockouts, the charge and the Spirit Bomb ar
 synthesised versions as a fallback while they load:
 
 - `assets/audio/dbz-fight-pack.mp3`: 40 punches, kicks, whooshes and impacts in one file
-- `assets/audio/ki-blasts.mp3`: single ki blasts (L) and a rapid volley (the barrage)
+- `assets/audio/ki-blasts.mp3`: single ki blasts (L) and a rapid volley (the barrage), cut to the 8 seconds the game uses
 - `assets/audio/ki-charge.mp3`: the aura while charging ki (I), looped
 - `assets/audio/knockout.mp3`: six knockout hits for the final blow
 - `assets/audio/spirit-bomb.mp3`: the Spirit Bomb gathering, then thrown
@@ -234,8 +254,9 @@ music on/off, calm mode and the arena. They're saved between visits.
 - `stage.js`: the arena and its live effects
 - `assets/sheets/goku.png`: Goku's main sheet (base, Super Saiyan and the Super Saiyan 3 Dragon Fist). The
   game uses every real frame on it, including the Super Saiyan standing pose (10.9), the whole ki blast
-  (9.0 to 9.4), all four guard frames (3.0 to 3.3), the dash skid (0.0, 0.1) and the Super Saiyan 3 burst
-  (12.6). The Super Saiyan charge is the normal charge's two frames with the hair and aura turned gold
+  (9.0 to 9.4), all four guard frames (3.0 to 3.3) and the dash skid (0.0, 0.1). The charge opens on the
+  small aura (10.2) before the big flames loop, and the Super Saiyan charge is the same frames with the
+  hair and aura turned gold
 - `assets/sheets/goku1-source.png`: the bigger Goku sheet. Its rows are too irregular to cut up
   automatically, so the frames the game uses are cut from it by exact rectangles (`G2(...)` in `data.js`):
   the Spirit Bomb (all six of Goku's frames, the bomb and its explosion rings), the victory animation, and

@@ -12,13 +12,14 @@ const FX = {
   disc,
   // A painterly, flame-shaped ki field that stays behind the pixel sprite.
   // Its two counter-rotating ribbons make the charge feel alive without blurring the art.
-  kiAura(ctx, x, y, scale, t, power = 0.5, ssj = false, calm = false) {
+  // fade: 0..1, so the aura can swell in and die away
+  kiAura(ctx, x, y, scale, t, power = 0.5, ssj = false, calm = false, fade = 1) {
     const gold = ssj;
     const outer = gold ? 'rgba(255,183,38,' : 'rgba(38,164,255,';
     const core = gold ? 'rgba(255,241,160,' : 'rgba(176,241,255,';
     const w = 14 * scale * (0.82 + power * 0.38), h = 35 * scale * (0.82 + power * 0.3);
     ctx.save(); ctx.globalCompositeOperation = 'lighter';
-    ctx.globalAlpha = calm ? 0.34 : 0.66;
+    ctx.globalAlpha = (calm ? 0.34 : 0.66) * fade;
     const glow = ctx.createRadialGradient(x, y - 20 * scale, 2, x, y - 20 * scale, h * 1.2);
     glow.addColorStop(0, gold ? 'rgba(255,220,105,0.3)' : 'rgba(77,191,255,0.28)');
     glow.addColorStop(1, 'rgba(40,120,255,0)');
@@ -38,7 +39,7 @@ const FX = {
       const side = i ? 1 : -1, flick = Math.sin(t * 31 + i * 7);
       if (flick < 0.25) continue;
       const ex = x + side * (w + 4 * scale), ey = y - (8 + (i * 11)) * scale;
-      ctx.globalAlpha = 0.25 + flick * 0.55; ctx.strokeStyle = gold ? '#fff2a1' : '#d3fbff'; ctx.lineWidth = 0.7 * scale;
+      ctx.globalAlpha = (0.25 + flick * 0.55) * fade; ctx.strokeStyle = gold ? '#fff2a1' : '#d3fbff'; ctx.lineWidth = 0.7 * scale;
       ctx.beginPath(); ctx.moveTo(ex, ey - 8 * scale); ctx.lineTo(ex - side * 2 * scale, ey - 3 * scale); ctx.lineTo(ex + side * 2 * scale, ey); ctx.lineTo(ex, ey + 6 * scale); ctx.stroke();
     }
     ctx.restore();
