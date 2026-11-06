@@ -41,19 +41,20 @@ const GOKU_BASE = {
   // Dragon Rush: a lunging grab. Slow to come out, but it goes through a block and launches
   // the sheet's grab: step in, lunge, catch and toss (frame 6.4 holds the lunge and the catch side by side)
   grab: { fr: ['6.0', '6.1', { id: '6.4', w: 37 }, { id: '6.4', x: 45 }, { id: '6.4', x: 45 }, '6.3'], fps: 13, hit: { at: 3, dmg: 6, reach: 34, grab: true, launch: true } },
-  slash: { fr: ['3.5', '3.6', '3.6', '3.7'], fps: 11, hit: { at: 1, dmg: 10, reach: 46, heavy: true, wallBounce: true } },
+  // 3.6, 5.3 and 8.1 are two sprites the slicer merged into one box: x / w keep the right one
+  slash: { fr: ['3.5', { id: '3.6', x: 41, plain: true }, { id: '3.6', x: 41, plain: true }, '3.7'], fps: 11, hit: { at: 1, dmg: 10, reach: 46, heavy: true, wallBounce: true } },
   // air string: J J J in the air, ending in a spike that slams them into the ring
   // air attacks get a wind-up frame now, so a flying kick reads as a kick (they hit a frame later, a
   // little faster)
-  air: { fr: ['5.0', '5.3', '5.3'], fps: 16, loop: false, hit: { at: 1, dmg: 8, reach: 42 } },
+  air: { fr: ['5.0', { id: '5.3', w: 43 }, { id: '5.3', w: 43 }], fps: 16, loop: false, hit: { at: 1, dmg: 8, reach: 42 } },
   air2: { fr: ['4.5', '4.6', '4.6'], fps: 16, loop: false, hit: { at: 1, dmg: 7, reach: 42 } },
-  spike: { fr: ['5.7', '5.8', '5.8', '5.8'], fps: 11, loop: false, hit: { at: 1, dmg: 10, reach: 40, spike: true } },
+  spike: { fr: ['5.0', { id: '5.3', x: 49, plain: true }, { id: '5.3', x: 49, plain: true }, { id: '5.3', x: 49, plain: true }], fps: 11, loop: false, hit: { at: 1, dmg: 10, reach: 40, spike: true } },
   kiCast: { fr: ['9.0', '9.2', { id: '9.3', w: 31 }, '9.4'], fps: 13, emitAt: 2, emit: 33 },
   // ki barrage (toward + L): both hands charge, then left, right, left, right
   barrage: { fr: ['9.1', '9.2', { id: '9.3', w: 31 }, '9.4', { id: '9.5', w: 31 }, '9.2', { id: '9.3', w: 31 }, '9.4', { id: '9.5', w: 31 }], fps: 14, emitAt: [2, 4, 6, 8], emit: 33 },
   charge: { fr: ['10.3', '10.4'], fps: 12, loop: true },
   hurt: { fr: ['8.0'], fps: 1, loop: true },
-  knock: { fr: ['8.1', '8.2', '8.3', '8.4'], fps: 10, loop: false },
+  knock: { fr: [{ id: '8.1', x: 49 }, '8.2', '8.3', '8.4'], fps: 10, loop: false },
   down: { fr: ['8.5'], fps: 1, loop: true },
   // Instant Transmission. The sheet draws two Gokus side by side in frame 1.9 (solid, then
   // flickering out), so each is cropped on its own; drawn together they showed a double.
@@ -280,6 +281,8 @@ const MOVES = {
     ['U', 'Kamehameha (SSJ, 50 ki, air too)'],
     ['Q THEN U  /  U THEN Q', 'Instant Kamehameha (SSJ, full ki)'],
     ['O', 'Spirit Bomb (base, full ki; also right after a hit) / Dragon Fist (SSJ, full ki)'],
+    ['O IN THE AIR (SSJ)', 'Power down mid-air, then a bigger Spirit Bomb (full ki)'],
+    ['S + O IN THE AIR (SSJ)', 'Spirit Bomb as a Super Saiyan (full ki)'],
     ['T  (AS SSJ)', 'Power down to base, keeping your ki'],
   ],
   cell: [

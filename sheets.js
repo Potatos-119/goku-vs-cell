@@ -107,7 +107,7 @@ function cutOut(sheet, [sx, sy, w, h], seed, ssj, frameId) {
   // Super Saiyan hair stands up taller than the normal hair, so leave room above the head for it
   // Guard poses get a fitted spike overlay below; fallen poses keep their own silhouette so
   // the upright hair cutout cannot drift away from the head on the ground.
-  const addSpikyOverlay = hair && !['8.1', '8.2', '8.3', '8.4', '8.5'].includes(frameId);
+  const addSpikyOverlay = hair && ssj !== 'plain' && !['8.1', '8.2', '8.3', '8.4', '8.5'].includes(frameId);
   const pad = addSpikyOverlay ? SSJ_PAD : 0;
   const out = document.createElement('canvas'); out.width = tw + pad * 2; out.height = th + pad;
   const ox = out.getContext('2d');
@@ -291,7 +291,8 @@ const Sheets = {
     const [r, i] = id.split('.').map(Number);
     return this.sheets[sheet].rows[r][i];
   },
-  // ref: "r.i" or { id, x, y, w, h, seed: 'tblr', ssj, ax } to take part of a box
+  // ref: "r.i" or { id, x, y, w, h, seed: 'tblr', ssj, plain, ax } to take part of a box
+  // (plain: Super Saiyan recolour without the spiky hair overlay, for poses it doesn't sit on)
   // (for sprites merged with their beam) or to recolour Goku's hair.
   // { sheet, rect: [x, y, w, h] } cuts an exact rectangle from another sheet instead.
   frame(sheet, ref) {
@@ -304,7 +305,7 @@ const Sheets = {
       if (r.w) w = Math.min(w, r.w);
       if (r.y) { y += r.y; h -= r.y; }
       if (r.h) h = Math.min(h, r.h);
-      const out = cutOut(this.sheets[sheet], [x, y, w, h], r.seed || 'tblr', r.ssj, r.id);
+      const out = cutOut(this.sheets[sheet], [x, y, w, h], r.seed || 'tblr', r.ssj && r.plain ? 'plain' : r.ssj, r.id);
       if (r.ax != null) out.ax = r.ax * out.width;
       this.cache.set(key, out);
     }

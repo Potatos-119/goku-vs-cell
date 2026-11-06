@@ -5,6 +5,9 @@ const Stage = (() => {
   const W = 320, H = 180, S = 4, HORIZON = 110, RING = 128, FLOOR = 162;
   let painted = null, decals = [], dust = [], debris = [], heliX = -30, clock = 0;
   let chunks = [], rings = [], shadows = [], birds = { x: -60, y: 30, t: 9 }, gusts = [];
+  // environment impact: billowing dust, distant explosions on the mountains, wind streaks
+  let clouds = [], blasts = [], winds = [];
+  const FAR = 104; // where the mountains meet the plain, for blasts on the horizon
   // two arenas. 'day' is the sharp, upscaled ring (assets/img/arena.jpg: the art with its sky
   // extended, so it is drawn from the top of the view, 340 wide and centred, which puts the
   // middle of the tiles on the floor line). 'classic' is the earlier painting, placed by its horizon.
@@ -125,7 +128,7 @@ const Stage = (() => {
   }
 
   function reset() {
-    decals = []; debris = []; chunks = []; rings = []; gusts = []; seed = 99;
+    decals = []; debris = []; chunks = []; rings = []; gusts = []; clouds = []; blasts = []; winds = []; seed = 99;
     dust = Array.from({ length: 34 }, () => ({ x: rnd() * W, y: 118 + rnd() * 60, v: 6 + rnd() * 14, a: 0.15 + rnd() * 0.3 }));
     // big soft cloud shadows sliding across the ring
     shadows = Array.from({ length: 3 }, (_, i) => ({ x: i * 140 - 40, y: 132 + rnd() * 30, r: 50 + rnd() * 40, v: 4 + rnd() * 4 }));
@@ -152,11 +155,69 @@ const Stage = (() => {
       return { x: x + Math.cos(a) * d, y: FLOOR + 1.5 + Math.sin(a) * d * 0.26, w: 2 + rnd() * 3 * size, h: 1 + rnd() * size, tilt: (rnd() - 0.5) * 1.2 };
     });
     decals.push({ x, size, lines, pieces });
-    if (decals.length > 10) decals.shift();
+    if (decals.length > 24) decals.shift();
+    cloud(x, size * 0.8);
     for (let i = 0; i < 6 + size * 6; i++) {
       chunks.push({ x: x + (rnd() - 0.5) * 8, y: FLOOR, vx: (rnd() - 0.5) * 140 * size, vy: -(70 + rnd() * 130) * size, r: 1 + rnd() * 1.6 * size, rot: rnd() * 6, vr: (rnd() - 0.5) * 18, t: 0 });
     }
     shock(x, size);
+  }
+
+  // A billow of dust rolling out along the ring: soft puffs that swell, drift apart and fade.
+  function cloud(x, size = 1, y = FLOOR) {
+    const n = Math.round(5 + size * 5);
+    for (let i = 0; i < n; i++) {
+      const a = (rnd() - 0.5) * Math.PI, sp = (20 + rnd() * 50) * Math.sqrt(size);
+      clouds.push({ x: x + (rnd() - 0.5) * 10 * size, y: y - rnd() * 4, vx: Math.sin(a) * sp * 1.6, vy: -(4 + rnd() * 14) * size,
+        r: (2 + rnd() * 3) * Math.sqrt(size), grow: (6 + rnd() * 8) * Math.sqrt(size), t: 0, life: 0.9 + rnd() * 0.8 * size, shade: rnd() });
+    }
+    if (clouds.length > 160) clouds.splice(0, clouds.length - 160);
+  }
+
+  // A burnt trench a beam ripped along the ring: glows orange first, then cools to a dark scar.
+  function scorch(xa, xb, width = 1) {
+    const x0 = Math.max(-10, Math.min(xa, xb)), x1 = Math.min(W + 10, Math.max(xa, xb));
+    if (x1 - x0 < 6) return;
+    const jag = Array.from({ length: Math.ceil((x1 - x0) / 4) + 1 }, () => (rnd() - 0.5) * 1.2);
+    decals.push({ scorch: true, x0, x1, width, jag, t: 0 });
+    if (decals.length > 24) decals.shift();
+  }
+
+  // Debris torn up under a beam or a clash, every frame it lasts: grit spraying up off the ring.
+  function wake(xa, xb, dt, power = 1) {
+    const x0 = Math.min(xa, xb), x1 = Math.max(xa, xb);
+    const n = (x1 - x0) * dt * 0.2 * power;
+    for (let i = 0; i < n || (i === 0 && rnd() < n); i++) {
+      const x = x0 + rnd() * (x1 - x0);
+      if (rnd() < 0.5) chunks.push({ x, y: FLOOR, vx: (rnd() - 0.5) * 60, vy: -(60 + rnd() * 90) * power, r: 0.6 + rnd() * 0.9, rot: rnd() * 6, vr: (rnd() - 0.5) * 18, t: 0.6 });
+      else debris.push({ x, y: FLOOR - rnd() * 2, vy: -(10 + rnd() * 20), vx: (rnd() - 0.5) * 30, r: 1 + rnd(), t: 0, life: 0.5, wob: 0 });
+    }
+    if (chunks.length > 220) chunks.splice(0, chunks.length - 220);
+  }
+
+  // Something huge flew off the screen and hit the mountains: a flash on the horizon, a dome of
+  // fire and a smoke column that drifts and fades. size < 1 is a ki blast's small puff.
+  function farBlast(x, size = 1) {
+    blasts.push({ x: Math.max(6, Math.min(W - 6, x)), size, t: 0, life: 3.5 + size * 2, lean: (rnd() - 0.5) * 6 });
+    if (blasts.length > 6) blasts.shift();
+  }
+
+  // Slammed into the edge of the screen: rock bursts off the arena wall behind them.
+  function wallHit(x, y, size = 1) {
+    const dir = x < W / 2 ? 1 : -1;
+    for (let i = 0; i < 18 * size; i++)
+      chunks.push({ x, y: y + (rnd() - 0.5) * 26, vx: dir * (60 + rnd() * 150), vy: -(30 + rnd() * 140), r: 1.2 + rnd() * 2.2 * size, rot: rnd() * 6, vr: (rnd() - 0.5) * 18, t: 0 });
+    // the dust bursts off the wall in a fan, and the ring cracks at its foot
+    for (let i = 0; i < 8; i++) clouds.push({ x: x + dir * rnd() * 6, y: y + (rnd() - 0.5) * 24, vx: dir * (30 + rnd() * 60), vy: (rnd() - 0.6) * 30,
+      r: 3 + rnd() * 3, grow: 10 + rnd() * 8, t: 0, life: 0.8 + rnd() * 0.5, shade: rnd() });
+    cloud(x + dir * 8, 0.8 * size);
+  }
+
+  // Powering up: wind streaks blow out along the ring from their feet.
+  function wind(x) {
+    const dir = rnd() < 0.5 ? -1 : 1;
+    winds.push({ x: x + dir * (6 + rnd() * 8), y: FLOOR - rnd() * 6, v: dir * (90 + rnd() * 80), len: 4 + rnd() * 8, t: 0 });
+    if (winds.length > 60) winds.shift();
   }
 
   // a flat ring rippling out across the ring from a heavy hit
@@ -183,6 +244,13 @@ const Stage = (() => {
       if (c.y > FLOOR + 2 && c.vy > 0) { c.y = FLOOR + 2; c.vy *= -0.35; c.vx *= 0.6; c.vr *= 0.5; }
     }
     chunks = chunks.filter(c => c.t < 1.4);
+    for (const c of clouds) { c.t += dt; c.x += c.vx * dt; c.y += c.vy * dt; c.vx *= 0.93; c.vy *= 0.95; c.r += c.grow * dt; c.grow *= 0.97; }
+    clouds = clouds.filter(c => c.t < c.life);
+    for (const b of blasts) b.t += dt;
+    blasts = blasts.filter(b => b.t < b.life);
+    for (const w of winds) { w.t += dt; w.x += w.v * dt; }
+    winds = winds.filter(w => w.t < 0.35);
+    for (const d of decals) if (d.scorch) d.t += dt;
     for (const r of rings) r.t += dt;
     rings = rings.filter(r => r.t < 0.45);
     for (const sh of shadows) { sh.x += sh.v * dt; if (sh.x - sh.r > W) sh.x = -sh.r; }
@@ -212,6 +280,72 @@ const Stage = (() => {
       ctx.fillStyle = '#d9def5'; ctx.fillRect(-p.w / 2, -p.h, p.w, 0.6);
       ctx.strokeStyle = 'rgba(30,34,64,0.9)'; ctx.lineWidth = 0.5; ctx.strokeRect(-p.w / 2, -p.h, p.w, p.h);
       ctx.restore();
+    }
+  }
+
+  function drawScorch(ctx, d) {
+    const y = FLOOR + 1, heat = Math.max(0, 1 - d.t / 1.8), n = d.jag.length - 1;
+    ctx.save();
+    // the gouge: a ragged dark band, deepest in the middle, tapering at both ends, its near lip lit
+    for (let i = 0; i < n; i++) {
+      const x = d.x0 + i * 4, w = Math.min(4, d.x1 - x);
+      if (w <= 0) break;
+      const taper = Math.min(1, (i + 1) / 3, (n - i) / 3);
+      const h = (5 + d.jag[i] * 2) * d.width * taper;
+      ctx.fillStyle = 'rgba(40,38,60,0.55)'; ctx.fillRect(x, y - h / 2, w, h);
+      ctx.fillStyle = 'rgba(14,12,26,0.75)'; ctx.fillRect(x, y - h / 4, w, h / 2);
+      ctx.fillStyle = 'rgba(245,248,255,0.55)'; ctx.fillRect(x, y + h / 2, w, 0.7);
+      if (heat > 0) {
+        ctx.fillStyle = `rgba(255,${120 + Math.round(110 * heat)},${40 + Math.round(60 * heat)},${0.9 * heat})`;
+        ctx.fillRect(x, y - h / 6, w, h / 3);
+      }
+    }
+    ctx.restore();
+  }
+
+  function drawFarBlast(ctx, b) {
+    const s = b.size, x = b.x, t = b.t;
+    ctx.save();
+    // the flash lights up the sky for an instant
+    if (t < 0.18) { ctx.fillStyle = `rgba(255,250,225,${(1 - t / 0.18) * 0.55 * Math.min(1, s)})`; ctx.fillRect(0, 0, W, FAR + 14); }
+    // the fireball: a dome that swells on the horizon, white-hot core to orange
+    const fireT = 1.3 * Math.max(0.5, s), fire = Math.max(0, 1 - t / fireT);
+    if (fire > 0) {
+      const r = (10 + 24 * Math.sqrt(1 - fire)) * s;
+      const g = ctx.createRadialGradient(x, FAR, 0, x, FAR, r);
+      g.addColorStop(0, `rgba(255,255,240,${fire})`); g.addColorStop(0.35, `rgba(255,214,120,${fire})`);
+      g.addColorStop(0.7, `rgba(255,130,50,${0.8 * fire})`); g.addColorStop(1, 'rgba(200,70,30,0)');
+      ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(x, FAR, r, r * 0.9, 0, Math.PI, 0); ctx.fill();
+      // a pillar of light shooting up out of it
+      ctx.fillStyle = `rgba(255,248,220,${0.7 * fire * fire})`;
+      ctx.fillRect(x - 2 * s, FAR - r * 1.6, 4 * s, r * 1.6);
+    }
+    // then the mushroom: a stem of smoke and a rolling cap, drifting and fading
+    const smoke = Math.min(1, Math.max(0, t - 0.25) * 2) * Math.max(0, 1 - t / b.life);
+    if (smoke > 0) {
+      const rise = Math.min(1, t / 2.2), top = FAR - (16 + 30 * rise) * s, lean = b.lean * rise * s;
+      ctx.fillStyle = `rgba(92,80,78,${0.55 * smoke})`;
+      ctx.beginPath(); ctx.moveTo(x - 4 * s, FAR); ctx.lineTo(x - 2.5 * s + lean, top); ctx.lineTo(x + 2.5 * s + lean, top); ctx.lineTo(x + 4 * s, FAR); ctx.fill();
+      for (let i = 0; i < 7; i++) {
+        const a = (i / 6) * Math.PI, cr = (5 + 3 * rise) * s;
+        const cx = x + lean + Math.cos(a) * 9 * s * (0.6 + rise * 0.6), cy = top + 2 - Math.sin(a) * 4 * s;
+        ctx.fillStyle = `rgba(${120 - i * 4},${104 - i * 3},${100 - i * 3},${0.6 * smoke})`;
+        ctx.beginPath(); ctx.arc(cx, cy, cr, 0, Math.PI * 2); ctx.fill();
+      }
+      // the fire still glowing under the smoke
+      ctx.fillStyle = `rgba(255,150,70,${0.35 * smoke * Math.max(0, 1 - t / 2.5)})`;
+      ctx.beginPath(); ctx.ellipse(x, FAR, 10 * s, 3 * s, 0, Math.PI, 0); ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  function drawClouds(ctx) {
+    for (const c of clouds) {
+      const a = Math.min(1, c.t * 8) * (1 - c.t / c.life);
+      ctx.fillStyle = `rgba(${200 + Math.round(c.shade * 30)},${192 + Math.round(c.shade * 28)},${180 + Math.round(c.shade * 24)},${0.55 * a})`;
+      ctx.beginPath(); ctx.arc(c.x, c.y - c.r * 0.5, c.r, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = `rgba(120,110,110,${0.18 * a})`;
+      ctx.beginPath(); ctx.arc(c.x, c.y - c.r * 0.2, c.r * 0.8, 0, Math.PI); ctx.fill();
     }
   }
 
@@ -245,7 +379,8 @@ const Stage = (() => {
         ctx.fillRect(bx - 2, by - up, 2, 1); ctx.fillRect(bx, by, 1, 1); ctx.fillRect(bx + 1, by - up, 2, 1);
       });
     }
-    for (const d of decals) drawCrater(ctx, d);
+    for (const b of blasts) drawFarBlast(ctx, b);
+    for (const d of decals) d.scorch ? drawScorch(ctx, d) : drawCrater(ctx, d);
     for (const r of rings) {
       const k = r.t / 0.45, rx = (8 + k * 70) * r.size;
       ctx.strokeStyle = `rgba(220,235,255,${0.7 * (1 - k)})`; ctx.lineWidth = 1.4;
@@ -261,6 +396,11 @@ const Stage = (() => {
       ctx.fillStyle = '#2a2f55'; ctx.fillRect(-c.r, c.r * 0.3, c.r * 2, c.r * 0.3);
       ctx.restore();
     }
+    for (const w of winds) {
+      ctx.fillStyle = `rgba(240,232,214,${0.5 * (1 - w.t / 0.35)})`;
+      ctx.fillRect(Math.round(w.v > 0 ? w.x : w.x - w.len), Math.round(w.y), Math.round(w.len), 1);
+    }
+    drawClouds(ctx);
     if (dim) { ctx.fillStyle = `rgba(0,0,0,${dim})`; ctx.fillRect(0, 0, W, H); }
   }
 
@@ -272,6 +412,6 @@ const Stage = (() => {
     }
   }
 
-  return { get arena() { return arena; }, arenas: Object.keys(ARENAS), setArena, drawBack, drawFront, update, reset, crack, shock, lift, puff };
+  return { get arena() { return arena; }, arenas: Object.keys(ARENAS), setArena, drawBack, drawFront, update, reset, crack, shock, lift, puff, cloud, scorch, wake, farBlast, wallHit, wind };
 })();
 window.Stage = Stage;

@@ -28,6 +28,54 @@ const Audio8 = (() => {
     const d = noiseBuf.getChannelData(0);
     for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
     buildKit();
+    loadKame();
+  }
+
+  // ---- The recorded Kamehameha (assets/audio/kamehameha.mp3) ----
+  // The clip is the whole move: the chant building from 0.85 s to 6.95 s, then "HA!" and the beam
+  // from 7.05 s, fading out after 10.4 s. The game's charge is far shorter than the chant, so it
+  // plays the chant's last stretch ending right as the beam fires, then the blast while the beam is
+  // out (looping its loud middle through a long clash). Cell's is pitched a little lower. Until the
+  // file loads (or if it can't), the synthesised charge and beam carry it alone.
+  // (chantEnd stops before the breath at the end of the chant, so even a short charge gets its loud part)
+  const KAME = { src: 'assets/audio/kamehameha.mp3', chantEnd: 6.5, blast: 7.05, loopA: 7.6, loopB: 10.3, gain: 2.2 };
+  let kameBuf = null;
+  const kamePlaying = new Map();
+  function loadKame() {
+    if (typeof fetch !== 'function') return;
+    fetch(KAME.src).then(r => r.arrayBuffer()).then(b => ac.decodeAudioData(b)).then(buf => { kameBuf = buf; }).catch(() => { /* synth only */ });
+  }
+  const kameRate = (who, big) => (who === 'cell' ? 0.9 : 1) * (big ? 0.92 : 1);
+  function kameClip(owner, offset, dur, rate, loop) {
+    const t = ac.currentTime, s = ac.createBufferSource(), g = ac.createGain();
+    s.buffer = kameBuf; s.playbackRate.value = rate;
+    if (loop) { s.loop = true; s.loopStart = KAME.loopA; s.loopEnd = KAME.loopB; }
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(KAME.gain, t + 0.04);
+    if (dur) { g.gain.setValueAtTime(KAME.gain, t + Math.max(0.05, dur - 0.08)); g.gain.exponentialRampToValueAtTime(0.0001, t + dur + 0.04); }
+    s.connect(g); g.connect(sfxBus); s.start(t, offset); if (dur) s.stop(t + dur + 0.1);
+    const list = kamePlaying.get(owner) || []; list.push({ s, g }); kamePlaying.set(owner, list);
+    duck(true);
+    s.onended = () => { const l = kamePlaying.get(owner); if (l) { const i = l.findIndex(x => x.s === s); if (i >= 0) l.splice(i, 1); if (!l.length) { kamePlaying.delete(owner); if (!kamePlaying.size) duck(false); } } };
+  }
+  // the end of the chant, finishing as the charge does (too short a charge gets none: a quick
+  // counter beam is just the blast)
+  function kameChant(owner, dur, big) {
+    init(); if (!kameBuf || dur < 0.45) return false;
+    const rate = kameRate(owner.who, big);
+    kameClip(owner, Math.max(0.85, KAME.chantEnd - dur * rate), dur, rate, false);
+    return true;
+  }
+  // "HA!" and the beam, held as long as the beam lasts
+  function kameBlast(owner, big) {
+    init(); if (!kameBuf) return false;
+    kameClip(owner, KAME.blast, 0, kameRate(owner.who, big), true);
+    return true;
+  }
+  function stopKame(owner) {
+    const l = kamePlaying.get(owner);
+    if (!l || !ac) return;
+    const t = ac.currentTime;
+    for (const { s, g } of l) { g.gain.cancelScheduledValues(t); g.gain.setTargetAtTime(0.0001, t, 0.12); try { s.stop(t + 0.6); } catch (e) { /* already stopped */ } }
   }
 
   const hz = n => 440 * Math.pow(2, (n - 69) / 12);
@@ -366,6 +414,7 @@ const Audio8 = (() => {
       noise(t, d, 0.6, 'bandpass', 7000 * p, 2200 * p, dirt);
       tone('sine', 140 * p, 50, t, 0.14, 0.45, out); // a small kick of recoil, much lighter than a beam's
     },
+    kameChant, kameBlast, stopKame,
     chargeLoop(owner) { startSustain(owner, 'charge'); },
     beamLoop(owner) { startSustain(owner, 'beam'); },
     stopSustain,

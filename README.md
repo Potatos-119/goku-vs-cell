@@ -76,6 +76,10 @@ A few more things:
   It also finishes a combo: land a hit (on the ground or in the air) at full ki and press O. The hit
   leaves them dazed, the bomb gathers in 0.6 seconds, flies faster, and still crushes them if they're
   already down. Named combos: SPIRIT BOMB FINISH and SKY SPIRIT BOMB (launcher, W, J, then O).
+  As a Super Saiyan, in the air at full ki, there are two ways to throw it. O powers him down right
+  there in the sky (the gold fades back to black), then he raises his arms: slower, and a hit while the
+  gold fades stops it, but the bomb is bigger and hits for 25% more. S + O keeps the gold hair and goes
+  straight into it, a normal-size bomb with golden energy streaming in. Both work after an air hit too.
 - You can answer a finisher. Before the beam fires, a ring closes in around you: U fires a counter beam
   (30 ki) into a beam clash, Q vanishes (15 ki), S blocks. Vanish when the ring turns gold and it's a
   clean dodge that leaves them open; too early and the beam grazes you. A block takes half and breaks your
@@ -141,7 +145,18 @@ refills. Perfect blocks give some back.
 The arena is the Cell Games ring. `assets/img/arena.jpg` is the art upscaled 2x with the sky extended so
 it fills a 16:9 screen. The older painting, `assets/img/cell-games.webp`, is still there as the CLASSIC
 arena in the options. On top of it there's dust, a news helicopter, rocks that float up when someone
-powers up, and cracks wherever someone gets slammed. On big or retina screens the game draws at twice
+powers up, and cracks wherever someone gets slammed.
+
+The fight wrecks the place as it goes, all drawn in code (no extra art):
+- a Kamehameha low over the ring tears it up underneath and leaves a burnt trench that glows, then cools
+- a beam or a Special Beam Cannon that flies off the screen hits the mountains: a flash, a fireball on the
+  horizon and a mushroom of smoke (ki blasts make a small puff)
+- craters throw up rolling dust, and a wall bounce bursts rock and dust off the edge of the arena
+- a beam clash cracks the ring under the meeting point and keeps tearing it up while they push
+- powering up blows wind streaks out along the ring, and the sky darkens while the Spirit Bomb gathers
+- the ring keeps its last 24 scars, so a long fight leaves it in pieces
+
+On big or retina screens the game draws at twice
 the resolution so everything stays sharp. The camera stays still during the fight and only pushes in for
 cinematics.
 
@@ -152,6 +167,15 @@ Music:
   (57.4s to 72.5s of the track), and the build-up hits 5.05 seconds in. The transformation is a short
   cinematic timed to that hit, so his hair turns gold right on it (`SSJ_PEAK` in `game.js`). After that
   the fight theme comes back.
+
+Kamehameha sound:
+
+- `assets/audio/kamehameha.mp3` is the whole move: the chant builds from 0.85 to 6.95 seconds, then
+  "HA!" and the beam from 7.05 seconds. Goku and Cell both use it (Cell's a little lower, and the Solar
+  Kamehameha lower still). The charge plays the chant's last stretch so it ends right as the beam fires,
+  and the blast holds as long as the beam does, looping its loud middle through a long beam clash. A
+  quick counter beam skips the chant. The timings are in `KAME` in `audio.js`. If the file can't load,
+  the synthesised charge and beam sounds play alone.
 
 To change the music, swap either file. The paths are in `TRACKS` in `audio.js`. There's also a
 `VOICE_CLIPS` table there if you want to add recorded voice lines.
