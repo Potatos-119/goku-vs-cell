@@ -1519,6 +1519,25 @@ function drawBeam(b) {
   const headX = clashing ? L : grown ? Math.max(sw - hw * 0.3, L - hw * 0.7) : L - hw * 0.45;
   if (headX > sw) ctx.drawImage(P.body, 0, 0, P.body.width, P.body.height, sw - 2, -bh / 2 - wob, headX - sw + 6, bh + wob * 2);
   ctx.drawImage(P.start, 0, -sh / 2, Math.max(1, Math.min(sw, L)), sh);
+  // energy on top: a soft glow pulsing round it, a white-hot core, and streaks rushing along it, so
+  // it reads as a stream of ki pouring out rather than a flat band
+  const run0 = sw * 0.45, run1 = clashing ? L : headX + hw * 0.3;
+  if (run1 > run0) {
+    const pulse = 0.5 + 0.5 * Math.sin(b.t * 28);
+    ctx.save(); ctx.globalCompositeOperation = 'lighter';
+    ctx.fillStyle = `rgba(110,190,255,${(0.14 + 0.1 * pulse) * (settings.calm ? 0.5 : 1)})`;
+    ctx.fillRect(run0, -bh * 0.8, run1 - run0, bh * 1.6);
+    ctx.fillStyle = `rgba(255,255,255,${0.35 + 0.25 * pulse})`;
+    ctx.fillRect(run0, -Math.max(1, bh * 0.1), run1 - run0, Math.max(2, bh * 0.2));
+    ctx.fillStyle = 'rgba(235,250,255,0.9)';
+    for (let i = 0; i < 7; i++) {
+      const len = 6 + (i % 3) * 4, span = run1 - run0 - len;
+      if (span <= 0) break;
+      const x = run0 + ((b.t * 420 + i * 53) % span), y = (((i * 37) % 9) / 9 - 0.5) * bh * 0.7;
+      ctx.fillRect(Math.round(x), Math.round(y), len, 1);
+    }
+    ctx.restore();
+  }
   if (!clashing) ctx.drawImage(P.head, headX, -hh / 2 - wob, hw, hh + wob * 2);
   ctx.restore();
 }

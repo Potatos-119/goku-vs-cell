@@ -252,13 +252,15 @@ const BEAMS = {
     head: { sheet: 'cell', ref: { id: '16.4', x: 124, seed: 'tb' } },
     scale: 0.5,
   },
+  // Cell's Kamehameha uses the same beam art as Goku's (his own sheet draws it as a flat banded slab
+  // that read as a blue box on screen), a little thicker to suit his size
   cell: {
-    start: { sheet: 'cell', ref: { id: '16.4', x: 34, w: 40, seed: 'tb' } },
-    body: { sheet: 'cell', ref: { id: '16.4', x: 80, w: 2, seed: 'tb' } },
+    start: { sheet: 'goku', ref: { id: '11.6', x: 40, w: 131, seed: 'tb' } },
+    body: { sheet: 'goku', ref: { id: '11.6', x: 250, w: 2, seed: 'tb' } },
     // the ball only: the sheet's head starts with a stretch of thin edge lines whose white core the
     // background removal leaks into, which showed as a see-through gap behind a short beam's head
     head: { sheet: 'cell', ref: { id: '16.4', x: 124, seed: 'tb' } },
-    scale: 1,
+    scale: 0.6,
   },
 };
 
