@@ -9,6 +9,9 @@ const SHEET_CFG = {
   // the bigger Goku sheet: its rows are too irregular to find automatically, so frames are cut
   // from it by exact rectangles ({ sheet: 'goku2', rect: [x, y, w, h] }) and it isn't sliced
   goku2: { src: 'assets/sheets/goku1-source.png', raw: true },
+  // a second Super Saiyan Goku sheet (a different artist, on a dark background, drawn smaller): cut by
+  // exact rectangles too, and drawn at 1.25x (k) so he stays the same size as on his main sheet
+  ssj2: { src: 'assets/sheets/goku-ssj2.png', raw: true, bg: [36, 27, 2] },
 };
 
 const isBg = (d, i) => d[i] > 232 && d[i + 1] > 232 && d[i + 2] > 232;
@@ -72,7 +75,9 @@ function cutOut(sheet, [sx, sy, w, h], seed, ssj, frameId, aura) {
   cx.drawImage(sheet.canvas, sx, sy, w, h, 0, 0, w, h);
   const img = cx.getImageData(0, 0, w, h), d = img.data;
   const clear = new Uint8Array(w * h), st = [];
-  const push = (x, y) => { const i = y * w + x; if (!clear[i] && isBg(d, i * 4)) { clear[i] = 1; st.push(i); } };
+  // the background is white, unless the sheet says otherwise (then: anything close to its colour)
+  const bg = sheet.bg, bgAt = bg ? (dd, k) => Math.abs(dd[k] - bg[0]) + Math.abs(dd[k + 1] - bg[1]) + Math.abs(dd[k + 2] - bg[2]) < 30 : isBg;
+  const push = (x, y) => { const i = y * w + x; if (!clear[i] && bgAt(d, i * 4)) { clear[i] = 1; st.push(i); } };
   if (seed.includes('t')) for (let x = 0; x < w; x++) push(x, 0);
   if (seed.includes('b')) for (let x = 0; x < w; x++) push(x, h - 1);
   if (seed.includes('l')) for (let y = 0; y < h; y++) push(0, y);
@@ -90,7 +95,7 @@ function cutOut(sheet, [sx, sy, w, h], seed, ssj, frameId, aura) {
       const x = i % w, y = (i / w) | 0;
       const near = (x > 0 && clear[i - 1]) || (x + 1 < w && clear[i + 1]) || (y > 0 && clear[i - w]) || (y + 1 < h && clear[i + w]);
       const r = d[i * 4], g = d[i * 4 + 1], b = d[i * 4 + 2];
-      if (near && Math.min(r, g, b) > 175 && Math.max(r, g, b) - Math.min(r, g, b) < 45) peel.push(i);
+      if (!bg && near && Math.min(r, g, b) > 175 && Math.max(r, g, b) - Math.min(r, g, b) < 45) peel.push(i);
     }
     peel.forEach(i => clear[i] = 1);
   }
@@ -311,7 +316,7 @@ const Sheets = {
   async load(base = '') {
     await Promise.all(Object.entries(SHEET_CFG).map(([name, cfg]) => new Promise((ok, fail) => {
       const img = new Image();
-      img.onload = () => { this.sheets[name] = cfg.raw ? rawSheet(img) : sliceSheet(img, cfg); ok(); };
+      img.onload = () => { this.sheets[name] = cfg.raw ? rawSheet(img) : sliceSheet(img, cfg); this.sheets[name].bg = cfg.bg; ok(); };
       img.onerror = fail;
       img.src = base + cfg.src;
     })));
@@ -337,6 +342,7 @@ const Sheets = {
       if (r.h) h = Math.min(h, r.h);
       const out = cutOut(this.sheets[sheet], [x, y, w, h], r.seed || 'tblr', r.ssj && r.plain ? 'plain' : r.ssj, r.id, r.aura);
       if (r.ax != null) out.ax = r.ax * out.width;
+      out.k = r.k || 1; // drawn this much bigger (a sheet drawn at a smaller size than the rest)
       this.cache.set(key, out);
     }
     return this.cache.get(key);

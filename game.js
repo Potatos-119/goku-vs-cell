@@ -127,7 +127,8 @@ class Fighter {
   box() { return { x0: this.x - 11, x1: this.x + 11, y0: this.y - 46, y1: this.y }; }
   hand(anim) {
     const a = this.A(anim), im = Sheets.frame(this.who, a.fr[[].concat(a.emitAt ?? 0)[0]]);
-    return [this.x + this.facing * (im.width - im.ax) * this.scale, this.y - a.emit * this.scale];
+    const k = this.scale * (im.k || 1);
+    return [this.x + this.facing * (im.width - im.ax) * k, this.y - a.emit * k];
   }
   draw() {
     if (!this.visible) return;
@@ -136,7 +137,8 @@ class Fighter {
     ctx.translate(Math.round(this.x), Math.round(this.y - this.hover));
     // a held stance breathes a little instead of standing frozen
     const breath = this.A().breathe ? Math.sin(this.at * 2.6) * 0.018 : 0;
-    ctx.scale(this.facing * this.scale * (1 + this.sq), this.scale * (1 - this.sq + breath));
+    const k = this.scale * (im.k || 1);
+    ctx.scale(this.facing * k * (1 + this.sq), k * (1 - this.sq + breath));
     if (this.inv > 0 && Math.floor(this.inv * 20) % 2) ctx.globalAlpha = 0.5;
     ctx.drawImage(im, -Math.round(im.ax), -im.height);
     if (this.flash > 0) {
@@ -829,7 +831,7 @@ function updateFighter(f, foe, dt) {
 
 // A lying sprite is much wider than a standing one, so push it in from the screen edge.
 function keepOnScreen(f) {
-  const im = f.img, s = f.scale;
+  const im = f.img, s = f.scale * (im.k || 1);
   const back = (f.facing > 0 ? im.ax : im.width - im.ax) * s, front = (f.facing > 0 ? im.width - im.ax : im.ax) * s;
   f.x = clamp(f.x, Math.min(back, W / 2), Math.max(W - front, W / 2));
 }

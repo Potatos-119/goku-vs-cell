@@ -29,12 +29,18 @@ it does that.
 
 | | |
 |---|---|
-| ![Spirit Bomb](assets/gifs/spirit-bomb.gif) | ![Beam clash](assets/gifs/beam-clash.gif) |
-| **Spirit Bomb**: power down from Super Saiyan (T), then O. Goku gathers it up in the sky and throws it down | **Beam clash**: Perfect Cell's Solar Kamehameha answered with a counter beam (U), then mash Space |
-| ![Instant Kamehameha](assets/gifs/instant-kamehameha.gif) | ![Special Beam Cannon](assets/gifs/special-beam-cannon.gif) |
-| **Instant Kamehameha**: Q then U at full ki | **Special Beam Cannon**: Cell's Y, straight through a guard |
-| ![Ki barrage](assets/gifs/ki-barrage.gif) | ![Victory](assets/gifs/goku-victory.gif) |
-| **Ki barrage**: toward + L | **Victory**: Goku sits down to rest |
+| ![Final clash](assets/gifs/final-clash.gif) | ![Super Saiyan](assets/gifs/ssj-transform.gif) |
+| **The final clash**: beat Perfect Cell and he fires a Solar Kamehameha from the sky. Mash Space | **Super Saiyan**: the eyes close-up, then gold right on the music's hit |
+| ![Perfect Cell](assets/gifs/perfect-cell.gif) | ![Re-launch and dunk](assets/gifs/relaunch-dunk.gif) |
+| **Perfect Cell**: his theme, his reveal, and he appears on the drop | **Air combo**: launcher, F to re-launch, S + J to dunk him off the ring |
+| ![Charged ki blast](assets/gifs/charged-blast.gif) | ![Beam clash](assets/gifs/beam-clash.gif) |
+| **Charged ki blast**: hold L, let go | **Beam clash**: a counter beam (U) against the Solar Kamehameha, then mash Space |
+| ![Spirit Bomb](assets/gifs/spirit-bomb.gif) | ![Instant Kamehameha](assets/gifs/instant-kamehameha.gif) |
+| **Spirit Bomb**: power down from Super Saiyan (T), then O, gathered up in the sky | **Instant Kamehameha**: Q then U at full ki |
+| ![Special Beam Cannon](assets/gifs/special-beam-cannon.gif) | ![Ki barrage](assets/gifs/ki-barrage.gif) |
+| **Special Beam Cannon**: Cell's Y, straight through a guard | **Ki barrage**: toward + L |
+| ![Victory](assets/gifs/goku-victory.gif) | |
+| **Victory**: Goku powers down and sits down to rest | |
 
 The GIFs are recorded from the game itself.
 
@@ -261,6 +267,11 @@ music on/off, calm mode and the arena. They're saved between visits.
   automatically, so the frames the game uses are cut from it by exact rectangles (`G2(...)` in `data.js`):
   the Spirit Bomb (all six of Goku's frames, the bomb and its explosion rings), the victory animation, and
   the HUD icon
+- `assets/sheets/goku-ssj2.png`: a second Super Saiyan Goku sheet, by a different artist, on a dark
+  background and drawn smaller. The game takes Super Saiyan Goku's charge-up from it (an opening frame and
+  six frames of the gold aura flickering), cut by exact rectangles (`SJ(...)` in `data.js`) and drawn at
+  1.25x so he stays the same size. The rest of Super Saiyan Goku stays on the main sheet, so his moves keep
+  the same size and style as normal Goku's.
 - `assets/cutins/`: the two anime cut-ins (the original GIFs and the frame sheets the game draws)
 - `tools/sounds.html`: plays every recorded sound slice
 - `assets/gifs/`: the GIFs at the top of this README, recorded from the game

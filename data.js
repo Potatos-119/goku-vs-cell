@@ -5,6 +5,8 @@
 
 // a frame cut by exact rectangle from the bigger Goku sheet (see goku2 in sheets.js)
 const G2 = (x, y, w, h) => ({ sheet: 'goku2', rect: [x, y, w, h] });
+// a frame from the second Super Saiyan sheet (goku-ssj2.png), drawn 1.25x to match his size
+const SJ = (x, y, w, h) => ({ sheet: 'ssj2', rect: [x, y, w, h], k: 1.25 });
 const GOKU_WIN = [G2(68, 2782, 37, 46), G2(113, 2777, 31, 51), G2(156, 2775, 31, 53), G2(156, 2775, 31, 53),
   G2(221, 2776, 37, 52), G2(275, 2779, 37, 47), G2(325, 2791, 35, 37)];
 
@@ -105,9 +107,10 @@ Object.assign(GOKU_SSJ, {
   // standing: the sheet's Super Saiyan pose, arms down, breathing (moving and fighting use his
   // fighting stance, the base frames with gold hair)
   idle: { fr: ['10.9'], fps: 1, loop: true, breathe: true },
-  // powering up: the same frames as normal Goku with the hair and the aura turned gold
-  charge: { fr: ['10.2', '10.3', '10.4'].map(id => ({ id, ssj: true, aura: 'gold' })), fps: 11, loop: true, loopFrom: 1 },
-  chargeEnd: { fr: [{ id: '10.2', ssj: true, aura: 'gold' }], fps: 9, loop: false, then: 'idle' },
+  // powering up: the second Super Saiyan sheet's own charge (goku-ssj2.png), a small aura at his
+  // feet, then six frames of the gold flame flickering round him (drawn 1.25x to match his size)
+  charge: { fr: [SJ(12, 585, 42, 43), SJ(65, 577, 47, 50), SJ(125, 574, 47, 53), SJ(189, 574, 48, 53), SJ(247, 577, 46, 50), SJ(307, 574, 46, 53), SJ(371, 574, 48, 53)], fps: 12, loop: true, loopFrom: 1 },
+  chargeEnd: { fr: [SJ(12, 585, 42, 43)], fps: 9, loop: false, then: 'idle' },
   // "Ka... me... ha... me...": the sheet's whole sequence, hands sweeping round to the hip, the
   // ball of light swirling between them, pulled back; "HA!": the thrust, then the beam. The charge
   // is timed so it always reaches the last frame as the beam fires (see startKame)
