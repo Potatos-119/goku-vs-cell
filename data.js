@@ -106,10 +106,11 @@ const GOKU_SSJ = Object.fromEntries(Object.entries(GOKU_BASE).map(([k, a]) => [k
 Object.assign(GOKU_SSJ, {
   // standing: the sheet's Super Saiyan pose, arms down, breathing
   idle: { fr: ['10.9'], fps: 1, loop: true, breathe: true },
-  // moving: the second Super Saiyan sheet's own movement (goku-ssj2.png, drawn 1.25x): its walk
-  // cycle, its fighting stance for stepping back, its dash (leaning lower and lower into a lunge), and
-  // its jump (crouch, spring, arms up at the top, falling, landing)
-  walk: { fr: [SJ(271, 295, 18, 43), SJ(298, 295, 19, 43), SJ(327, 295, 19, 43), SJ(352, 295, 18, 43), SJ(376, 295, 20, 43), SJ(405, 295, 19, 43), SJ(432, 295, 20, 43)], fps: 11, loop: true },
+  // moving: the second Super Saiyan sheet's own movement (goku-ssj2.png, drawn 1.25x): its fighting
+  // stance shuffle for stepping either way (the upright frames next to it on the sheet are him turning
+  // round on the spot, not a walk), its dash (leaning lower and lower into a lunge), and its jump
+  // (crouch, spring, arms up at the top, falling, landing)
+  walk: { fr: [SJ(94, 299, 25, 39), SJ(127, 299, 25, 39), SJ(161, 300, 23, 38), SJ(193, 299, 25, 39)], fps: 11, loop: true },
   back: { fr: [SJ(94, 299, 25, 39), SJ(127, 299, 25, 39), SJ(161, 300, 23, 38), SJ(193, 299, 25, 39)], fps: 9, loop: true },
   dash: { fr: [SJ(492, 299, 26, 39), SJ(525, 303, 28, 35), SJ(560, 308, 32, 29)], fps: 16, loop: false },
   dashStop: { fr: [SJ(753, 305, 24, 33)], fps: 10, loop: false, then: 'idle' },

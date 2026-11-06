@@ -269,7 +269,7 @@ music on/off, calm mode and the arena. They're saved between visits.
   the HUD icon
 - `assets/sheets/goku-ssj2.png`: a second Super Saiyan Goku sheet, by a different artist, on a dark
   background and drawn smaller. The game takes Super Saiyan Goku's movement and charge-up from it: his
-  walk cycle, his stance for stepping back, his dash, his jump (crouch, spring, top, fall, landing) and the
+  fighting-stance shuffle for stepping either way, his dash, his jump (crouch, spring, top, fall, landing) and the
   gold aura flickering round him as he charges. Those frames are cut by exact rectangles (`SJ(...)` in
   `data.js`) and drawn at 1.25x so he stays the same size; his attacks stay on the main sheet.
 - `assets/cutins/`: the two anime cut-ins (the original GIFs and the frame sheets the game draws)
