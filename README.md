@@ -268,10 +268,10 @@ music on/off, calm mode and the arena. They're saved between visits.
   the Spirit Bomb (all six of Goku's frames, the bomb and its explosion rings), the victory animation, and
   the HUD icon
 - `assets/sheets/goku-ssj2.png`: a second Super Saiyan Goku sheet, by a different artist, on a dark
-  background and drawn smaller. The game takes Super Saiyan Goku's charge-up from it (an opening frame and
-  six frames of the gold aura flickering), cut by exact rectangles (`SJ(...)` in `data.js`) and drawn at
-  1.25x so he stays the same size. The rest of Super Saiyan Goku stays on the main sheet, so his moves keep
-  the same size and style as normal Goku's.
+  background and drawn smaller. The game takes Super Saiyan Goku's movement and charge-up from it: his
+  walk cycle, his stance for stepping back, his dash, his jump (crouch, spring, top, fall, landing) and the
+  gold aura flickering round him as he charges. Those frames are cut by exact rectangles (`SJ(...)` in
+  `data.js`) and drawn at 1.25x so he stays the same size; his attacks stay on the main sheet.
 - `assets/cutins/`: the two anime cut-ins (the original GIFs and the frame sheets the game draws)
 - `tools/sounds.html`: plays every recorded sound slice
 - `assets/gifs/`: the GIFs at the top of this README, recorded from the game

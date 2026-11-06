@@ -104,9 +104,18 @@ const GOKU_SSJ = Object.fromEntries(Object.entries(GOKU_BASE).map(([k, a]) => [k
   ...a, fr: a.fr.map(r => ({ ...(typeof r === 'string' ? { id: r } : r), ssj: true })),
 }]));
 Object.assign(GOKU_SSJ, {
-  // standing: the sheet's Super Saiyan pose, arms down, breathing (moving and fighting use his
-  // fighting stance, the base frames with gold hair)
+  // standing: the sheet's Super Saiyan pose, arms down, breathing
   idle: { fr: ['10.9'], fps: 1, loop: true, breathe: true },
+  // moving: the second Super Saiyan sheet's own movement (goku-ssj2.png, drawn 1.25x): its walk
+  // cycle, its fighting stance for stepping back, its dash (leaning lower and lower into a lunge), and
+  // its jump (crouch, spring, arms up at the top, falling, landing)
+  walk: { fr: [SJ(271, 295, 18, 43), SJ(298, 295, 19, 43), SJ(327, 295, 19, 43), SJ(352, 295, 18, 43), SJ(376, 295, 20, 43), SJ(405, 295, 19, 43), SJ(432, 295, 20, 43)], fps: 11, loop: true },
+  back: { fr: [SJ(94, 299, 25, 39), SJ(127, 299, 25, 39), SJ(161, 300, 23, 38), SJ(193, 299, 25, 39)], fps: 9, loop: true },
+  dash: { fr: [SJ(492, 299, 26, 39), SJ(525, 303, 28, 35), SJ(560, 308, 32, 29)], fps: 16, loop: false },
+  dashStop: { fr: [SJ(753, 305, 24, 33)], fps: 10, loop: false, then: 'idle' },
+  jump: { fr: [SJ(620, 305, 23, 33), SJ(652, 287, 23, 44), SJ(702, 271, 21, 42)], fps: 12, loop: false },
+  fall: { fr: [SJ(730, 286, 21, 44)], fps: 1, loop: true },
+  land: { fr: [SJ(753, 305, 24, 33)], fps: 12, loop: false },
   // powering up: the second Super Saiyan sheet's own charge (goku-ssj2.png), a small aura at his
   // feet, then six frames of the gold flame flickering round him (drawn 1.25x to match his size)
   charge: { fr: [SJ(12, 585, 42, 43), SJ(65, 577, 47, 50), SJ(125, 574, 47, 53), SJ(189, 574, 48, 53), SJ(247, 577, 46, 50), SJ(307, 574, 46, 53), SJ(371, 574, 48, 53)], fps: 12, loop: true, loopFrom: 1 },
@@ -123,8 +132,7 @@ Object.assign(GOKU_SSJ, {
   // up in the air (before the bigger Spirit Bomb) he powers down in the bigger sheet's mid-air frames:
   // floating gold, the burst of light, the white outline, and then he's normal Goku again
   powerDownAir: { fr: [G2(578, 2128, 50, 64), G2(454, 2114, 74, 78), G2(406, 2135, 35, 57)], fps: 7, loop: false },
-  // falling or floating: the bigger sheet's own Super Saiyan in the air, arms out
-  fall: { fr: [G2(535, 2136, 36, 56)], fps: 1, loop: true },
+
   // the same victory, hair gold
   win: { fr: GOKU_WIN.map(r => ({ ...r, ssj: true })), fps: 5, loop: false },
   // Dragon Fist: power up to Super Saiyan 3, rush in, dragon
