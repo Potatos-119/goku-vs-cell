@@ -11,7 +11,12 @@
   @font-face { font-family: Saiyan; src: url(assets/font/Saiyan-Sans.ttf); }
   html, body { margin: 0; height: 100%; background: #07060d; overflow: hidden; }
   body { display: flex; align-items: center; justify-content: center; }
-  canvas { width: min(100vw, calc(100vh * 16 / 9)); aspect-ratio: 16 / 9; image-rendering: pixelated; display: block; }
+  canvas { position: relative; width: min(100vw, calc(100vh * 16 / 9)); aspect-ratio: 16 / 9; image-rendering: pixelated; display: block;
+           box-shadow: 0 0 60px 20px rgba(0, 0, 0, .55); }
+  /* the game is 16:9; on any other screen shape, fill the leftover space with a blurred, darker
+     copy of the arena instead of black bars */
+  body::before { content: ''; position: fixed; inset: -60px; background: url(assets/img/arena.jpg) center / cover;
+                 filter: blur(28px) brightness(.45) saturate(1.2); }
   /* preload fonts so canvas text uses them */
   .preload { position: absolute; opacity: 0; font-family: Saiyan; } .preload b { font-family: 'Press Start 2P'; }
 </style>
