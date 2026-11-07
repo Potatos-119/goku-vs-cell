@@ -11,6 +11,17 @@ const PEERJS_URL = 'https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js';
 const ROOM_PREFIX = 'goku-vs-cell-room-';
 const CODE_CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; // no 0/O or 1/I to mix up
 const SEND_BACKLOG = 1 << 20; // past 1 MB waiting to go out, frames are merged until it drains
+// How browsers find each other: STUN servers tell each one its public address; when no direct path
+// exists (some home routers and mobile networks), the TURN relay carries the match instead. These are
+// PeerJS's own free servers plus a few more public STUN servers.
+const PEER_OPTIONS = { config: { iceServers: [
+  { urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302', 'stun:stun.cloudflare.com:3478'] },
+  { urls: ['turn:eu-0.turn.peerjs.com:3478', 'turn:us-0.turn.peerjs.com:3478'], username: 'peerjs', credential: 'peerjsp' },
+] } };
+const CONNECT_TIMEOUT = 20000; // give up on a connection that hasn't opened after this long
+const NET_FAIL = 'Couldn\'t connect to your friend\'s game. Usually a network blocks the direct link (mobile hotspots, school or office Wi-Fi). Try again, try another network, or both join the same Wi-Fi.';
+// what a connection is doing right now (its ICE state), in words
+function iceState(conn) { const pc = conn && conn.peerConnection; return pc ? pc.iceConnectionState : 'new'; }
 
 const Net = {
   role: null,        // 'host' or 'guest' while connected
@@ -41,7 +52,7 @@ const Net = {
     this.drop();
     const code = Array.from({ length: 4 }, () => CODE_CHARS[Math.floor(Math.random() * CODE_CHARS.length)]).join('');
     this.show('wait', 'Setting up a room...');
-    const peer = this.peer = new Peer(ROOM_PREFIX + code);
+    const peer = this.peer = new Peer(ROOM_PREFIX + code, PEER_OPTIONS);
     peer.on('open', () => { this.panel.querySelector('.code').textContent = code; this.show('wait', 'Waiting for your friend to join...'); });
     peer.on('error', e => {
       if (e.type === 'unavailable-id' && tries < 5) return this.host(tries + 1); // that code is taken: another one
@@ -50,6 +61,14 @@ const Net = {
     peer.on('connection', conn => {
       if (this.conn) { conn.on('open', () => conn.close()); return; } // the room is full
       this.conn = conn;
+      this.show('wait', 'Your friend found the room. Connecting...');
+      // a friend whose connection never opens mustn't keep the room full: let them (or anyone) try again
+      setTimeout(() => {
+        if (this.conn === conn && !conn.open) {
+          this.conn = null; try { conn.close(); } catch (e) { /* never opened */ }
+          this.show('wait', 'Your friend couldn\'t get through. The room is still open: they can try again, or one of you can try another network.');
+        }
+      }, CONNECT_TIMEOUT);
       conn.on('open', () => this.startHosting());
       conn.on('data', msg => this.fromGuest(msg));
       conn.on('close', () => this.lost('Player 2 left the match.'));
@@ -83,11 +102,23 @@ const Net = {
     code = String(code || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
     if (code.length !== 4) return this.show('choose', 'A room code is 4 letters and numbers.');
     this.drop();
-    this.show('wait', 'Joining room ' + code + '...');
+    this.show('wait', 'Contacting the game server...');
     this.panel.querySelector('.code').textContent = code;
-    const peer = this.peer = new Peer();
+    const peer = this.peer = new Peer(PEER_OPTIONS);
+    // say where it got to, and give up with a reason instead of waiting forever
+    const started = Date.now(), watch = setInterval(() => {
+      if (this.peer !== peer || this.role === 'guest') return clearInterval(watch);
+      const state = iceState(this.conn);
+      if (this.conn && state === 'checking') this.show('wait', 'Found the room. Connecting to your friend\'s game...');
+      if (state === 'failed' || Date.now() - started > CONNECT_TIMEOUT) {
+        clearInterval(watch);
+        const where = !peer.open ? 'the game server didn\'t answer' : 'connection ' + state;
+        this.drop(); this.show('error', NET_FAIL + ' (' + where + ')');
+      }
+    }, 500);
     peer.on('error', e => this.show('error', e.type === 'peer-unavailable' ? 'There\'s no room with that code.' : 'Could not join (' + e.type + ').'));
     peer.on('open', () => {
+      this.show('wait', 'Looking for room ' + code + '...');
       const conn = this.conn = peer.connect(ROOM_PREFIX + code, { reliable: true });
       conn.on('open', () => this.startWatching());
       conn.on('data', msg => this.fromHost(msg));
@@ -132,6 +163,11 @@ const Net = {
   },
   drop() {
     const { conn, peer } = this;
+    if (this.mirror) { // a guest's screen goes back to its own drawing, and the host's sounds stop
+      this.mirror.dispose();
+      for (const f of Object.values(standIns)) { try { Audio8.sfx.stopSustain(f); Audio8.sfx.stopKame(f); } catch (e) { /* nothing playing */ } }
+      Audio8.music.stop();
+    }
     this.role = null; this.conn = null; this.peer = null; this.mirror = null; this.audio = [];
     gfx.log = null;
     if (conn) { try { conn.close(); } catch (e) { /* already closed */ } }

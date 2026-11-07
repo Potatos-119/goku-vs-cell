@@ -257,6 +257,12 @@ class GfxMirror {
     this.at = {}; this.els = []; this.grads = []; this.clips = [];
   }
   make(tag, addr) { const el = document.createElementNS(SVG_NS, tag); if (addr) this.at[addr] = el; return el; }
+  // the match is over: take the host's picture off this screen, so this page can draw its own again
+  dispose() {
+    for (const el of [...this.els, ...this.grads, ...this.clips]) el.remove();
+    this.at = {}; this.els = []; this.grads = []; this.clips = [];
+    this.gfx.resync();
+  }
   apply(log) {
     const { layer, defs } = this.gfx;
     for (const op of log) {
