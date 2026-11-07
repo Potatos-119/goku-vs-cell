@@ -131,12 +131,13 @@ function cycleArena(d) {
 
 function menuInput() {
   const top = game.menu[game.menu.length - 1], m = MENUS[top.id]();
-  if (tap('jump')) { top.i = (top.i + m.items.length - 1) % m.items.length; sfx.blip(); }
-  if (tap('block')) { top.i = (top.i + 1) % m.items.length; sfx.blip(); }
+  // the pause button (Start / Options on a gamepad, which also confirms) always closes the menu first
+  if (tap('pause') || (tap('back') && !tap('confirm'))) { sfx.blip(); closeMenu(); return; }
+  if (tap('up')) { top.i = (top.i + m.items.length - 1) % m.items.length; sfx.blip(); }
+  if (tap('down')) { top.i = (top.i + 1) % m.items.length; sfx.blip(); }
   const it = m.items[top.i];
   if (it.adjust && (tap('left') || tap('right'))) it.adjust(tap('right') ? 1 : -1);
   else if ((tap('confirm') || tap('punch')) && it.go) { sfx.blip(); it.go(); }
-  else if (tap('back') || tap('pause')) { sfx.blip(); closeMenu(); }
 }
 
 function drawMenu() {
