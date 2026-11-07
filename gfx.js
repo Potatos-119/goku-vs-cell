@@ -15,7 +15,22 @@
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const BLEND = CSS.supports('mix-blend-mode', 'plus-lighter') ? 'plus-lighter' : 'screen';
 const TAU = Math.PI * 2;
-const num = v => Math.round(v * 100) / 100; // 2 decimals: enough for pixel art, and fewer changed attributes
+const num = v => Math.round(v * 10) / 10; // 1 decimal (a 40th of a world pixel): fewer changed attributes, smaller online updates
+
+// Text into an SVG <text>. The game's pixel fonts have no PlayStation button symbols (□ △ ○ ✕),
+// and the system font's are small, so those get a <tspan> of their own, bigger and bold.
+const PAD_SYMBOL = /[\u25a1\u25b3\u25cb\u2715]/;
+function setText(el, s) {
+  el._text = s;
+  if (!PAD_SYMBOL.test(s)) { el.textContent = s; return; }
+  el.textContent = '';
+  for (const part of s.split(/([\u25a1\u25b3\u25cb\u2715])/)) {
+    if (!part) continue;
+    const t = document.createElementNS(SVG_NS, 'tspan'); t.textContent = part;
+    if (PAD_SYMBOL.test(part)) t.setAttribute('style', 'font-family:"Segoe UI Symbol","Apple Symbols","DejaVu Sans",sans-serif;font-size:1.6em;font-weight:bold');
+    el.append(t);
+  }
+}
 
 class Gradient {
   constructor(kind, args) { this.kind = kind; this.args = args; this.stops = []; }
@@ -139,7 +154,7 @@ class Gfx {
     const anchor = { center: 'middle', right: 'end', end: 'end' }[this.st.align] || 'start';
     const base = { top: 'text-before-edge', hanging: 'hanging', middle: 'central', bottom: 'text-after-edge' }[this.st.baseline] || 'auto';
     const el = this.shape('text', { x: num(x), y: num(y), 'text-anchor': anchor, 'dominant-baseline': base, style: `font:${this.st.font};white-space:pre`, ...paint });
-    if (el.textContent !== String(s)) { el.textContent = s; if (this.log) this.log.push([el._addr, '#', String(s)]); }
+    if (el._text !== String(s)) { setText(el, String(s)); if (this.log) this.log.push([el._addr, '#', String(s)]); }
   }
   measureText(s) {
     const key = this.st.font + '|' + s;
@@ -299,7 +314,7 @@ class GfxMirror {
         default: {
           const el = this.at[op[0]];
           if (!el) break;
-          if (op[1] === '#') el.textContent = op[2]; else el.setAttribute(op[1], op[2]);
+          if (op[1] === '#') setText(el, op[2]); else el.setAttribute(op[1], op[2]);
         }
       }
     }

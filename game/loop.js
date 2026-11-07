@@ -28,6 +28,14 @@ function measureFps(ms) {
   m.frames++; m.time += ms; m.worst = Math.max(m.worst, ms);
   if (m.time >= 500) { m.fps = Math.round(m.frames * 1000 / m.time); m.worstMs = Math.round(m.worst); m.frames = 0; m.time = 0; m.worst = 0; }
 }
+// online: the connection's round trip, in the corner of both screens (green under 80 ms, red over 200)
+function drawPing() {
+  if (!window.Net || Net.role !== 'host' || Net.ping == null) return;
+  const p = Net.ping, color = p < 80 ? '#8f8' : p < 200 ? '#ffd23a' : '#ff6a5a';
+  gfx.setTransform(S, 0, 0, S, 0, 0); gfx.globalAlpha = 1; gfx.globalCompositeOperation = 'source-over';
+  gfx.fillStyle = 'rgba(0,0,0,0.55)'; gfx.fillRect(W - 52, H - 10, 50, 8);
+  small(`PING ${p}MS`, W - 4, H - 8, color, 'right', 5);
+}
 function drawFps() {
   if (!settings.fps || !fpsMeter.fps) return;
   const { fps, worstMs } = fpsMeter, color = fps >= 58 ? '#8f8' : fps >= 45 ? '#ffd23a' : '#ff6a5a';
@@ -43,7 +51,7 @@ function loop(now) {
   pollGamepad();
   // hit-freeze frames skip input, so keep those key presses for the next real frame
   if (step(raw) !== 'frozen') { P1.pressed.clear(); P2.pressed.clear(); }
-  gfx.beginFrame(); render(); drawFps(); gfx.endFrame();
+  gfx.beginFrame(); render(); drawFps(); drawPing(); gfx.endFrame();
   if (window.Net) Net.flush(); // online host: send the guest what changed
   requestAnimationFrame(loop);
 }
@@ -65,7 +73,8 @@ function step(raw) {
     if (tap('confirm')) { openMenu('mode'); sfx.blip(); }
     return;
   }
-  if (tap('pause') && game.mode === 'fight') {
+  // player 2 can pause a local versus match too (Backspace, or Start on their gamepad)
+  if ((tap('pause') || (game.versus && !(window.Net && Net.role) && P2.pressed.has('pause'))) && game.mode === 'fight') {
     game.mode = 'paused'; Audio8.music.stop(); sfx.stopSustain(player); sfx.stopSustain(boss); sfx.stopKame(player); sfx.stopKame(boss); openMenu('pause'); return;
   }
   if (game.mode === 'paused') return;

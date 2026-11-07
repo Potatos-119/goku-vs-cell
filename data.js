@@ -394,6 +394,25 @@ const VERSUS_ROWS = [
   ['GRAB', 'F', '-'],
   ['CELL SPECIALS', 'G / E / Y', '=  /  0  /  9'],
 ];
+// Tips on screen are written with keyboard keys. A player on a gamepad sees its buttons instead:
+// promptKeys swaps each key for the action it does, then that action's button on an Xbox or
+// PlayStation pad (the PlayStation symbols come from the system font if the game's fonts lack them).
+const KEY_ACTIONS = {
+  J: 'punch', K: 'kick', L: 'ki', U: 'beam', O: 'ult', I: 'charge', T: 'transform', Q: 'vanish', S: 'block', W: 'jump',
+  F: 'grab', P: 'pause', ENTER: 'confirm', ESC: 'back', SPACE: 'jump', SHIFT: 'dash',
+};
+const PAD_LABELS = {
+  xbox: { punch: 'X', kick: 'Y', ki: 'B', beam: 'RT', ult: 'RS', charge: 'LT', transform: 'LS', vanish: 'VIEW', block: 'LB',
+    jump: 'A', dash: 'RB', grab: 'X+Y', pause: 'MENU', confirm: 'A', back: 'B', upDown: 'D-PAD', leftRight: 'D-PAD' },
+  ps: { punch: '\u25a1', kick: '\u25b3', ki: '\u25cb', beam: 'R2', ult: 'R3', charge: 'L2', transform: 'L3', vanish: 'SHARE', block: 'L1',
+    jump: '\u2715', dash: 'R1', grab: '\u25a1+\u25b3', pause: 'OPTIONS', confirm: '\u2715', back: '\u25cb', upDown: 'D-PAD', leftRight: 'D-PAD' },
+};
+function promptKeys(str, device = P1.device) {
+  const L = PAD_LABELS[device];
+  if (!L) return str;
+  return str.replace(/\bW\s*\/\s*S\b/g, L.upDown).replace(/\bA\s*\/\s*D\b/g, L.leftRight)
+    .replace(/\b(ENTER|ESC|SPACE|SHIFT|[JKLUOITQSWFP])\b/g, k => L[KEY_ACTIONS[k]] || k);
+}
 // gamepad buttons are written with Xbox names; on a PlayStation pad they read as its own
 const PS_NAMES = { A: 'CROSS', B: 'CIRCLE', X: 'SQUARE', Y: 'TRIANGLE', LB: 'L1', RB: 'R1', LT: 'L2', RT: 'R2', Back: 'SHARE', Start: 'OPTIONS' };
 const padLabel = s => padStyle === 'ps' ? s.replace(/\b(A|B|X|Y|LB|RB|LT|RT|Back|Start)\b/g, m => PS_NAMES[m]) : s;

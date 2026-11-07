@@ -10,7 +10,11 @@
 const PEERJS_URL = 'https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js';
 const ROOM_PREFIX = 'goku-vs-cell-room-';
 const CODE_CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; // no 0/O or 1/I to mix up
-const SEND_BACKLOG = 1 << 20; // past 1 MB waiting to go out, frames are merged until it drains
+// Online the guest's screen must stay close to live. When the link can't keep up, frames wait here
+// instead of piling up in the connection (which turns into seconds of delay): past SEND_BACKLOG
+// waiting to go out, frames are merged, and past MAX_MERGED changes it's quicker to send one fresh
+// full picture than all the old ones.
+const SEND_BACKLOG = 48 * 1024, MAX_MERGED = 8000;
 // How browsers find each other: STUN servers tell each one its public address; when no direct path
 // exists (some home routers and mobile networks), the TURN relay carries the match instead. These are
 // PeerJS's own free servers plus a few more public STUN servers.
@@ -81,8 +85,10 @@ const Net = {
   },
   // the guest's keys and buttons, as player 2's
   fromGuest(msg) {
+    if (msg && msg.q) { this.ping = Math.round(performance.now() - msg.q); return; } // a ping came back
     if (!msg || !msg.k) return;
     const [actions, down] = msg.k;
+    if (msg.d) P2.device = msg.d; // the friend's keyboard or gamepad, for the tips on their side
     withController(P2, () => { for (const a of actions) if (a in P2_BINDINGS) setHeld(P2.kbHeld, a, down); });
   },
   // after each drawn frame: send what changed, and the sounds
@@ -90,7 +96,14 @@ const Net = {
     const c = this.conn;
     if (this.role !== 'host' || !c || !c.open) return;
     const dc = c.dataChannel;
-    if (dc && dc.bufferedAmount > SEND_BACKLOG) return; // let it drain; gfx.log keeps collecting
+    // once a second, a ping: the guest answers it, and the time it takes shows how the link is doing
+    const now = performance.now();
+    if (now - (this.pingAt || 0) > 1000) { this.pingAt = now; try { c.send({ p: now }); } catch (e) { /* closing */ } }
+    if (dc && dc.bufferedAmount > SEND_BACKLOG) {
+      // the link is behind: keep merging, but not forever (sounds this late are dropped too)
+      if (gfx.log.length > MAX_MERGED) { gfx.log = []; gfx.resync(); this.audio = []; }
+      return;
+    }
     if (!gfx.log.length && !this.audio.length) return;
     c.send({ l: gfx.log, a: this.audio });
     gfx.log = []; this.audio = [];
@@ -133,11 +146,12 @@ const Net = {
   },
   fromHost(msg) {
     if (this.role !== 'guest' || !msg) return;
+    if (msg.p) { try { this.conn.send({ q: msg.p }); } catch (e) { /* closing */ } return; } // answer the host's ping
     if (msg.l) this.mirror.apply(msg.l);
     for (const [path, args] of msg.a || []) playRemoteSound(path, args);
   },
   // the guest's own keys: sent to the host instead of moving anything here
-  sendKey(actions, down) { if (this.conn && this.conn.open) this.conn.send({ k: [actions, down] }); },
+  sendKey(actions, down) { if (this.conn && this.conn.open) this.conn.send({ k: [actions, down], d: this.device || 'kb' }); },
   pollPad() {
     const pad = [...(navigator.getGamepads ? navigator.getGamepads() : [])].find(p => p && p.connected);
     if (!pad) return;
@@ -149,8 +163,23 @@ const Net = {
       if (a === 'right') down = down || (stick && x > 0.5);
       if (a === 'block') down = down || (stick && y > 0.6);
       if (a === 'jump') down = down || (stick && y < -0.6);
-      if (!!this.pad[a] !== down) { this.pad[a] = down; this.sendKey([a], down); }
+      if (!!this.pad[a] !== down) {
+        this.pad[a] = down;
+        if (down) this.device = padKind(pad);
+        if (a === 'pause') { if (down && !this.lobbyOpen) this.askLeave(); continue; } // Start / Options: leave?
+        if (!this.lobbyOpen) this.sendKey([a], down);
+      }
     }
+  },
+
+  // the guest asks to leave: a question over the host's picture
+  askLeave() {
+    if (this.role !== 'guest') return;
+    for (const a of Object.keys(P2_BINDINGS)) this.sendKey([a], false); // let go of anything held over there
+    this.panel.hidden = false; this.show('leave');
+  },
+  leave() {
+    this.drop(); reset(); game.mode = 'title'; this.panel.hidden = true;
   },
 
   // ---- ending ----
@@ -168,7 +197,7 @@ const Net = {
       for (const f of Object.values(standIns)) { try { Audio8.sfx.stopSustain(f); Audio8.sfx.stopKame(f); } catch (e) { /* nothing playing */ } }
       Audio8.music.stop();
     }
-    this.role = null; this.conn = null; this.peer = null; this.mirror = null; this.audio = [];
+    this.role = null; this.conn = null; this.peer = null; this.mirror = null; this.audio = []; this.ping = null;
     gfx.log = null;
     if (conn) { try { conn.close(); } catch (e) { /* already closed */ } }
     if (peer) { try { peer.destroy(); } catch (e) { /* already gone */ } }
@@ -206,12 +235,15 @@ function buildLobby() {
         <p class="hint">Your friend opens the game, picks ONLINE and types this code.</p>
       </div>
       <div data-view="error"><p class="msg"></p><button class="again">Back</button></div>
+      <div data-view="leave"><p class="msg">Leave this match?</p><button class="leave">Leave</button> <button class="stay">Keep playing</button></div>
       <button class="cancel">Close</button>
     </div>`;
   p.querySelector('.create').onclick = () => Net.host();
   p.querySelector('.join').onsubmit = e => { e.preventDefault(); Net.join(p.querySelector('input').value); };
   p.querySelector('.again').onclick = () => Net.show('choose', '');
   p.querySelector('.cancel').onclick = () => Net.close();
+  p.querySelector('.leave').onclick = () => Net.leave();
+  p.querySelector('.stay').onclick = () => { p.hidden = true; };
   p.addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Escape') Net.close(); });
   document.body.append(p);
   return p;

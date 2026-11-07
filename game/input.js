@@ -23,6 +23,7 @@ const P2_BINDINGS = {
   punch: ['Comma'], kick: ['Period'], ki: ['Slash'], beam: ['Semicolon'], ult: ['Quote'],
   charge: ['BracketLeft'], transform: ['BracketRight'], vanish: ['Backslash'], dash: ['ShiftRight'],
   grab: ['Minus'], barrier: ['Equal'], junior: ['Digit0'], cannon: ['Digit9'],
+  pause: ['Backspace'], up: ['ArrowUp'], down: ['ArrowDown'], // player 2 can pause and use the menus too
 };
 const P2_ONLY = new Set(Object.values(P2_BINDINGS).flat());
 const codeMap = table => { const m = {}; for (const [a, codes] of Object.entries(table)) for (const c of codes) (m[c] = m[c] || []).push(a); return m; };
@@ -35,7 +36,9 @@ const codeOf = e => e.code || { ' ': 'Space', enter: 'Enter', escape: 'Escape', 
 // game switches to player 2's controller while it reads player 2 (withController).
 // Double-tap a direction = dash. Detected as the keys are pressed (not once per frame), so two taps
 // during a hit-freeze still count; the request then waits in the input buffer like any other press.
-const makeController = () => ({ keys: {}, pressed: new Set(), lastPress: {}, kbHeld: {}, padHeld: {}, lastTap: { dir: 0, t: -1 }, dashReq: null });
+// device: what the player last pressed something on ('kb', 'xbox' or 'ps'), for the button names in tips
+const makeController = () => ({ keys: {}, pressed: new Set(), lastPress: {}, kbHeld: {}, padHeld: {}, lastTap: { dir: 0, t: -1 }, dashReq: null, device: 'kb' });
+const padKind = pad => /054c|dualshock|dualsense|playstation|wireless controller/i.test(pad.id) ? 'ps' : 'xbox';
 const P1 = makeController(), P2 = makeController();
 let keys, pressed, lastPress, kbHeld, padHeld, lastTap, dashReq, ctl;
 function useController(c) {
@@ -71,9 +74,11 @@ function route(code) {
 // online guest: the keys go to the host (as player 2) instead of moving anything on this screen
 function guestKey(e, down) {
   if (!window.Net || !(Net.role === 'guest' || Net.lobbyOpen)) return false;
-  if (Net.role !== 'guest') return true; // the lobby is open: keys are for it, not the game
+  if (Net.role !== 'guest' || Net.lobbyOpen) return true; // the lobby is open: keys are for it, not the game
   const acts = CODE_ACTIONS[codeOf(e)];
-  if (acts) { e.preventDefault(); if (!e.repeat) Net.sendKey(acts, down); }
+  // Esc or P: ask before leaving the match (the host's game isn't paused for it)
+  if (down && acts && (acts.includes('pause') || acts.includes('back'))) { e.preventDefault(); Net.askLeave(); return true; }
+  if (acts) { e.preventDefault(); Net.device = 'kb'; if (!e.repeat) Net.sendKey(acts, down); }
   return true;
 }
 addEventListener('keydown', e => {
@@ -81,6 +86,7 @@ addEventListener('keydown', e => {
   const [c, acts] = route(codeOf(e));
   if (!acts) return;
   e.preventDefault();
+  c.device = 'kb';
   if (!e.repeat) withController(c, () => acts.forEach(a => setHeld(c.kbHeld, a, true)));
 });
 addEventListener('keyup', e => { if (guestKey(e, false)) return; const [c, acts] = route(codeOf(e)); if (acts) withController(c, () => acts.forEach(a => setHeld(c.kbHeld, a, false))); });
@@ -114,6 +120,7 @@ function readPad(pad) {
     if (a === 'block') down = down || (stick && y > 0.6);
     if (a === 'jump' || a === 'up') down = down || (stick && y < -0.6); // the stick up jumps, like the d-pad
     if (a === 'down') down = down || (stick && y > 0.6);
+    if (down && !padHeld[a]) ctl.device = padKind(pad); // pressed on this pad: tips name its buttons
     setHeld(padHeld, a, down);
   }
 }

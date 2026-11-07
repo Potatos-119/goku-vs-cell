@@ -100,7 +100,7 @@ function drawHUD() {
   });
   if (game.versus) return drawVersusHints();
   const hint = hintFor(player);
-  if (hint && game.mode === 'fight' && !beams.length && !game.comboNames.length) text(hint, W / 2, 41, 8, '#9ff', 'center'); // below the name labels, which a long hint would cover
+  if (hint && game.mode === 'fight' && !beams.length && !game.comboNames.length) text(promptKeys(hint), W / 2, 41, 8, '#9ff', 'center'); // below the name labels, which a long hint would cover
 }
 
 // Versus: each player's hint under their own name, one line per tip, in that player's keys. Online,
@@ -115,7 +115,9 @@ function drawVersusHints() {
   for (const [f, x, align, clear] of sides) {
     let hint = hintFor(f);
     if (!hint || !clear) continue;
-    if (f === boss && !(window.Net && Net.role === 'host')) hint = hint.replace(/\b[TOUQS]\b/g, k => P2_KEY_NAMES[k]);
+    const dev = ctlOf(f).device;
+    if (PAD_LABELS[dev]) hint = promptKeys(hint, dev); // on a gamepad: its buttons
+    else if (f === boss && !(window.Net && Net.role === 'host')) hint = hint.replace(/\b[TOUQS]\b/g, k => P2_KEY_NAMES[k]);
     hint.split(/\s{3,}/).forEach((line, i) => text(line.trim(), x, 40 + i * 8, 6, '#9ff', align));
   }
 }
@@ -149,7 +151,7 @@ function drawDialogue() {
     line += w + ' ';
   }
   gfx.fillText(line, 42, y);
-  if (d.shown >= d.text.length && Math.floor(game.t * 3) % 2) text('ENTER', W - 16, top + 38, 8, '#ffe04a', 'right');
+  if (d.shown >= d.text.length && Math.floor(game.t * 3) % 2) text(promptKeys('ENTER'), W - 16, top + 38, 8, '#ffe04a', 'right');
 }
 
 function drawTitle() {
@@ -161,7 +163,7 @@ function drawTitle() {
   text('GOKU', W / 2 - 4, 30, 32, '#ffb070', 'right');
   text('VS', W / 2, 58, 22, '#fff', 'center');
   text('CELL', W / 2 + 4, 30, 32, '#a8e27c', 'left');
-  if (Math.floor(game.t * 2) % 2) text('PRESS ENTER', W / 2, 96, 14, '#ffe04a', 'center');
+  if (Math.floor(game.t * 2) % 2) text(promptKeys('PRESS ENTER'), W / 2, 96, 14, '#ffe04a', 'center');
   small('P PAUSE / MENU   M MUSIC   R CALM MODE (LESS SHAKE)   ESC SKIP', W / 2, 156, '#ddd');
   small('GAMEPAD WORKS TOO: ALL ITS BUTTONS ARE IN PAUSE > CONTROLS', W / 2, 165, '#aaa');
 }
@@ -206,9 +208,9 @@ function drawSelect() {
     STORY[who].forEach((l, k) => small(l, cx - 48, 102 + k * 8, '#ddd', 'left'));
   });
   gfx.fillStyle = 'rgba(0,0,0,0.65)'; gfx.fillRect(0, 136, W, 44);
-  CONTROLS[game.pick ? 'cell' : 'goku'].forEach((l, i) => small(l, W / 2, 140 + i * 8));
-  small('A/D MOVE  DOUBLE-TAP A/D DASH (AIR TOO)  W JUMP  S BLOCK  I CHARGE  Q VANISH', W / 2, 172, '#aaa');
-  if (Math.floor(game.t * 2) % 2) small('A / D  CHOOSE     ENTER  STORY / TRAINING / GUIDE', W / 2, 22, '#fff');
+  CONTROLS[game.pick ? 'cell' : 'goku'].forEach((l, i) => small(promptKeys(l), W / 2, 140 + i * 8));
+  small(promptKeys('A/D MOVE  DOUBLE-TAP A/D DASH (AIR TOO)  W JUMP  S BLOCK  I CHARGE  Q VANISH'), W / 2, 172, '#aaa');
+  if (Math.floor(game.t * 2) % 2) small(promptKeys('A / D  CHOOSE     ENTER  STORY / TRAINING / GUIDE'), W / 2, 22, '#fff');
 }
 
 function render() {
@@ -325,7 +327,7 @@ function render() {
   }
   if (game.mode === 'end') {
     text(game.versus ? (game.result === 'win' ? 'P1 WINS!' : 'P2 WINS!') : game.result === 'win' ? 'YOU WIN!' : `${boss.who.toUpperCase()} WINS`, W / 2, 46, 28, game.result === 'win' ? '#ffe04a' : '#ff8a6a', 'center');
-    if (Math.floor(game.t * 2) % 2) text('ENTER  FIGHT AGAIN      ESC  CHOOSE FIGHTER', W / 2, 82, 9, '#fff', 'center');
+    if (Math.floor(game.t * 2) % 2) text(promptKeys('ENTER  FIGHT AGAIN      ESC  CHOOSE FIGHTER'), W / 2, 82, 9, '#fff', 'center');
   }
   if (game.cutin) drawCutin();
   if (game.react && human(game.react.def) && !game.react.answer) drawReactPrompt(game.react);

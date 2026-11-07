@@ -87,7 +87,7 @@ const MENUS = {
     { label: 'CONTROLS', go: () => openMenu('controls') },
     { label: 'OPTIONS', go: () => openMenu('options') },
     ...(game.training ? [{ label: 'TRAINING SETTINGS', go: () => openMenu('training') }] : []),
-    { label: 'QUIT TO CHARACTER SELECT', go: quitToSelect },
+    { label: game.versus ? 'QUIT MATCH' : 'QUIT TO CHARACTER SELECT', go: quitToSelect },
   ] }),
   mode: () => ({ title: sideOfPick().toUpperCase(), items: [
     { label: 'STORY MODE', go: () => { reset(sideOfPick()); Audio8.music.play('bg'); intro(); } },
@@ -129,15 +129,17 @@ function cycleArena(d) {
   Stage.setArena(all[(all.indexOf(Stage.arena) + (d > 0 ? 1 : all.length - 1)) % all.length]);
 }
 
+// in local versus either player can work the menus (online, the host does)
+const tapM = a => tap(a) || (game.versus && !(window.Net && Net.role) && P2.pressed.has(a));
 function menuInput() {
   const top = game.menu[game.menu.length - 1], m = MENUS[top.id]();
   // the pause button (Start / Options on a gamepad, which also confirms) always closes the menu first
-  if (tap('pause') || (tap('back') && !tap('confirm'))) { sfx.blip(); closeMenu(); return; }
-  if (tap('up')) { top.i = (top.i + m.items.length - 1) % m.items.length; sfx.blip(); }
-  if (tap('down')) { top.i = (top.i + 1) % m.items.length; sfx.blip(); }
+  if (tapM('pause') || (tapM('back') && !tapM('confirm'))) { sfx.blip(); closeMenu(); return; }
+  if (tapM('up')) { top.i = (top.i + m.items.length - 1) % m.items.length; sfx.blip(); }
+  if (tapM('down')) { top.i = (top.i + 1) % m.items.length; sfx.blip(); }
   const it = m.items[top.i];
-  if (it.adjust && (tap('left') || tap('right'))) it.adjust(tap('right') ? 1 : -1);
-  else if ((tap('confirm') || tap('punch')) && it.go) { sfx.blip(); it.go(); }
+  if (it.adjust && (tapM('left') || tapM('right'))) it.adjust(tapM('right') ? 1 : -1);
+  else if ((tapM('confirm') || tapM('punch')) && it.go) { sfx.blip(); it.go(); }
 }
 
 function drawMenu() {
@@ -149,13 +151,13 @@ function drawMenu() {
   let y = 28;
   if (m.page === 'moves') {
     const step = Math.min(7, 128 / MOVES[who].length);
-    for (const [input, what] of MOVES[who]) { small(input, 14, y, '#ffd23a', 'left', 5); small(what, 118, y, '#fff', 'left', 5); y += step; }
+    for (const [input, what] of MOVES[who]) { small(promptKeys(input), 14, y, '#ffd23a', 'left', 5); small(what, 118, y, '#fff', 'left', 5); y += step; }
   } else if (m.page === 'combos') {
     const step = Math.min(9, 124 / COMBOS[who].length);
     for (const c of COMBOS[who]) {
       const got = game.learned.has(c.name);
       small(got ? '[X]' : '[ ]', 12, y, got ? '#8f8' : '#888', 'left', 5);
-      small(c.name, 32, y, got ? '#8f8' : '#ffd23a', 'left', 5); small(c.how, 140, y, '#ddd', 'left', 5); y += step;
+      small(c.name, 32, y, got ? '#8f8' : '#ffd23a', 'left', 5); small(promptKeys(c.how), 140, y, '#ddd', 'left', 5); y += step;
     }
     small('LAND A COMBO IN A FIGHT OR IN TRAINING TO TICK IT OFF  (+8 KI EACH TIME)', W / 2, y + 2, '#9ff');
   } else if (m.page === 'versus') {
@@ -173,7 +175,7 @@ function drawMenu() {
     const on = k === top.i;
     text((on ? '> ' : '') + it.label, W / 2, iy + k * 15, on ? 12 : 10, on ? '#ffe04a' : '#ccc', 'center');
   });
-  small(m.items.some(i => i.adjust) ? 'W / S  MOVE     A / D  CHANGE     ESC  BACK' : 'W / S  MOVE     ENTER  SELECT     ESC  BACK', W / 2, H - 6, '#888');
+  small(promptKeys(m.items.some(i => i.adjust) ? 'W / S  MOVE     A / D  CHANGE     ESC  BACK' : 'W / S  MOVE     ENTER  SELECT     ESC  BACK'), W / 2, H - 6, '#888');
 }
 
 // Training: the dummy can't be KO'd, health refills after each combo and ki tops itself up.
@@ -193,6 +195,6 @@ function drawChecklist() {
     const got = game.learned.has(c.name);
     small((got ? 'X ' : '- ') + c.name, W - 95, 39 + k * 6, got ? '#8f8' : c === next ? '#ffe04a' : '#aaa', 'left', 4);
   });
-  if (next) small('TRY: ' + next.how, W - 95, 41 + list.length * 6, '#ffe04a', 'left', 4);
+  if (next) small('TRY: ' + promptKeys(next.how), W - 95, 41 + list.length * 6, '#ffe04a', 'left', 4);
   small('DUMMY: ' + DUMMY_LABEL[TRAIN.dummy] + '    P: TRAINING SETTINGS', 4, H - 7, '#9ff', 'left', 4);
 }

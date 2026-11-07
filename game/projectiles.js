@@ -101,8 +101,10 @@ function updateBeams(dt) {
     game.shake = Math.max(game.shake, 3); // steady rumble while the beams push
     { const mx = P.x0 + (B.x0 - P.x0) * clash.s; Stage.wake(mx - 16, mx + 16, dt, 1.4); if (Math.random() < dt * 10) Stage.lift(mx); if (!clash.cracked) { clash.cracked = true; Stage.crack(mx, 1.2); } }
     if (Math.random() < dt * 8) sfx.clash();
-    // a clash can't last forever: after 14 seconds whoever is ahead breaks through
-    const late = clash.t > (clash.final ? 20 : 14);
+    // a clash can't last forever: after 14 seconds (10 in versus, shown above the ball) whoever is
+    // ahead breaks through; dead even in versus is a draw (clashDraw)
+    const late = clash.t > clashTime();
+    if (late && game.versus && Math.abs(clash.s - 0.5) <= CLASH_DRAW) return clashDraw();
     const won = clash.s > 0.88 || (late && clash.s >= 0.5), lost = clash.s < 0.12 || (late && clash.s < 0.5);
     if (won || lost) {
       const [winner, loser] = won ? [player, boss] : [boss, player];
@@ -120,6 +122,20 @@ function updateBeams(dt) {
       popups.push({ text: won ? 'CLASH WON!' : 'OVERPOWERED!', x: winner.x, y: winner.y - 60, t: 0, c: won ? '#ffe04a' : '#ff8a6a' });
     }
   }
+}
+
+// how long a beam clash can go on: 10 seconds in versus, 14 against the boss, 20 in the final clash
+const CLASH_TIME_VS = 10, CLASH_DRAW = 0.04;
+const clashTime = () => clash.final ? 20 : game.versus ? CLASH_TIME_VS : 14;
+// time ran out with the ball dead in the middle: both beams burst, both are thrown back and hurt the
+// same, and the fight carries on
+function clashDraw() {
+  const { pb, bb, s: k } = clash, x = pb.x0 + (bb.x0 - pb.x0) * k, y = pb.y + (bb.y - pb.y) * k;
+  clash = null; game.banner = null; beams = [];
+  for (const c of [P1, P2]) c.lastPress.punch = c.lastPress.beam = c.lastPress.jump = -99;
+  for (const [f, src] of [[player, boss], [boss, player]]) { f.floating = false; f.inv = 0; if (f.hp > 0) f.play('idle'); blastAway(f, src, 20); }
+  game.flash = 1; shake(12); sfx.explode(); Stage.crack(x, 1.6);
+  popups.push({ text: 'DRAW!', x: W / 2, y: 60, t: 0, c: '#ffffff' });
 }
 
 // Two beams meet when they point at each other (straight across, or one down from the sky and
@@ -232,7 +248,9 @@ function drawReactRing(r) {
 function drawReactPrompt(r) {
   const f = r.def, flash = Math.floor(game.t * 8) % 2, p2 = f !== player;
   text(game.versus ? (p2 ? 'P2: ANSWER IT!' : 'P1: ANSWER IT!') : 'ANSWER IT!', W / 2, 92, 14, flash ? '#ffe04a' : '#ffffff', 'center');
-  const [kb, kv, ks] = p2 ? [';', '\\', 'DOWN'] : ['U', 'Q', 'S'];
+  // that player's own buttons: a gamepad's, player 2's keys on a shared keyboard, or the usual keys
+  const pad = PAD_LABELS[ctlOf(f).device], p2keys = p2 && !(window.Net && Net.role === 'host');
+  const [kb, kv, ks] = pad ? [pad.beam, pad.vanish, pad.block] : p2keys ? [';', '\\', 'DOWN'] : ['U', 'Q', 'S'];
   const opts = [
     [kb + '  COUNTER BEAM', canKame(f) && f.ki >= COUNTER_KI],
     [kv + '  VANISH', f.ki >= 15],
@@ -269,6 +287,11 @@ function drawClashBall() {
   }
   gfx.restore();
   FX.kiGlow(gfx, x, y, r * 0.75, game.t);
+  // versus: the seconds left, above the ball (red for the last three)
+  if (game.versus) {
+    const left = Math.max(0, Math.ceil(clashTime() - (clash.t || 0)));
+    text(String(left), x, y - r * 2.4 - 14, 12, left <= 3 ? '#ff6a5a' : '#ffe04a', 'center');
+  }
 }
 
 // A ki barrier in front of a blocking fighter; it flares white when a hit lands on it.
