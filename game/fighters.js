@@ -75,7 +75,8 @@ function toggleCalm() {
 const DIFFICULTY = {
   easy: { label: 'EASY', taken: 0.65, think: 1.5, react: 0.55 },
   normal: { label: 'NORMAL', taken: 1, think: 1, react: 1 },
-  hard: { label: 'HARD', taken: 1.3, think: 0.7, react: 1.25 },
+  // airExt: on Hard the boss stretches its air combos this many times per phase before finishing
+  hard: { label: 'HARD', taken: 1.3, think: 0.7, react: 1.25, airExt: [1, 2, 3] },
 };
 const DIFF_LEVELS = Object.keys(DIFFICULTY);
 settings.difficulty = 'normal';

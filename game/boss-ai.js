@@ -50,14 +50,45 @@ function fireFinisher(c, beam) {
 // with their damage), the boss stops extending it. The string it's in finishes, but no new chase,
 // cancel, wall follow-up, rush or beam finisher starts, so no single combo takes most of your health.
 const BOSS_COMBO_BUDGET = [0.2, 0.26, 0.32];
+// Hard has room left for its air routes after the launcher (a ki barrage before it counts too)
+const HARD_COMBO_BUDGET = [0.3, 0.31, 0.32];
 const LAUNCHERS = { goku: ['p4', 'k3'], cell: ['k2'] };
 const PUNISH_STRING = { goku: ['p2', 'p3', 'p4'], cell: ['p2', 'k2'] };
 
+// Hard only: before finishing an air combo, the boss keeps it going (diff().airExt times per phase)
+// with the routes from the combo list: AIR DASH EXTEND (dash back in after the second air hit),
+// AERIAL KI RELAY (a ki blast mid-string, then dash in after it) or, from phase two, a vanish to their
+// other side that comes out swinging. The juggle limit still counts: when one more hit is all it allows,
+// it goes straight to the finisher. Returns true when it took the combo over.
+function airExtend(c, g, ch, ph, beam) {
+  const left = (diff().airExt || [0, 0, 0])[ph] - (ch.ext || 0);
+  if (g.juggle >= JUGGLE_MAX - 1) {
+    // out of juggle room: finish now, a beam (beams don't count) or the dunk
+    if (!ch.ext) return false;
+    if (beam && Math.random() < 0.5) { ai.chase = null; fireFinisher(c, beam); } else c.next = 'spike';
+    return true;
+  }
+  if (left <= 0 || Math.random() > 0.8) return false;
+  const routes = [];
+  if (c.anim === 'air2' && !c.airDashed) routes.push('dash');
+  if (c.anim === 'air' || c.anim === 'air2') routes.push('relay');
+  if (ph >= 1 && ai.vanishCd <= 0) routes.push('vanish');
+  if (!routes.length) return false;
+  ch.ext = (ch.ext || 0) + 1; ch.t = 0;
+  const route = pick(routes);
+  if (route === 'dash') { ch.redash = true; return true; }
+  if (route === 'relay') { c.airDashed = false; ch.redash = true; cast(c, c.who === 'cell' ? 'finger' : 'kiCast'); return true; }
+  vanish(c, g); return true;
+}
+
 function bossFlow(c, g, dt, ph) {
-  const T = BOSS_FLOW[c.who], dist = Math.abs(g.x - c.x), close = dist < 46, beam = finisherBeam(c);
+  const T = BOSS_FLOW[c.who], dist = Math.abs(g.x - c.x), close = dist < 46;
   const junior = c.form === 'junior';
   // over budget: stop extending (see BOSS_COMBO_BUDGET)
-  const spent = g.comboTaken > 0 && (game.bossCombo.dmg || 0) >= BOSS_COMBO_BUDGET[ph] * g.maxHp * diff().taken;
+  const limit = (diff().airExt ? HARD_COMBO_BUDGET : BOSS_COMBO_BUDGET)[ph] * g.maxHp * diff().taken;
+  const used = g.comboTaken > 0 ? game.bossCombo.dmg || 0 : 0, spent = used >= limit;
+  // a beam does a lot at once: past 70% of the budget the combo ends with the dunk instead
+  const beam = used < limit * 0.7 ? finisherBeam(c) : null;
   if (c.state !== 'attack') c.aiRolled = false;
   // the air Kamehameha he jumped for: fire from the top of the jump
   if (ai.airBeam) {
@@ -96,11 +127,12 @@ function bossFlow(c, g, dt, ph) {
     if (c.state === 'jump' && ch.jumped) {
       c.facing = g.x > c.x ? 1 : -1;
       if (dist < 34 && Math.abs(g.y - c.y) < 30) { c.play('air', 'airAtk'); return true; }
-      if (dist > 48 && !c.airDashed && c.vy > -200) { dash(c, c.facing); return true; }
+      if ((ch.redash || (dist > 48 && c.vy > -200)) && !c.airDashed) { ch.redash = false; dash(c, c.facing); return true; }
       return true;
     }
     // over budget mid-chase: the air string ends with the hit it's on
     if (c.state === 'airAtk' && c.hitLanded && !c.next && spent) { ai.chase = null; return true; }
+    if (c.state === 'airAtk' && c.hitLanded && !c.next && airExtend(c, g, ch, ph, beam)) return true;
     if (c.state === 'airAtk' && c.hitLanded && !c.next) {
       // the second air hit landed: finish with a beam down at them (Aerial Kamehameha / Death Beam,
       // Saiyan or Perfect Sky Blast), otherwise the chain ends in the Meteor Smash
@@ -120,6 +152,8 @@ function bossFlow(c, g, dt, ph) {
     if (!spent && Math.random() < T.cancel[ph]) {
       const r = Math.random(), atWall = g.x < 46 || g.x > W - 46;
       c.facing = g.x > c.x ? 1 : -1;
+      // Hard: most strings go straight into the launcher, so the combo is spent in the air
+      if (diff().airExt && !junior && Math.random() < 0.55) { startAttack(c, pick(LAUNCHERS[c.who])); return true; }
       if (atWall && r < 0.5) { startAttack(c, 'slash'); return true; }
       if (ph >= 1 && !junior && ai.vanishCd <= 0 && r < 0.2) { vanish(c, g); return true; }
       if (c.form === 'perfect' && ai.assistCd <= 0 && r < 0.3) { ai.assistCd = rand(7, 11); callJunior(c); return true; }
