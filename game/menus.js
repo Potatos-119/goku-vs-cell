@@ -2,6 +2,8 @@
 // Screens are a stack: the pause menu opens over the fight, the move list opens over the pause
 // menu, and Back pops one level. Every screen opens with an item focused, and works the same on
 // keyboard (W/S or arrows, Enter, Esc) and gamepad (d-pad, A, B).
+// the move and combo lists show this many rows a page
+const LIST_ROWS = 11;
 const bars = n => '|'.repeat(n) + '.'.repeat(10 - n);
 const sideOfPick = () => game.pick ? 'cell' : 'goku';
 const guideWho = () => game.mode === 'select' ? sideOfPick() : player.who;
@@ -140,8 +142,8 @@ const MENUS = {
     { label: 'YOUR KI  ' + KI_LABEL[TRAIN.ki], go: () => cycleTrain('ki', KI_MODES), adjust: d => cycleTrain('ki', KI_MODES, d) },
     { label: 'BACK', go: closeMenu },
   ] }),
-  moves: () => ({ title: guideWho().toUpperCase() + '  MOVE LIST', page: 'moves', items: [{ label: 'BACK', go: closeMenu }] }),
-  combos: () => ({ title: guideWho().toUpperCase() + '  COMBOS', page: 'combos', items: [{ label: 'BACK', go: closeMenu }] }),
+  moves: () => ({ title: guideWho().toUpperCase() + '  MOVE LIST', page: 'moves', pages: Math.ceil(MOVES[guideWho()].length / LIST_ROWS), items: [{ label: 'BACK', go: closeMenu }] }),
+  combos: () => ({ title: guideWho().toUpperCase() + '  COMBOS', page: 'combos', pages: Math.ceil(COMBOS[guideWho()].length / LIST_ROWS), items: [{ label: 'BACK', go: closeMenu }] }),
   controls: () => ({ title: 'CONTROLS', page: 'controls', items: [{ label: 'BACK', go: closeMenu }] }),
   // the versus setup: who plays which fighter, and which player each gamepad is (left / right changes)
   versus: () => {
@@ -177,6 +179,7 @@ function menuInput() {
   if (tapM('down')) { top.i = (top.i + 1) % m.items.length; sfx.blip(); }
   const it = m.items[top.i];
   if (it.adjust && (tapM('left') || tapM('right'))) it.adjust(tapM('right') ? 1 : -1);
+  else if (m.pages > 1 && (tapM('left') || tapM('right'))) { top.page = ((top.page || 0) + (tapM('right') ? 1 : -1) + m.pages) % m.pages; sfx.blip(); }
   else if ((tapM('confirm') || tapM('punch')) && it.go) { sfx.blip(); it.go(); }
 }
 
@@ -187,18 +190,24 @@ function drawMenu() {
   gfx.fillStyle = m.page || m.compact ? 'rgba(6,5,16,0.96)' : 'rgba(6,5,16,0.86)'; gfx.fillRect(0, 0, W, H);
   text(m.title, W / 2, 6, 15, '#ffe04a', 'center');
   let y = 28;
-  if (m.page === 'moves') {
-    const step = Math.min(7, 128 / MOVES[who].length);
-    // two columns, each line shrunk to fit its own (button names on a gamepad can be long)
-    for (const [input, what] of MOVES[who]) { fitSmall(promptKeys(input), 8, y, 104, '#ffd23a'); fitSmall(promptKeys(what), 116, y, W - 122, '#fff'); y += step; }
-  } else if (m.page === 'combos') {
-    const step = Math.min(9, 124 / COMBOS[who].length);
-    for (const c of COMBOS[who]) {
-      const got = game.learned.has(c.name);
-      small(got ? '[X]' : '[ ]', 12, y, got ? '#8f8' : '#888', 'left', 5);
-      fitSmall(c.name, 32, y, 104, got ? '#8f8' : '#ffd23a'); fitSmall(promptKeys(c.how), 140, y, W - 146, '#ddd'); y += step;
+  if (m.page === 'moves' || m.page === 'combos') {
+    // a page of LIST_ROWS rows (left / right turns the page); each column in one size
+    const page = Math.min(top.page || 0, m.pages - 1), first = page * LIST_ROWS, rowY = k => 30 + k * 11;
+    if (m.page === 'moves') {
+      const rows = MOVES[who].slice(first, first + LIST_ROWS).map(([i, w]) => [promptKeys(i), promptKeys(w)]);
+      const s1 = columnSize(rows.map(r => r[0]), 102), s2 = columnSize(rows.map(r => r[1]), W - 124);
+      rows.forEach(([i, w], k) => { small(i, 8, rowY(k), '#ffd23a', 'left', s1); small(w, 116, rowY(k), '#fff', 'left', s2); });
+    } else {
+      const rows = COMBOS[who].slice(first, first + LIST_ROWS), hows = rows.map(c => promptKeys(c.how));
+      const s1 = columnSize(rows.map(c => c.name), 100), s2 = columnSize(hows, W - 146);
+      rows.forEach((c, k) => {
+        const got = game.learned.has(c.name);
+        small(got ? '[X]' : '[ ]', 10, rowY(k), got ? '#8f8' : '#888', 'left', 5);
+        small(c.name, 30, rowY(k), got ? '#8f8' : '#ffd23a', 'left', s1); small(hows[k], 140, rowY(k), '#ddd', 'left', s2);
+      });
     }
-    fitSmall('LAND A COMBO IN A FIGHT OR IN TRAINING TO TICK IT OFF  (+5 KI EACH TIME)', W / 2, y + 2, W - 12, '#9ff', 'center');
+    const note = m.page === 'combos' ? 'LAND ONE TO TICK IT OFF (+5 KI)' : '';
+    fitSmall((m.pages > 1 ? 'PAGE ' + (page + 1) + ' / ' + m.pages + '   ' + promptKeys('A / D') + '  TURNS THE PAGE' + (note ? '     ' : '') : '') + note, W / 2, rowY(LIST_ROWS) + 1, W - 12, '#9ff', 'center');
   } else if (m.page === 'versus') {
     fitSmall('NO BOSS, SAME HEALTH.  CHANGE ANY KEY IN OPTIONS > KEYS & BUTTONS', W / 2, y - 6, W - 12, '#ddd', 'center'); y += 6;
     small('ACTION', 14, y, '#9ff', 'left'); small('PLAYER 1', 130, y, '#9ff', 'left'); small('PLAYER 2', 230, y, '#9ff', 'left'); y += 10;

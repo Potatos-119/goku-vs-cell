@@ -27,7 +27,7 @@ function setText(el, s) {
   for (const part of s.split(/([\u25a1\u25b3\u25cb\u2715])/)) {
     if (!part) continue;
     const t = document.createElementNS(SVG_NS, 'tspan'); t.textContent = part;
-    if (PAD_SYMBOL.test(part)) t.setAttribute('style', 'font-family:"Segoe UI Symbol","Apple Symbols","DejaVu Sans",sans-serif;font-size:1.6em;font-weight:bold');
+    if (PAD_SYMBOL.test(part)) t.setAttribute('style', 'font-family:"Segoe UI Symbol","Apple Symbols","DejaVu Sans",sans-serif;font-size:1.35em;font-weight:bold');
     el.append(t);
   }
 }

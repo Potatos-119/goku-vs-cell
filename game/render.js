@@ -13,10 +13,19 @@ function small(str, x, y, color = '#fff', align = 'center', size = 5) {
 // small text that must fit in maxW (a table column, the screen): a long line gets smaller rather than
 // running into the next column or off the edge
 function fitSmall(str, x, y, maxW, color = '#fff', align = 'left', size = 5) {
-  gfx.font = `${size}px "Press Start 2P", monospace`;
-  // PlayStation symbols are drawn bigger than the font (setText in gfx.js): count them wider
-  const w = gfx.measureText(str).width + (str.match(/[\u25a1\u25b3\u25cb\u2715]/g) || []).length * size * 0.9;
+  const w = smallWidth(str, size);
   small(str, x, y, color, align, w > maxW ? Math.max(2.6, size * maxW / w) : size);
+}
+// how wide small text is (PlayStation symbols are drawn a bit bigger than the font: setText in gfx.js)
+function smallWidth(str, size = 5) {
+  gfx.font = `${size}px "Press Start 2P", monospace`;
+  return gfx.measureText(str).width + (str.match(/[\u25a1\u25b3\u25cb\u2715]/g) || []).length * size * 0.4;
+}
+// one size for a whole column of small text: the size at which its longest line fits, so the rows
+// match instead of each line shrinking by a different amount
+function columnSize(lines, maxW, size = 5) {
+  const widest = Math.max(1, ...lines.map(s => smallWidth(s, size)));
+  return widest > maxW ? Math.max(3.4, size * maxW / widest) : size;
 }
 
 function drawBackground(dim) {

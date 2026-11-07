@@ -301,7 +301,7 @@ const COMBOS = {
     { name: 'AERIAL KI RELAY', steps: ['air', 'kiBall', 'air'], how: 'air hit, L, double-tap, J' },
     { name: 'SPIRIT BOMB FINISH', steps: ['melee', 'spirit'], how: 'land a hit, then O at full ki (base)' },
     { name: 'SKY SPIRIT BOMB', steps: ['launch', 'air', 'spirit'], how: 'launcher, W, J, then O at full ki (base)' },
-    { name: 'DUNK SHOT', steps: ['spike', 'bounce', 'melee'], how: 'in the air S + J (the dunk), hit them off the bounce' },
+    { name: 'DUNK SHOT', steps: ['spike', 'bounce', 'melee'], how: 'air S + J (dunk), then hit the bounce' },
     { name: 'RELAUNCH', steps: ['air', 'airLaunch', 'air'], how: 'air hit, F to send them up again, J' },
   ],
   cell: [
@@ -323,7 +323,7 @@ const COMBOS = {
     { name: 'AERIAL FINGER RELAY', steps: ['air', 'finger', 'air'], how: 'air hit, L, double-tap, J' },
     { name: 'FAMILY REUNION', steps: ['melee', 'junior'], how: 'land a hit, then E (Perfect)' },
     { name: 'ABSORPTION', steps: ['grab', 'air'], how: 'J+K (or F) through a block, W, J' },
-    { name: 'DUNK SHOT', steps: ['spike', 'bounce', 'melee'], how: 'in the air S + J (the dunk), hit them off the bounce' },
+    { name: 'DUNK SHOT', steps: ['spike', 'bounce', 'melee'], how: 'air S + J (dunk), then hit the bounce' },
     { name: 'RELAUNCH', steps: ['air', 'airLaunch', 'air'], how: 'air hit, F to send them up again, J' },
   ],
 };
@@ -397,8 +397,8 @@ const KEY_NAMES = {
 const keyName = code => KEY_NAMES[code] || code.replace(/^(Key|Digit|Numpad)/, '').toUpperCase();
 // standard-mapping gamepad buttons by number, on each kind of pad
 const PAD_BUTTONS = {
-  xbox: ['A', 'B', 'X', 'Y', 'LB', 'RB', 'LT', 'RT', 'VIEW', 'MENU', 'LS', 'RS', 'D-UP', 'D-DOWN', 'D-LEFT', 'D-RIGHT', 'HOME'],
-  ps: ['\u2715', '\u25cb', '\u25a1', '\u25b3', 'L1', 'R1', 'L2', 'R2', 'SHARE', 'OPTIONS', 'L3', 'R3', 'D-UP', 'D-DOWN', 'D-LEFT', 'D-RIGHT', 'PS'],
+  xbox: ['A', 'B', 'X', 'Y', 'LB', 'RB', 'LT', 'RT', 'VIEW', 'MENU', 'LS', 'RS', 'D-UP', 'D-DOWN', 'D-LEFT', 'D-RIGHT', 'HOME', 'SHARE'],
+  ps: ['\u2715', '\u25cb', '\u25a1', '\u25b3', 'L1', 'R1', 'L2', 'R2', 'SHARE', 'OPTIONS', 'L3', 'R3', 'D-UP', 'D-DOWN', 'D-LEFT', 'D-RIGHT', 'PS', 'TOUCHPAD'],
 };
 const padButtonName = (i, style = padStyle) => (PAD_BUTTONS[style] || PAD_BUTTONS.xbox)[i] || 'BUTTON ' + i;
 // Cell's specials on a gamepad: guard + this button (they have no button of their own)
