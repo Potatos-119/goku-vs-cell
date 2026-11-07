@@ -16,8 +16,15 @@ the air string with a Meteor Smash, or with a Kamehameha down at you once he's a
 ground strings with the wall-bounce slash when you're near the edge, a launcher, a ki blast or a
 Kamehameha, and he hits back when he blocks one of your attacks. He jumps in, Instant Transmissions from
 the start, fires air Kamehamehas from a jump and throws ki barrages. Each phase he does all of it more
-often, and he uses the Instant Kamehameha from his Super Saiyan phase on. The numbers are `GOKU_BOSS`,
-`GOKU_CHASE`, `GOKU_CANCEL` and `GOKU_PUNISH` in `game/fighters.js` and `game/boss-ai.js`.
+often, and he uses the Instant Kamehameha from his Super Saiyan phase on. The numbers are `GOKU_BOSS` in
+`game/fighters.js` and `BOSS_FLOW` in `game/boss-ai.js`.
+
+Boss Cell fights with the combo list too: he chases his launcher into the air for a Meteor Smash or a
+dunk, finishes air strings with a Death Beam (Semi-Perfect) or a Kamehameha (Perfect), and ends ground
+strings with the wall slash, a Vanish Strike, a Death Beam, a finger beam he rushes in after, or (Perfect)
+a Cell Junior. Every named combo a boss lands on you is shown on its side of the screen, so you can see
+what it just did. `tools/balance.js` measures how hard each boss hits in each phase (see the top of
+that file).
 
 The boss gets meaner as it goes. From phase two it can vanish out of your attacks and hit you from behind.
 It also watches what you do: charge in front of it, whiff, or let your guard break and it punishes you.

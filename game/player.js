@@ -55,11 +55,12 @@ function airCancel(g, foe, dashDir) {
 }
 
 // Combo recognition: every landed hit adds a token; a named combo fires when its steps appear in
-// order within the current combo (the last step must be the hit that just landed).
-function comboToken(tok) {
-  const c = game.combo;
+// order within the current combo (the last step must be the hit that just landed). The player's are
+// ticked off in the combo list and give ki; the boss's are named on screen, on its side.
+function comboToken(tok, src = player) {
+  const mine = src === player, c = mine ? game.combo : game.bossCombo;
   c.moves.push(tok);
-  for (const combo of COMBOS[player.who]) {
+  for (const combo of COMBOS[src.who]) {
     if (c.done.has(combo.name)) continue;
     const match = (step, t) => step === t || (step === 'melee' && MELEE.includes(t));
     if (!match(combo.steps[combo.steps.length - 1], tok)) continue;
@@ -67,6 +68,7 @@ function comboToken(tok) {
     for (let k = c.moves.length - 2; k >= 0 && i >= 0; k--) if (match(combo.steps[i], c.moves[k])) i--;
     if (i >= 0) continue;
     c.done.add(combo.name);
+    if (!mine) { c.names.push({ name: combo.name }); game.comboNames.push({ text: combo.name + '!', t: 0, boss: true }); continue; }
     game.learned.add(combo.name);
     player.ki = Math.min(100, player.ki + 8);
     game.comboNames.push({ text: combo.name + '!', t: 0 });

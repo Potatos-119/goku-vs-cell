@@ -11,6 +11,8 @@ function updateProjectiles(dt) {
     if (x1 > b.x0 && x0 < b.x1 && p.y > b.y0 && p.y < b.y1 && foe.visible) {
       const hit = damage(foe, p.owner, p.dmg, p.heavy, p.dir, 'proj', { token: p.kind, pierce: p.kind === 'cannon' });
       if (hit) p.dead = true;
+      // the boss's ki blast from a cancelled string hit: it rushes in after it (see bossFlow)
+      if (hit && p.owner === boss && game.t - (ai.rushNext ?? -9) < 1.2) { ai.rushAt = game.t; ai.rushNext = null; }
       // a ki blast that connects can be cancelled like a landed punch
       if (hit && hit !== 'deflect' && p.owner.state === 'cast') p.owner.hitLanded = true;
     }

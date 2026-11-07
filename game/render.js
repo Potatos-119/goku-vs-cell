@@ -78,10 +78,17 @@ function drawHUD() {
     small(`${Math.round(game.combo.dmg)} DAMAGE`, 9, 60 + pop, '#fff', 'left');
   }
   // named combos stack under the timer in screen space, newest at the bottom
-  game.comboNames.slice(-3).forEach((c, i) => {
+  game.comboNames.filter(c => !c.boss).slice(-3).forEach((c, i) => {
     const pop = Math.max(0, 0.12 - c.t) * 40;
     ctx.globalAlpha = Math.min(1, (1.6 - c.t) * 3);
     text(c.text, W / 2, 24 + i * 12, 10 + pop, '#ffd23a', 'center', '#7a1a00');
+    ctx.globalAlpha = 1;
+  });
+  // the boss's named combos, on its side, opposite the player's hit counter
+  game.comboNames.filter(c => c.boss).slice(-2).forEach((c, i) => {
+    const pop = Math.max(0, 0.12 - c.t) * 40;
+    ctx.globalAlpha = Math.min(1, (1.6 - c.t) * 3);
+    text(c.text, W - 8, 44 + i * 12, 10 + pop, '#ff8a6a', 'right', '#5a0a00');
     ctx.globalAlpha = 1;
   });
   const hint = hintFor(player);

@@ -2,6 +2,10 @@
 // kind: 'melee' | 'proj' | 'beam' | 'ult' (ultimates can't be blocked or dodged)
 // opts: launch / spike / wallBounce / grab from the attack, token for combo recognition
 const JUGGLE_MAX = 5;
+// combo damage scaling for hits on the player (see the scaling below), and how long a gap still
+// keeps the boss's hits in one combo
+const PLAYER_SCALING = { step: 0.09, min: 0.35, beamMin: 0.6 };
+const BOSS_COMBO_GAP = 1.5;
 // caught starting their own move: a counter hit, which hurts more and stuns for longer
 const COUNTER_STATES = ['attack', 'airAtk', 'cast', 'kameCharge', 'windup'];
 function damage(def, src, dmg, heavy, dir, kind = 'melee', opts = {}) {
@@ -53,10 +57,24 @@ function damage(def, src, dmg, heavy, dir, kind = 'melee', opts = {}) {
       if (counter) comboToken('counter');
       comboToken(opts.token || (kind === 'melee' ? src.anim : kind));
     }
-    else Object.assign(game.combo, { n: 0, dmg: 0, moves: [], done: new Set() });
+    else {
+      Object.assign(game.combo, { n: 0, dmg: 0, moves: [], done: new Set() });
+      // the boss's hits on the player, read the same way (a fresh combo when the player was free)
+      if (def === player) {
+        // a combo is hits less than BOSS_COMBO_GAP apart, so a Vanish Strike or a Cell Junior arriving
+        // a moment later still counts as part of it
+        if (game.t - (game.bossCombo.last ?? -9) > BOSS_COMBO_GAP) Object.assign(game.bossCombo, { moves: [], done: new Set(), dmg: 0 });
+        game.bossCombo.last = game.t;
+        if (counter) comboToken('counter', src);
+        comboToken(opts.token || (kind === 'melee' ? src.anim : kind), src);
+      }
+    }
     // long combos hit softer and stun for less, so there are no infinites
     // (beams keep more of their damage: they're the combo's finisher)
-    dmg *= Math.max(kind === 'beam' ? 0.75 : 0.45, 1 - 0.07 * def.comboTaken);
+    // the boss's combos on the player scale down harder (PLAYER_SCALING), so one long combo can't take
+    // most of your health
+    const sc = def === player ? PLAYER_SCALING : { step: 0.07, min: 0.45, beamMin: 0.75 };
+    dmg *= Math.max(kind === 'beam' ? sc.beamMin : sc.min, 1 - sc.step * def.comboTaken);
     def.comboTaken++;
     sparks.push({ x: def.x - dir * 6, y: def.y - 30, t: 0, c: '#fff6b8' });
     game.freeze = heavy ? 0.12 : 0.06; shake(heavy ? 6 : 3);
@@ -76,6 +94,7 @@ function damage(def, src, dmg, heavy, dir, kind = 'melee', opts = {}) {
   const hpBefore = def.hp;
   def.hp = Math.max(game.training ? 1 : 0, def.hp - dmg);
   if (src === player && !blocking) game.combo.dmg += hpBefore - def.hp;
+  else if (def === player && !blocking) game.bossCombo.dmg = (game.bossCombo.dmg || 0) + hpBefore - def.hp;
   // a fighter mid-Kamehameha takes the damage but keeps firing, unless it finishes them
   const armored = def.state === 'kameFire' && def.hp > 0;
   if (!blocking && !armored) {
@@ -85,7 +104,7 @@ function damage(def, src, dmg, heavy, dir, kind = 'melee', opts = {}) {
       def.play('knock'); def.y -= 1;
       if (kind === 'proj') sfx.kiHit(); else if (kind === 'beam') sfx.clash(); else sfx.smash();
       if (opts.spike) { def.vy = 420; def.vx = dir * 40; def.spiked = true; }
-      else if (opts.launch) { def.vy = -390; def.vx = dir * 45; if (src === player) { comboToken('launch'); game.chaseT = 0.55; } }
+      else if (opts.launch) { def.vy = -390; def.vx = dir * 45; if (src === player) { comboToken('launch'); game.chaseT = 0.55; } else if (def === player) comboToken('launch', src); }
       // a beam holds a flying enemy up and drives them back; its last tick blasts them away
       else if (juggling && kind === 'beam' && !heavy) { def.vy = -125; def.vx = dir * 60; }
       else if (kind === 'beam') { def.vy = -300; def.vx = dir * 210; }
@@ -278,6 +297,7 @@ const teleArt = f => art(f.who === 'goku' ? FX_ART.gokuTeleport : FX_ART.telepor
 
 function teleport(f, foe) {
   if (f === player && game.combo.n > 0) comboToken('vanish');
+  else if (f === boss && player.comboTaken > 0) comboToken('vanish', boss);
   f.play(f.A('teleOut') ? 'teleOut' : 'idle', 'tele'); f.t2 = 0.28; f.vx = 0;
   sfx.teleport();
   // reappear on the other side of them from where you are now, whichever way they face, so a

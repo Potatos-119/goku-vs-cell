@@ -103,7 +103,7 @@ function updateFighter(f, foe, dt) {
         sparks.push({ x: f.x, y: f.y - 30, t: 0, c: '#ffffff' }); shake(6); sfx.smash();
         Stage.wallHit(f.x < W / 2 ? 2 : W - 2, f.y - 20);
         popups.push({ text: 'WALL BOUNCE!', x: f.x, y: f.y - 60, t: 0, c: '#ffd23a' });
-        if (f === boss) comboToken('wall');
+        if (f === boss) comboToken('wall'); else if (f === player) { comboToken('wall', boss); ai.wallAt = game.t; }
       }
       keepOnScreen(f);
       break;
@@ -242,7 +242,7 @@ function landed(f) {
     f.spiked = false; f.bounced = true; f.y = FLOOR - 1; f.vy = -260; f.vx *= 0.5; f.juggle = Math.max(0, f.juggle - 1);
     Stage.crack(f.x, 1.8); shake(9); sfx.impact(); game.freeze = Math.max(game.freeze, 0.06);
     popups.push({ text: 'GROUND BOUNCE!', x: f.x, y: f.y - 50, t: 0, c: '#ffd23a' });
-    if (f === boss) comboToken('bounce');
+    if (f === boss) comboToken('bounce'); else if (f === player) comboToken('bounce', boss);
     return;
   }
   f.spiked = false;

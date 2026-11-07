@@ -23,23 +23,66 @@ function superDash(c) {
 // shots it reacts to, per phase (more often the more the player spams them)
 const SHOT_REACT = [0.6, 0.75, 0.9];
 
-// Boss Goku fights the way the player can: launchers chased into air combos and finished with a
-// Meteor Smash or (Super Saiyan) an air Kamehameha; ground strings ended with the wall-bounce slash, a
-// launcher, a ki blast or a Kamehameha; attacks he blocks punished. It runs every frame (combos need
-// frame timing), before bossAI's slower decisions, and returns true when it has taken over.
-const GOKU_CHASE = [0.5, 0.75, 0.9], GOKU_CANCEL = [0.45, 0.65, 0.8], GOKU_PUNISH = [0.35, 0.55, 0.75];
-function gokuFlow(c, g, dt, ph) {
-  const dist = Math.abs(g.x - c.x), close = dist < 46, ssjBeam = canKame(c) && game.kameCd <= 0;
+// Both bosses fight the way the player can, with the named combos from the combo list: launchers
+// chased into the air (Sky Chase) and finished with a Meteor Smash, a dunk, a re-launch or an air
+// beam; ground strings cancelled into the wall-bounce slash (Wall Splat), a beam, a Vanish Strike, a
+// launcher, a ki blast followed in with a rush, or (Perfect Cell) a Cell Junior; blocked attacks
+// punished. It runs every frame (combos need frame timing), before bossAI's slower decisions, and
+// returns true when it has taken over. The combos it lands are named on screen, like yours.
+// BOSS_FLOW is how likely, in each phase, the boss is to chase a launcher, to cancel the last hit of
+// a ground string into something, and to hit back after blocking an attack.
+const BOSS_FLOW = {
+  goku: { chase: [0.5, 0.75, 0.9], cancel: [0.45, 0.65, 0.8], punish: [0.35, 0.55, 0.75] },
+  cell: { chase: [0.35, 0.55, 0.75], cancel: [0.35, 0.5, 0.65], punish: [0.3, 0.45, 0.6] },
+};
+// the beam a boss can end a combo with right now: Super Saiyan Goku's and Perfect Cell's
+// Kamehameha (when it's off cooldown), Semi-Perfect and Perfect Cell's Death Beam, or none
+function finisherBeam(c) {
+  if (c.who === 'goku') return c.form === 'ssj' && game.kameCd <= 0 ? 'kame' : null;
+  if (c.form === 'perfect') return game.kameCd <= 0 ? 'kame' : 'death';
+  return c.form === 'semi' ? 'death' : null;
+}
+function fireFinisher(c, beam) {
+  if (beam === 'kame') { game.kameCd = rand(6, 9); startKame(c, false, false, true); }
+  else cast(c, 'death');
+}
+// Combo budget: once a combo has done this share of your health (per phase; Hard and Easy scale it
+// with their damage), the boss stops extending it. The string it's in finishes, but no new chase,
+// cancel, wall follow-up, rush or beam finisher starts, so no single combo takes most of your health.
+const BOSS_COMBO_BUDGET = [0.2, 0.26, 0.32];
+const LAUNCHERS = { goku: ['p4', 'k3'], cell: ['k2'] };
+const PUNISH_STRING = { goku: ['p2', 'p3', 'p4'], cell: ['p2', 'k2'] };
+
+function bossFlow(c, g, dt, ph) {
+  const T = BOSS_FLOW[c.who], dist = Math.abs(g.x - c.x), close = dist < 46, beam = finisherBeam(c);
+  const junior = c.form === 'junior';
+  // over budget: stop extending (see BOSS_COMBO_BUDGET)
+  const spent = g.comboTaken > 0 && (game.bossCombo.dmg || 0) >= BOSS_COMBO_BUDGET[ph] * g.maxHp * diff().taken;
   if (c.state !== 'attack') c.aiRolled = false;
   // the air Kamehameha he jumped for: fire from the top of the jump
   if (ai.airBeam) {
     if (c.state === 'jump' && c.vy > -60) { ai.airBeam = false; c.facing = g.x > c.x ? 1 : -1; startKame(c); return true; }
     if (c.state !== 'jump') ai.airBeam = false;
   }
+  // its ki blast just hit: rush in after it (Ki Blast Rush / Finger Rush)
+  if (ai.rushAt != null) {
+    if (game.t - ai.rushAt > 0.7 || !['hurt', 'knock'].includes(g.state)) ai.rushAt = null;
+    else if (c.free && dist < 80) { ai.rushAt = null; c.facing = g.x > c.x ? 1 : -1; c.queue = ['p2']; startAttack(c, 'rush'); return true; }
+  }
+  // it bounced them off the wall: meet them on the rebound with a launcher (Wall Splat)
+  if (spent) { ai.wallAt = null; ai.rushAt = null; }
+  if (ai.wallAt != null) {
+    if (game.t - ai.wallAt > 0.9 || g.state !== 'knock') ai.wallAt = null;
+    else if (c.free) {
+      c.facing = g.x > c.x ? 1 : -1;
+      if (dist > 44) { dash(c, c.facing); return true; }
+      ai.wallAt = null; startAttack(c, pick(LAUNCHERS[c.who])); return true;
+    }
+  }
   // a launcher landed: go after them (or not, the earlier in the fight the less often)
   const hit = c.A().hit;
   if (c.state === 'attack' && c.hitLanded && hit && hit.launch && !ai.chase && g.state === 'knock') {
-    ai.chase = { t: 0, go: Math.random() < GOKU_CHASE[ph] };
+    ai.chase = { t: 0, go: !spent && Math.random() < T.chase[ph] };
     if (ai.chase.go) { c.queue = []; c.next = null; }
   }
   if (ai.chase) {
@@ -56,10 +99,12 @@ function gokuFlow(c, g, dt, ph) {
       if (dist > 48 && !c.airDashed && c.vy > -200) { dash(c, c.facing); return true; }
       return true;
     }
+    // over budget mid-chase: the air string ends with the hit it's on
+    if (c.state === 'airAtk' && c.hitLanded && !c.next && spent) { ai.chase = null; return true; }
     if (c.state === 'airAtk' && c.hitLanded && !c.next) {
-      // the second air hit landed: Super Saiyan finishes with a Kamehameha down at them, otherwise
-      // the chain ends in the Meteor Smash
-      if (c.anim === 'air2' && ssjBeam && Math.random() < 0.35 + ph * 0.2) { game.kameCd = rand(6, 9); ai.chase = null; startKame(c, false, false, true); return true; }
+      // the second air hit landed: finish with a beam down at them (Aerial Kamehameha / Death Beam,
+      // Saiyan or Perfect Sky Blast), otherwise the chain ends in the Meteor Smash
+      if (c.anim === 'air2' && beam && Math.random() < 0.35 + ph * 0.2) { ai.chase = null; fireFinisher(c, beam); return true; }
       // or dunk them straight away after the first air hit
       if (c.anim === 'air' && Math.random() < 0.25 + ph * 0.1) c.next = 'spike';
       // or send them back up once and keep going
@@ -72,20 +117,23 @@ function gokuFlow(c, g, dt, ph) {
   // the last hit of a ground string landed: cancel it into something
   if (c.state === 'attack' && c.hitLanded && !c.queue.length && !c.next && !c.aiRolled && !(hit && hit.launch)) {
     c.aiRolled = true;
-    if (Math.random() < GOKU_CANCEL[ph]) {
+    if (!spent && Math.random() < T.cancel[ph]) {
       const r = Math.random(), atWall = g.x < 46 || g.x > W - 46;
       c.facing = g.x > c.x ? 1 : -1;
       if (atWall && r < 0.5) { startAttack(c, 'slash'); return true; }
-      if (ssjBeam && r < 0.35) { game.kameCd = rand(6, 9); startKame(c, false, false, true); return true; }
-      if (r < 0.65) { startAttack(c, Math.random() < 0.5 ? 'p4' : 'k3'); return true; }
-      cast(c, 'kiCast'); return true;
+      if (ph >= 1 && !junior && ai.vanishCd <= 0 && r < 0.2) { vanish(c, g); return true; }
+      if (c.form === 'perfect' && ai.assistCd <= 0 && r < 0.3) { ai.assistCd = rand(7, 11); callJunior(c); return true; }
+      if (beam && r < 0.45) { fireFinisher(c, beam); return true; }
+      if (r < 0.7 || junior) { startAttack(c, pick(LAUNCHERS[c.who])); return true; }
+      // a ki blast, and if it hits, a rush in after it
+      ai.rushNext = game.t; cast(c, c.who === 'cell' ? 'finger' : 'kiCast'); return true;
     }
   }
   // blocked their attack and they're still recovering: hit back
   if (c.state === 'block' && g.state === 'attack' && g.hitDone && close && game.t - (ai.punishAt || -9) > 0.8) {
     ai.punishAt = game.t;
-    if (Math.random() < GOKU_PUNISH[ph]) {
-      c.facing = g.x > c.x ? 1 : -1; c.queue = ['p2', 'p3', 'p4']; startAttack(c, 'p1'); ai.think = 0.5; return true;
+    if (Math.random() < T.punish[ph]) {
+      c.facing = g.x > c.x ? 1 : -1; c.queue = PUNISH_STRING[c.who].slice(); startAttack(c, 'p1'); ai.think = 0.5; return true;
     }
   }
   return false;
@@ -114,7 +162,7 @@ function bossAI(dt) {
     if (dist > 90 && r < 0.7) { c.play('jump'); c.vy = JUMP_V; c.vx = c.facing * 170; return; }
     c.play('block'); c.t2 = eta + 0.2; c.vx = 0; return;
   }
-  if (!isCell && gokuFlow(c, g, dt, ph)) return;
+  if (bossFlow(c, g, dt, ph)) return;
   // jumped over a shot (or in): come down with an air attack
   if (c.state === 'jump' && c.vy > 0 && Math.abs(g.x - c.x) < 40 && g.y - c.y < 40) { c.facing = g.x > c.x ? 1 : -1; return c.play('air', 'airAtk'); }
   if (!c.free) return;
