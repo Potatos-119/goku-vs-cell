@@ -108,8 +108,27 @@ const MENUS = {
     { label: 'CALM MODE  ' + (settings.calm ? 'ON' : 'OFF'), go: toggleCalm, adjust: toggleCalm },
     { label: 'FPS COUNTER  ' + (settings.fps ? 'ON' : 'OFF'), go: toggleFps, adjust: toggleFps },
     { label: 'ARENA  ' + Stage.arena.toUpperCase(), go: () => cycleArena(1), adjust: cycleArena },
+    { label: 'KEYS & BUTTONS', go: () => openMenu('binds') },
     { label: 'BACK', go: closeMenu },
   ] }),
+  // change which key or button does what (saved for next time)
+  binds: () => ({ title: 'KEYS & BUTTONS', items: [
+    { label: 'PLAYER 1 KEYBOARD', go: () => { game.bindWho = 'p1'; openMenu('bindList'); } },
+    { label: 'PLAYER 2 KEYBOARD  (VERSUS)', go: () => { game.bindWho = 'p2'; openMenu('bindList'); } },
+    { label: 'GAMEPAD BUTTONS', go: () => { game.bindWho = 'pad'; openMenu('bindList'); } },
+    { label: 'RESET ALL TO DEFAULT', go: () => { resetBindings(); showToast('KEYS AND BUTTONS RESET'); } },
+    { label: 'BACK', go: closeMenu },
+  ] }),
+  // every action and its key: pick one, then press the new key or button
+  bindList: () => {
+    const who = game.bindWho || 'p1';
+    const name = a => binding && binding.who === who && binding.action === a ? (who === 'pad' ? 'PRESS A BUTTON...' : 'PRESS A KEY...')
+      : who === 'pad' ? padActionName(a) : keysOf(TABLES[who], [a]);
+    return { title: { p1: 'PLAYER 1 KEYS', p2: 'PLAYER 2 KEYS', pad: 'GAMEPAD BUTTONS' }[who], compact: true, items: [
+      ...rebindable(who).map(a => ({ label: ACTION_NAMES[a] + '  ' + name(a), go: () => startBinding(who, a) })),
+      { label: 'BACK', go: closeMenu },
+    ] };
+  },
   // left / right (or Enter) change each one
   training: () => ({ title: 'TRAINING SETTINGS', items: [
     { label: 'DUMMY  ' + DUMMY_LABEL[TRAIN.dummy], go: () => cycleTrain('dummy', DUMMY_MODES), adjust: d => cycleTrain('dummy', DUMMY_MODES, d) },
@@ -132,6 +151,7 @@ function cycleArena(d) {
 // in local versus either player can work the menus (online, the host does)
 const tapM = a => tap(a) || (game.versus && !(window.Net && Net.role) && P2.pressed.has(a));
 function menuInput() {
+  if (binding) return; // KEYS & BUTTONS is waiting for a key or button
   const top = game.menu[game.menu.length - 1], m = MENUS[top.id]();
   // the pause button (Start / Options on a gamepad, which also confirms) always closes the menu first
   if (tapM('pause') || (tapM('back') && !tapM('confirm'))) { sfx.blip(); closeMenu(); return; }
@@ -146,7 +166,7 @@ function drawMenu() {
   if (!game.menu.length) return;
   const top = game.menu[game.menu.length - 1], m = MENUS[top.id](), who = guideWho();
   gfx.setTransform(S, 0, 0, S, 0, 0);
-  gfx.fillStyle = m.page ? 'rgba(6,5,16,0.96)' : 'rgba(6,5,16,0.86)'; gfx.fillRect(0, 0, W, H);
+  gfx.fillStyle = m.page || m.compact ? 'rgba(6,5,16,0.96)' : 'rgba(6,5,16,0.86)'; gfx.fillRect(0, 0, W, H);
   text(m.title, W / 2, 6, 15, '#ffe04a', 'center');
   let y = 28;
   if (m.page === 'moves') {
@@ -163,17 +183,23 @@ function drawMenu() {
   } else if (m.page === 'versus') {
     small('P1 PLAYS ' + sideOfPick().toUpperCase() + ', P2 THE OTHER ONE.  NO BOSS, SAME HEALTH', W / 2, y - 6, '#ddd'); y += 6;
     small('ACTION', 14, y, '#9ff', 'left'); small('PLAYER 1', 130, y, '#9ff', 'left'); small('PLAYER 2', 230, y, '#9ff', 'left'); y += 10;
-    for (const [a, k, p] of VERSUS_ROWS) { small(a, 14, y, '#ffd23a', 'left'); small(k, 130, y, '#fff', 'left'); small(p, 230, y, '#fff', 'left'); y += 9; }
+    for (const [a, k, p] of versusRows()) { small(a, 14, y, '#ffd23a', 'left'); small(k, 130, y, '#fff', 'left'); small(p, 230, y, '#fff', 'left'); y += 9; }
     small('ONE GAMEPAD PLAYS AS P2.  WITH TWO, ONE EACH', W / 2, y + 2, '#9ff');
   } else if (m.page === 'controls') {
     small('ACTION', 14, y, '#9ff', 'left'); small('KEYBOARD', 120, y, '#9ff', 'left'); small('GAMEPAD', 230, y, '#9ff', 'left'); y += 10;
-    for (const [a, k, p] of CONTROL_ROWS) { small(a, 14, y, '#ffd23a', 'left'); small(k, 120, y, '#fff', 'left'); small(padLabel(p), 230, y, '#fff', 'left'); y += 9; }
+    for (const [a, k, p] of controlRows()) { small(a, 14, y, '#ffd23a', 'left'); small(k, 120, y, '#fff', 'left'); small(p, 230, y, '#fff', 'left'); y += 9; }
   }
   // items (focused one highlighted); info pages show just BACK at the bottom
-  const iy = m.page === 'versus' ? H - 34 : m.page ? H - 18 : 44;
+  const iy = m.page === 'versus' ? H - 34 : m.page ? H - 18 : 44, gap = Math.min(15, 112 / Math.max(1, m.items.length - 1));
+  if (m.compact) {
+    // a long list (KEYS & BUTTONS): small rows, the one being changed in yellow
+    m.items.forEach((it, k) => { const on = k === top.i; small((on ? '> ' : '') + it.label, W / 2, 26 + k * 7.4, on ? '#ffe04a' : '#ccc', 'center', 5); });
+    small(binding ? (binding.who === 'pad' ? 'PRESS THE NEW BUTTON     ESC CANCELS' : 'PRESS THE NEW KEY     ESC CANCELS') : promptKeys('W / S  MOVE     ENTER  CHANGE     ESC  BACK'), W / 2, H - 6, binding ? '#ffe04a' : '#888');
+    return;
+  }
   m.items.forEach((it, k) => {
     const on = k === top.i;
-    text((on ? '> ' : '') + it.label, W / 2, iy + k * 15, on ? 12 : 10, on ? '#ffe04a' : '#ccc', 'center');
+    text((on ? '> ' : '') + it.label, W / 2, iy + k * gap, on ? 12 : 10, on ? '#ffe04a' : '#ccc', 'center');
   });
   small(promptKeys(m.items.some(i => i.adjust) ? 'W / S  MOVE     A / D  CHANGE     ESC  BACK' : 'W / S  MOVE     ENTER  SELECT     ESC  BACK'), W / 2, H - 6, '#888');
 }

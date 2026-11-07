@@ -163,12 +163,19 @@ const Net = {
       if (a === 'right') down = down || (stick && x > 0.5);
       if (a === 'block') down = down || (stick && y > 0.6);
       if (a === 'jump') down = down || (stick && y < -0.6);
+      if (PAD_CHORD_BASE[a]) continue;
       if (!!this.pad[a] !== down) {
         this.pad[a] = down;
         if (down) this.device = padKind(pad);
         if (a === 'pause') { if (down && !this.lobbyOpen) this.askLeave(); continue; } // Start / Options: leave?
         if (!this.lobbyOpen) this.sendKey([a], down);
       }
+    }
+    // Cell's specials: guard + ki / kick / beam, sent as their own actions
+    const guard = (PAD_BINDINGS.block || []).some(btn);
+    for (const [a, base] of Object.entries(PAD_CHORD_BASE)) {
+      const on = guard && (PAD_BINDINGS[base] || []).some(btn);
+      if (!!this.pad[a] !== on) { this.pad[a] = on; if (!this.lobbyOpen) this.sendKey([a], on); }
     }
   },
 

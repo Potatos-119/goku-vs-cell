@@ -58,8 +58,11 @@ Open http://localhost:8766 and press Enter.
 | M / R | Music / calm mode (less shake and flashing) |
 | F2 | FPS counter (also in Options) |
 
-A gamepad works too. The full move list and every combo are in the pause menu, and training mode
-(pick it after choosing a fighter) has a dummy you can set up and a checklist of combos to try.
+A gamepad works too (Xbox or PlayStation): plug it in and the tips switch to its buttons. On a pad,
+Cell's Barrier, Cell Junior and Special Beam Cannon are guard + ki, guard + kick and guard + beam.
+Every key and button can be changed in OPTIONS > KEYS & BUTTONS (player 1, player 2 and gamepad), and
+it's saved. The full move list and every combo are in the pause menu, and training mode (pick it after
+choosing a fighter) has a dummy you can set up and a checklist of combos to try.
 
 Options cover difficulty, volume, calm mode and the arena, and they're saved between visits.
 

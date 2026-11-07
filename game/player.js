@@ -209,6 +209,10 @@ function playerInput(dt, g = player, foe = boss) {
     if (chain.k[g.anim] && act('kick')) g.next = chain.k[g.anim];
   } else if (g.state === 'block') {
     const inAir = g.y < FLOOR - 2;
+    // out of a ground guard Cell can still call a Junior or fire the Special Beam Cannon (on a gamepad
+    // those are guard + kick and guard + beam)
+    if (!inAir && !isGoku && g.form === 'perfect' && g.ki >= 35 && g.assistCd <= 0 && act('junior')) { g.ki -= 35; g.assistCd = 3; return callJunior(g); }
+    if (!inAir && !isGoku && g.ki >= CANNON_KI && act('cannon')) { g.ki -= CANNON_KI; return specialBeamCannon(g); }
     // from an air guard: S + J dunks, and S + O is still the Super Saiyan Spirit Bomb
     if (inAir && (act('punch') || act('kick'))) { g.facing = foe.x > g.x ? 1 : -1; return g.play('spike', 'airAtk'); }
     if (inAir && isGoku && g.form === 'ssj' && g.ki >= 100 && act('ult')) return spiritBomb(g);

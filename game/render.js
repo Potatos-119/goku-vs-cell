@@ -105,7 +105,6 @@ function drawHUD() {
 
 // Versus: each player's hint under their own name, one line per tip, in that player's keys. Online,
 // the friend plays with the normal keys on their own computer; on one keyboard player 2 has their own.
-const P2_KEY_NAMES = { T: ']', O: "'", U: ';', Q: '\\', S: 'DOWN' };
 function drawVersusHints() {
   if (game.mode !== 'fight' || beams.length) return;
   const sides = [
@@ -115,9 +114,7 @@ function drawVersusHints() {
   for (const [f, x, align, clear] of sides) {
     let hint = hintFor(f);
     if (!hint || !clear) continue;
-    const dev = ctlOf(f).device;
-    if (PAD_LABELS[dev]) hint = promptKeys(hint, dev); // on a gamepad: its buttons
-    else if (f === boss && !(window.Net && Net.role === 'host')) hint = hint.replace(/\b[TOUQS]\b/g, k => P2_KEY_NAMES[k]);
+    hint = promptKeys(hint, ctlOf(f)); // that player's keys or gamepad buttons
     hint.split(/\s{3,}/).forEach((line, i) => text(line.trim(), x, 40 + i * 8, 6, '#9ff', align));
   }
 }

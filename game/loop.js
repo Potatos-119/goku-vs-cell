@@ -36,6 +36,15 @@ function drawPing() {
   gfx.fillStyle = 'rgba(0,0,0,0.55)'; gfx.fillRect(W - 52, H - 10, 50, 8);
   small(`PING ${p}MS`, W - 4, H - 8, color, 'right', 5);
 }
+// a short message at the top of the screen (a controller connected, keys reset...)
+function drawToast() {
+  if (!toast) return;
+  const age = (performance.now() - toast.at) / 1000;
+  if (age > 2.5) { toast = null; return; }
+  gfx.setTransform(S, 0, 0, S, 0, 0); gfx.globalCompositeOperation = 'source-over'; gfx.globalAlpha = Math.min(1, (2.5 - age) * 3);
+  gfx.fillStyle = 'rgba(6,5,16,0.85)'; gfx.fillRect(W / 2 - 90, H - 24, 180, 11);
+  small(toast.text, W / 2, H - 21, '#9ff', 'center', 5); gfx.globalAlpha = 1; // low on the screen, clear of titles and the HUD
+}
 function drawFps() {
   if (!settings.fps || !fpsMeter.fps) return;
   const { fps, worstMs } = fpsMeter, color = fps >= 58 ? '#8f8' : fps >= 45 ? '#ffd23a' : '#ff6a5a';
@@ -51,7 +60,7 @@ function loop(now) {
   pollGamepad();
   // hit-freeze frames skip input, so keep those key presses for the next real frame
   if (step(raw) !== 'frozen') { P1.pressed.clear(); P2.pressed.clear(); }
-  gfx.beginFrame(); render(); drawFps(); drawPing(); gfx.endFrame();
+  gfx.beginFrame(); render(); drawFps(); drawPing(); drawToast(); gfx.endFrame();
   if (window.Net) Net.flush(); // online host: send the guest what changed
   requestAnimationFrame(loop);
 }

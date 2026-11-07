@@ -249,8 +249,7 @@ function drawReactPrompt(r) {
   const f = r.def, flash = Math.floor(game.t * 8) % 2, p2 = f !== player;
   text(game.versus ? (p2 ? 'P2: ANSWER IT!' : 'P1: ANSWER IT!') : 'ANSWER IT!', W / 2, 92, 14, flash ? '#ffe04a' : '#ffffff', 'center');
   // that player's own buttons: a gamepad's, player 2's keys on a shared keyboard, or the usual keys
-  const pad = PAD_LABELS[ctlOf(f).device], p2keys = p2 && !(window.Net && Net.role === 'host');
-  const [kb, kv, ks] = pad ? [pad.beam, pad.vanish, pad.block] : p2keys ? [';', '\\', 'DOWN'] : ['U', 'Q', 'S'];
+  const c = ctlOf(f), [kb, kv, ks] = [actionLabel('beam', c), actionLabel('vanish', c), actionLabel('block', c)];
   const opts = [
     [kb + '  COUNTER BEAM', canKame(f) && f.ki >= COUNTER_KI],
     [kv + '  VANISH', f.ki >= 15],

@@ -25,9 +25,48 @@ const P2_BINDINGS = {
   grab: ['Minus'], barrier: ['Equal'], junior: ['Digit0'], cannon: ['Digit9'],
   pause: ['Backspace'], up: ['ArrowUp'], down: ['ArrowDown'], // player 2 can pause and use the menus too
 };
-const P2_ONLY = new Set(Object.values(P2_BINDINGS).flat());
+// Remapping (OPTIONS > KEYS & BUTTONS): the actions that can move to another key or button, the
+// defaults to go back to, and what was saved last time. Grab and Cell's specials are two-button
+// presses on a gamepad (punch + kick, guard + a button), so they follow the buttons they're made of.
+const REBINDABLE = ['left', 'right', 'jump', 'block', 'punch', 'kick', 'grab', 'ki', 'beam', 'ult', 'charge', 'transform', 'vanish', 'dash', 'barrier', 'junior', 'cannon', 'pause'];
+const PAD_REBINDABLE = REBINDABLE.filter(a => !['grab', 'barrier', 'junior', 'cannon'].includes(a));
+const deepCopy = o => JSON.parse(JSON.stringify(o));
+const DEFAULTS = { p1: deepCopy(BINDINGS), p2: deepCopy(P2_BINDINGS), pad: deepCopy(PAD_BINDINGS) };
+const TABLES = { p1: BINDINGS, p2: P2_BINDINGS, pad: PAD_BINDINGS };
+const rebindable = who => who === 'pad' ? PAD_REBINDABLE : REBINDABLE;
+try {
+  const saved = JSON.parse(localStorage.getItem('bindings') || '{}');
+  for (const who in TABLES) for (const a of rebindable(who)) if (saved[who] && Array.isArray(saved[who][a]) && saved[who][a].length) TABLES[who][a] = saved[who][a];
+} catch (e) { /* storage blocked or old data: the defaults stay */ }
+const P2_ONLY = new Set();
 const codeMap = table => { const m = {}; for (const [a, codes] of Object.entries(table)) for (const c of codes) (m[c] = m[c] || []).push(a); return m; };
-const CODE_ACTIONS = codeMap(BINDINGS), P2_CODE_ACTIONS = codeMap(P2_BINDINGS);
+const CODE_ACTIONS = {}, P2_CODE_ACTIONS = {};
+function rebuildMaps() {
+  for (const [m, t] of [[CODE_ACTIONS, BINDINGS], [P2_CODE_ACTIONS, P2_BINDINGS]]) { for (const k in m) delete m[k]; Object.assign(m, codeMap(t)); }
+  P2_ONLY.clear(); for (const c of Object.values(P2_BINDINGS).flat()) P2_ONLY.add(c);
+}
+rebuildMaps();
+function saveBindings() {
+  const out = {};
+  for (const who in TABLES) { out[who] = {}; for (const a of rebindable(who)) out[who][a] = TABLES[who][a]; }
+  try { localStorage.setItem('bindings', JSON.stringify(out)); } catch (e) { /* not saved, still works this time */ }
+}
+// give an action a new key (who: 'p1' or 'p2') or gamepad button (who: 'pad'). Whatever had it before
+// gets this action's old one, so nothing is left without a key.
+function rebind(who, action, value) {
+  const t = TABLES[who], old = (t[action] || [])[0];
+  for (const a of rebindable(who)) if (a !== action && t[a] && t[a].includes(value)) t[a] = old == null ? t[a].filter(v => v !== value) : t[a].map(v => v === value ? old : v);
+  t[action] = [value];
+  rebuildMaps(); saveBindings();
+}
+function resetBindings() {
+  for (const who in TABLES) for (const a of rebindable(who)) TABLES[who][a] = deepCopy(DEFAULTS[who][a]);
+  rebuildMaps(); saveBindings();
+}
+// while KEYS & BUTTONS waits for the new key or button: { who, action }. A gamepad first waits for the
+// button that picked the action to be let go (armed), and after taking one, for that to be let go (done).
+let binding = null;
+const startBinding = (who, action) => { binding = { who, action, armed: false, done: false }; };
 // synthetic events (and some old browsers) carry no e.code: fall back to the key's name
 const codeOf = e => e.code || { ' ': 'Space', enter: 'Enter', escape: 'Escape', shift: 'ShiftLeft', arrowleft: 'ArrowLeft', arrowright: 'ArrowRight', arrowup: 'ArrowUp', arrowdown: 'ArrowDown' }[e.key.toLowerCase()] || 'Key' + e.key.toUpperCase();
 
@@ -82,6 +121,14 @@ function guestKey(e, down) {
   return true;
 }
 addEventListener('keydown', e => {
+  // KEYS & BUTTONS is waiting for a key: this one is it (Esc cancels)
+  if (binding && !binding.done) {
+    e.preventDefault();
+    if (e.repeat) return;
+    if (codeOf(e) === 'Escape') binding = null;
+    else if (binding.who !== 'pad') { rebind(binding.who, binding.action, codeOf(e)); binding = null; sfx.blip(); }
+    return;
+  }
   if (guestKey(e, true)) return;
   const [c, acts] = route(codeOf(e));
   if (!acts) return;
@@ -98,6 +145,14 @@ addEventListener('blur', () => { for (const c of [P1, P2]) withController(c, () 
 let padStyle = 'xbox';
 function pollGamepad() {
   const pads = [...(navigator.getGamepads ? navigator.getGamepads() : [])].filter(p => p && p.connected);
+  // KEYS & BUTTONS is waiting for a gamepad button: take the first one pressed, nothing else moves
+  if (binding && binding.who === 'pad') {
+    const pad = pads[0], down = pad ? pad.buttons.findIndex(b => b && b.pressed) : -1;
+    if (binding.done) { if (down < 0) binding = null; return; }
+    if (!binding.armed) { if (down < 0) binding.armed = true; return; }
+    if (down >= 0) { rebind('pad', binding.action, down); binding.done = true; sfx.blip(); }
+    return;
+  }
   if (pads.length) padStyle = /054c|dualshock|dualsense|playstation|wireless controller/i.test(pads[0].id) ? 'ps' : 'xbox';
   const driven = new Map();
   if (game && game.versus && !(window.Net && Net.role === 'host')) {
@@ -123,7 +178,30 @@ function readPad(pad) {
     if (down && !padHeld[a]) ctl.device = padKind(pad); // pressed on this pad: tips name its buttons
     setHeld(padHeld, a, down);
   }
+  // Cell's specials: hold the guard and press ki (Barrier), kick (Cell Junior) or beam (Special Beam
+  // Cannon). The button on its own mustn't also do its usual move
+  const guard = (PAD_BINDINGS.block || []).some(btn);
+  for (const [a, base] of Object.entries(PAD_CHORD_BASE)) {
+    const on = guard && (PAD_BINDINGS[base] || []).some(btn);
+    if (on && !padHeld[a]) lastPress[base] = -99;
+    setHeld(padHeld, a, on);
+  }
 }
+
+// A gamepad plugged in (or woken by a button): tips switch to its buttons straight away, and it says so.
+// Unplugged: back to the keyboard's keys.
+let toast = null;
+const showToast = text => { toast = { text, at: performance.now() }; };
+addEventListener('gamepadconnected', e => {
+  const kind = padKind(e.gamepad), n = [...navigator.getGamepads()].filter(p => p && p.connected).length;
+  const c = game && game.versus && !(window.Net && Net.role) && (n === 1 || e.gamepad.index > 0) ? P2 : P1;
+  c.device = kind; padStyle = kind;
+  showToast((kind === 'ps' ? 'PLAYSTATION' : 'XBOX') + ' CONTROLLER CONNECTED' + (c === P2 ? '  (PLAYER 2)' : ''));
+});
+addEventListener('gamepaddisconnected', () => {
+  for (const c of [P1, P2]) if (c.device !== 'kb') c.device = 'kb';
+  showToast('CONTROLLER DISCONNECTED');
+});
 const tap = a => pressed.has(a);
 // input buffer: a press up to 0.12s before the fighter can act still goes through, once
 const BUFFER = 0.12;

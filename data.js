@@ -384,49 +384,73 @@ const MOVES = {
     ['O  (AIR, AFTER A HIT TOO)', 'Solar Kamehameha finisher (Perfect, full ki)'],
   ],
 };
-// versus: who presses what (player 2's keys are P2_BINDINGS in game/input.js)
-const VERSUS_ROWS = [
-  ['MOVE / JUMP / BLOCK', 'A D / W / S', 'ARROWS'],
-  ['PUNCH / KICK', 'J / K', ',  /  .'],
-  ['KI / BEAM / ULTIMATE', 'L / U / O', '/  ;  \''],
-  ['CHARGE / TRANSFORM', 'I / T', '[  /  ]'],
-  ['VANISH / DASH', 'Q / L-SHIFT', '\\  /  R-SHIFT'],
-  ['GRAB', 'F', '-'],
-  ['CELL SPECIALS', 'G / E / Y', '=  /  0  /  9'],
-];
-// Tips on screen are written with keyboard keys. A player on a gamepad sees its buttons instead:
-// promptKeys swaps each key for the action it does, then that action's button on an Xbox or
-// PlayStation pad (the PlayStation symbols come from the system font if the game's fonts lack them).
+// ---- names for keys and buttons ----
+// Everything on screen that names a key is built from the current bindings (game/input.js, which the
+// player can change in OPTIONS > KEYS & BUTTONS), so tips always match what the buttons do.
+const KEY_NAMES = {
+  Space: 'SPACE', ShiftLeft: 'L-SHIFT', ShiftRight: 'R-SHIFT', ControlLeft: 'L-CTRL', ControlRight: 'R-CTRL', AltLeft: 'L-ALT', AltRight: 'R-ALT',
+  Enter: 'ENTER', NumpadEnter: 'ENTER', Escape: 'ESC', Backspace: 'BACKSPACE', Tab: 'TAB', CapsLock: 'CAPS',
+  ArrowLeft: 'LEFT', ArrowRight: 'RIGHT', ArrowUp: 'UP', ArrowDown: 'DOWN',
+  Comma: ',', Period: '.', Slash: '/', Semicolon: ';', Quote: "'", BracketLeft: '[', BracketRight: ']', Backslash: '\\',
+  Minus: '-', Equal: '=', Backquote: '`',
+};
+const keyName = code => KEY_NAMES[code] || code.replace(/^(Key|Digit|Numpad)/, '').toUpperCase();
+// standard-mapping gamepad buttons by number, on each kind of pad
+const PAD_BUTTONS = {
+  xbox: ['A', 'B', 'X', 'Y', 'LB', 'RB', 'LT', 'RT', 'VIEW', 'MENU', 'LS', 'RS', 'D-UP', 'D-DOWN', 'D-LEFT', 'D-RIGHT', 'HOME'],
+  ps: ['\u2715', '\u25cb', '\u25a1', '\u25b3', 'L1', 'R1', 'L2', 'R2', 'SHARE', 'OPTIONS', 'L3', 'R3', 'D-UP', 'D-DOWN', 'D-LEFT', 'D-RIGHT', 'PS'],
+};
+const padButtonName = (i, style = padStyle) => (PAD_BUTTONS[style] || PAD_BUTTONS.xbox)[i] || 'BUTTON ' + i;
+// Cell's specials on a gamepad: guard + this button (they have no button of their own)
+const PAD_CHORD_BASE = { barrier: 'ki', junior: 'kick', cannon: 'beam' };
+const isPad = device => device === 'xbox' || device === 'ps';
+function padActionName(a, style = padStyle) {
+  if (a === 'grab') return padActionName('punch', style) + '+' + padActionName('kick', style);
+  if (PAD_CHORD_BASE[a]) return padActionName('block', style) + '+' + padActionName(PAD_CHORD_BASE[a], style);
+  if (a === 'left' || a === 'right') return 'STICK';
+  const b = PAD_BINDINGS[a];
+  return b && b.length ? padButtonName(b[0], style) : '-';
+}
+// the keys a player's tips are written with: player 1's, player 2's on a shared keyboard, and online
+// the friend's own keyboard (whose remapping this computer can't see, so the usual keys)
+const keyTable = c => c === P2 ? (window.Net && Net.role === 'host' ? DEFAULTS.p1 : P2_BINDINGS) : BINDINGS;
+function actionLabel(a, c = P1) {
+  if (isPad(c.device)) return padActionName(a, c.device);
+  if (a === 'confirm') return 'ENTER';
+  if (a === 'back') return 'ESC';
+  const t = keyTable(c);
+  return t[a] && t[a].length ? keyName(t[a][0]) : '-';
+}
+// Tips are written with the usual keyboard keys; promptKeys rewrites each key as the action it does
+// and then that player's key or button for it (one pass, so a name it puts in isn't read again).
+// "W / S" in menus is the fixed menu up / down; "A / D" is moving.
 const KEY_ACTIONS = {
   J: 'punch', K: 'kick', L: 'ki', U: 'beam', O: 'ult', I: 'charge', T: 'transform', Q: 'vanish', S: 'block', W: 'jump',
-  F: 'grab', P: 'pause', ENTER: 'confirm', ESC: 'back', SPACE: 'jump', SHIFT: 'dash',
+  F: 'grab', P: 'pause', G: 'barrier', E: 'junior', Y: 'cannon', A: 'left', D: 'right',
+  ENTER: 'confirm', ESC: 'back', SPACE: 'jump', SHIFT: 'dash',
 };
-const PAD_LABELS = {
-  xbox: { punch: 'X', kick: 'Y', ki: 'B', beam: 'RT', ult: 'RS', charge: 'LT', transform: 'LS', vanish: 'VIEW', block: 'LB',
-    jump: 'A', dash: 'RB', grab: 'X+Y', pause: 'MENU', confirm: 'A', back: 'B', upDown: 'D-PAD', leftRight: 'D-PAD' },
-  ps: { punch: '\u25a1', kick: '\u25b3', ki: '\u25cb', beam: 'R2', ult: 'R3', charge: 'L2', transform: 'L3', vanish: 'SHARE', block: 'L1',
-    jump: '\u2715', dash: 'R1', grab: '\u25a1+\u25b3', pause: 'OPTIONS', confirm: '\u2715', back: '\u25cb', upDown: 'D-PAD', leftRight: 'D-PAD' },
-};
-function promptKeys(str, device = P1.device) {
-  const L = PAD_LABELS[device];
-  if (!L) return str;
-  return str.replace(/\bW\s*\/\s*S\b/g, L.upDown).replace(/\bA\s*\/\s*D\b/g, L.leftRight)
-    .replace(/\b(ENTER|ESC|SPACE|SHIFT|[JKLUOITQSWFP])\b/g, k => L[KEY_ACTIONS[k]] || k);
+function promptKeys(str, c = P1) {
+  const pad = isPad(c.device);
+  return str.replace(/\bW\s*\/\s*S\b|\bA\s*\/\s*D\b|\b(?:ENTER|ESC|SPACE|SHIFT)\b|\b[JKLUOITQSWFPGEYAD]\b/g, k => {
+    if (/^W\s*\/\s*S$/.test(k)) return pad ? 'D-PAD' : k;
+    if (/^A\s*\/\s*D$/.test(k)) return pad ? 'STICK' : actionLabel('left', c) + ' / ' + actionLabel('right', c);
+    return actionLabel(KEY_ACTIONS[k], c);
+  });
 }
-// gamepad buttons are written with Xbox names; on a PlayStation pad they read as its own
-const PS_NAMES = { A: 'CROSS', B: 'CIRCLE', X: 'SQUARE', Y: 'TRIANGLE', LB: 'L1', RB: 'R1', LT: 'L2', RT: 'R2', Back: 'SHARE', Start: 'OPTIONS' };
-const padLabel = s => padStyle === 'ps' ? s.replace(/\b(A|B|X|Y|LB|RB|LT|RT|Back|Start)\b/g, m => PS_NAMES[m]) : s;
-const CONTROL_ROWS = [
-  ['MOVE', 'A / D or arrows', 'Stick / d-pad'],
-  ['JUMP', 'W / Space', 'A'],
-  ['BLOCK', 'S', 'LB / down'],
-  ['PUNCH / KICK', 'J / K', 'X / Y'],
-  ['GRAB / AIR RE-LAUNCH', 'J + K / F', 'X + Y'],
-  ['CELL BARRIER / JR', 'G / E', ''],
-  ['KI ATTACK', 'L', 'B'],
-  ['BEAM / ULTIMATE', 'U / O', 'RT / R3'],
-  ['CHARGE / TRANSFORM', 'I / T', 'LT / L3'],
-  ['DASH / VANISH', '2x tap, Shift / Q', 'RB / Back'],
-  ['PAUSE', 'P', 'Start'],
+// the controls page and the versus screen, from the current keys and buttons
+const CONTROL_GROUPS = [
+  ['MOVE', ['left', 'right']], ['JUMP', ['jump']], ['BLOCK', ['block']], ['PUNCH / KICK', ['punch', 'kick']],
+  ['GRAB / AIR RE-LAUNCH', ['grab']], ['CELL SPECIALS', ['barrier', 'junior', 'cannon']], ['KI ATTACK', ['ki']],
+  ['BEAM / ULTIMATE', ['beam', 'ult']], ['CHARGE / TRANSFORM', ['charge', 'transform']], ['DASH / VANISH', ['dash', 'vanish']], ['PAUSE', ['pause']],
+];
+const keysOf = (table, acts) => acts.map(a => table[a] && table[a].length ? keyName(table[a][0]) : '-').join(' / ');
+const controlRows = () => [
+  ...CONTROL_GROUPS.map(([name, acts]) => [name, keysOf(BINDINGS, acts), acts[0] === 'left' ? 'STICK / D-PAD' : acts.map(a => padActionName(a)).join(' / ')]),
   ['MUSIC / CALM / FPS', 'M / R / F2', ''],
 ];
+const versusRows = () => CONTROL_GROUPS.filter(([n]) => n !== 'PAUSE').map(([name, acts]) => [name, keysOf(BINDINGS, acts), keysOf(P2_BINDINGS, acts)]);
+const ACTION_NAMES = {
+  left: 'MOVE LEFT', right: 'MOVE RIGHT', jump: 'JUMP', block: 'BLOCK', punch: 'PUNCH', kick: 'KICK', grab: 'GRAB',
+  ki: 'KI ATTACK', beam: 'BEAM', ult: 'ULTIMATE', charge: 'CHARGE', transform: 'TRANSFORM', vanish: 'VANISH', dash: 'DASH',
+  barrier: 'CELL BARRIER', junior: 'CELL JUNIOR', cannon: 'CELL CANNON', pause: 'PAUSE',
+};
