@@ -97,6 +97,9 @@ function damage(def, src, dmg, heavy, dir, kind = 'melee', opts = {}) {
   else if (def === player && !blocking) game.bossCombo.dmg = (game.bossCombo.dmg || 0) + hpBefore - def.hp;
   // a fighter mid-Kamehameha takes the damage but keeps firing, unless it finishes them
   const armored = def.state === 'kameFire' && def.hp > 0;
+  // chip damage through the guard can finish someone too: then they go down like any K.O., instead
+  // of being left standing in their guard
+  if (blocking && def.hp <= 0) blocking = false;
   if (!blocking && !armored) {
     def.queue = []; def.next = null;
     if (juggling || heavy || opts.launch || opts.spike || def.hp <= 0) {
