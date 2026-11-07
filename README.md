@@ -277,6 +277,12 @@ music on/off, calm mode and the arena. They're saved between visits.
   - `main.js`: starts the game
 - `data.js`: which sprite-sheet frames make up each move, plus the move and combo lists
 - `sheets.js`: cuts the sheets into frames and removes the white background
+- `frames.js`: loads the baked frames (below) and shows one on any element, with no canvas: the atlas is
+  the element's background, shifted to the frame's spot
+- `assets/frames/`: every frame the game uses, already cut out and recoloured, packed into
+  `atlas-0.png`, with `frames.json` saying where each one is, its size and its body anchor. Made by
+  `tools/bake.js`; after changing a sheet or a frame in `data.js`, bake again (see the top of that file),
+  and check the result in `tools/atlas.html`
 - `audio.js`: the music player, the recorded and generated sound effects, jingles, and the voice clip hook
 - `stage.js`: the arena and its live effects
 - `assets/sheets/goku.png`: Goku's main sheet (base, Super Saiyan and the Super Saiyan 3 Dragon Fist). The

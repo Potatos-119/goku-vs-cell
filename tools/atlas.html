@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Baked Frames</title>
+<!-- Every baked frame, each one a plain <div> showing its part of the atlas (no canvas): what the
+     DOM renderer builds on. The red line is the body anchor (ax). Serve the project folder and open
+     http://localhost:8766/tools/atlas.html -->
+<style>
+  body { margin: 0; padding: 16px; background: #1b1830; color: #ddd; font: 12px/1.4 system-ui, sans-serif; }
+  h1 { font-size: 16px; margin: 0 0 4px; }
+  #grid { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; margin-top: 12px; }
+  .cell { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 6px; background: #2a2645; border-radius: 6px; }
+  .frame { position: relative; image-rendering: pixelated; transform: scale(2); transform-origin: bottom center; margin-top: 40px; }
+  .anchor { position: absolute; top: 0; bottom: 0; width: 1px; background: #ff4d4d; opacity: .7; }
+  .key { max-width: 160px; overflow-wrap: anywhere; color: #9a94c8; font-size: 10px; }
+</style>
+</head>
+<body>
+<h1>Baked frames</h1>
+<div id="info">loading...</div>
+<div id="grid"></div>
+<script src="../frames.js"></script>
+<script>
+Frames.load('../').then(() => {
+  const grid = document.getElementById('grid'), keys = Object.keys(Frames.frames);
+  document.getElementById('info').textContent = `${keys.length} frames`;
+  for (const key of keys) {
+    const f = Frames.frames[key], cell = document.createElement('div'), el = document.createElement('div');
+    cell.className = 'cell'; el.className = 'frame';
+    Frames.show(el, f);
+    const a = document.createElement('div'); a.className = 'anchor'; a.style.left = f.ax + 'px'; el.append(a);
+    const label = document.createElement('div'); label.className = 'key'; label.textContent = key;
+    cell.append(el, label); grid.append(cell);
+  }
+});
+</script>
+</body>
+</html>
