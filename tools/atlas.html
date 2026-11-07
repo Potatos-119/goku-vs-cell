@@ -29,7 +29,7 @@ Frames.load('../').then(() => {
   for (const key of keys) {
     const f = Frames.frames[key], cell = document.createElement('div'), el = document.createElement('div');
     cell.className = 'cell'; el.className = 'frame';
-    Frames.show(el, f);
+    Object.assign(el.style, { width: f.width + 'px', height: f.height + 'px', backgroundImage: `url(${f.atlas})`, backgroundPosition: `${-f.ox}px ${-f.oy}px` });
     const a = document.createElement('div'); a.className = 'anchor'; a.style.left = f.ax + 'px'; el.append(a);
     const label = document.createElement('div'); label.className = 'key'; label.textContent = key;
     cell.append(el, label); grid.append(cell);

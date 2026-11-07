@@ -39,19 +39,19 @@ class Fighter {
   draw() {
     if (!this.visible) return;
     const im = this.img;
-    ctx.save();
-    ctx.translate(Math.round(this.x), Math.round(this.y - this.hover));
+    gfx.save();
+    gfx.translate(Math.round(this.x), Math.round(this.y - this.hover));
     // a held stance breathes a little instead of standing frozen
     const breath = this.A().breathe ? Math.sin(this.at * 2.6) * 0.018 : 0;
     const k = this.scale * (im.k || 1);
-    ctx.scale(this.facing * k * (1 + this.sq), k * (1 - this.sq + breath));
-    if (this.inv > 0 && Math.floor(this.inv * 20) % 2) ctx.globalAlpha = 0.5;
-    ctx.drawImage(im, -Math.round(im.ax), -im.height);
+    gfx.scale(this.facing * k * (1 + this.sq), k * (1 - this.sq + breath));
+    if (this.inv > 0 && Math.floor(this.inv * 20) % 2) gfx.globalAlpha = 0.5;
+    gfx.drawImage(im, -Math.round(im.ax), -im.height);
     if (this.flash > 0) {
-      ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = settings.calm ? 0.35 : 0.75;
-      ctx.drawImage(im, -Math.round(im.ax), -im.height);
+      gfx.globalCompositeOperation = 'lighter'; gfx.globalAlpha = settings.calm ? 0.35 : 0.75;
+      gfx.drawImage(im, -Math.round(im.ax), -im.height);
     }
-    ctx.restore();
+    gfx.restore();
   }
 }
 

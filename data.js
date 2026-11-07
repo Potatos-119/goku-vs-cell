@@ -229,6 +229,9 @@ const ANIMS = {
 ANIMS.cell.junior = cellForm(CELL_ROW.junior, JUNIOR_FIX);
 ANIMS.cell.base = ANIMS.cell.perfect;
 
+// the Cell Junior that Perfect Cell calls in: flying in, dashing, and hit
+const JR_FRAMES = { in: '17.0', dash: '18.10', hit: '18.7' };
+
 // Projectile and beam art cut out of the sheets.
 const FX_ART = {
   kiBall: { sheet: 'goku', ref: { id: '9.3', x: 41 } }, // from x 41: just the ball, not his fingers

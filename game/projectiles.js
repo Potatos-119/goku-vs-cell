@@ -162,11 +162,11 @@ function blastAway(f, src, dmg) {
 // beams light up the ring under them
 function beamLight(b) {
   const L = b.len, mx = b.x0 + b.dir * L * 0.5 * Math.cos(b.ang);
-  ctx.save(); ctx.globalCompositeOperation = 'lighter';
-  const g = ctx.createRadialGradient(mx, FLOOR, 2, mx, FLOOR, Math.max(30, L * 0.6));
+  gfx.save(); gfx.globalCompositeOperation = 'lighter';
+  const g = gfx.createRadialGradient(mx, FLOOR, 2, mx, FLOOR, Math.max(30, L * 0.6));
   g.addColorStop(0, `rgba(90,170,255,${b.big ? 0.35 : 0.22})`); g.addColorStop(1, 'rgba(90,170,255,0)');
-  ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(mx, FLOOR, Math.max(30, L * 0.6), 14, 0, 0, Math.PI * 2); ctx.fill();
-  ctx.restore();
+  gfx.fillStyle = g; gfx.beginPath(); gfx.ellipse(mx, FLOOR, Math.max(30, L * 0.6), 14, 0, 0, Math.PI * 2); gfx.fill();
+  gfx.restore();
 }
 
 function drawBeam(b) {
@@ -174,10 +174,10 @@ function drawBeam(b) {
   const sw = P.start.width * s, sh = P.start.height * s;
   const bh = P.body.height * s;
   const hs = (bh * 1.2) / P.head.height, hw = P.head.width * hs, hh = P.head.height * hs;
-  ctx.save();
-  ctx.translate(Math.round(b.x0), Math.round(b.y));
-  ctx.scale(b.dir, 1);
-  ctx.rotate(b.ang);
+  gfx.save();
+  gfx.translate(Math.round(b.x0), Math.round(b.y));
+  gfx.scale(b.dir, 1);
+  gfx.rotate(b.ang);
   const L = b.len, wob = Math.floor(b.t * 30) % 2;
   // in a clash the beam runs right up to the meeting point and the clash ball covers its end
   const clashing = clash && (b === clash.pb || b === clash.bb);
@@ -186,29 +186,29 @@ function drawBeam(b) {
   // edge, and the head overlaps its end so there's no seam between them
   const grown = L >= sw;
   const headX = clashing ? L : grown ? Math.max(sw - hw * 0.3, L - hw * 0.7) : L - hw * 0.45;
-  if (headX > sw) ctx.drawImage(P.body, 0, 0, P.body.width, P.body.height, sw - 2, -bh / 2 - wob, headX - sw + 6, bh + wob * 2);
-  ctx.drawImage(P.start, 0, -sh / 2, Math.max(1, Math.min(sw, L)), sh);
+  if (headX > sw) gfx.drawImage(P.body, 0, 0, P.body.width, P.body.height, sw - 2, -bh / 2 - wob, headX - sw + 6, bh + wob * 2);
+  gfx.drawImage(P.start, 0, -sh / 2, Math.max(1, Math.min(sw, L)), sh);
   // energy on top: a soft glow pulsing round it, a white-hot core, and streaks rushing along it, so
   // it reads as a stream of ki pouring out rather than a flat band
   const run0 = sw * 0.45, run1 = clashing ? L : headX + hw * 0.3;
   if (run1 > run0) {
     const pulse = 0.5 + 0.5 * Math.sin(b.t * 28);
-    ctx.save(); ctx.globalCompositeOperation = 'lighter';
-    ctx.fillStyle = `rgba(110,190,255,${(0.14 + 0.1 * pulse) * (settings.calm ? 0.5 : 1)})`;
-    ctx.fillRect(run0, -bh * 0.8, run1 - run0, bh * 1.6);
-    ctx.fillStyle = `rgba(255,255,255,${0.35 + 0.25 * pulse})`;
-    ctx.fillRect(run0, -Math.max(1, bh * 0.1), run1 - run0, Math.max(2, bh * 0.2));
-    ctx.fillStyle = 'rgba(235,250,255,0.9)';
+    gfx.save(); gfx.globalCompositeOperation = 'lighter';
+    gfx.fillStyle = `rgba(110,190,255,${(0.14 + 0.1 * pulse) * (settings.calm ? 0.5 : 1)})`;
+    gfx.fillRect(run0, -bh * 0.8, run1 - run0, bh * 1.6);
+    gfx.fillStyle = `rgba(255,255,255,${0.35 + 0.25 * pulse})`;
+    gfx.fillRect(run0, -Math.max(1, bh * 0.1), run1 - run0, Math.max(2, bh * 0.2));
+    gfx.fillStyle = 'rgba(235,250,255,0.9)';
     for (let i = 0; i < 7; i++) {
       const len = 6 + (i % 3) * 4, span = run1 - run0 - len;
       if (span <= 0) break;
       const x = run0 + ((b.t * 420 + i * 53) % span), y = (((i * 37) % 9) / 9 - 0.5) * bh * 0.7;
-      ctx.fillRect(Math.round(x), Math.round(y), len, 1);
+      gfx.fillRect(Math.round(x), Math.round(y), len, 1);
     }
-    ctx.restore();
+    gfx.restore();
   }
-  if (!clashing) ctx.drawImage(P.head, headX, -hh / 2 - wob, hw, hh + wob * 2);
-  ctx.restore();
+  if (!clashing) gfx.drawImage(P.head, headX, -hh / 2 - wob, hw, hh + wob * 2);
+  gfx.restore();
 }
 
 // The reaction window around the player: a ring closing in on them. It turns gold for the last
@@ -217,14 +217,14 @@ function drawReactRing(r) {
   const f = r.def, left = r.dur - r.t, perfect = left <= REACT_PERFECT;
   const k = Math.max(0, (left - REACT_PERFECT) / (r.dur - REACT_PERFECT));
   const cx = f.x, cy = f.y - 24 * f.scale, rad = 14 + 46 * k;
-  ctx.save();
-  ctx.globalAlpha = 0.9;
-  ctx.strokeStyle = perfect ? '#ffe04a' : '#ffffff'; ctx.lineWidth = perfect ? 2.5 : 1.5;
-  ctx.beginPath(); ctx.arc(cx, cy, rad, 0, Math.PI * 2); ctx.stroke();
+  gfx.save();
+  gfx.globalAlpha = 0.9;
+  gfx.strokeStyle = perfect ? '#ffe04a' : '#ffffff'; gfx.lineWidth = perfect ? 2.5 : 1.5;
+  gfx.beginPath(); gfx.arc(cx, cy, rad, 0, Math.PI * 2); gfx.stroke();
   // the target the ring closes onto
-  ctx.globalAlpha = 0.5; ctx.strokeStyle = '#ffe04a'; ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.arc(cx, cy, 14, 0, Math.PI * 2); ctx.stroke();
-  ctx.restore();
+  gfx.globalAlpha = 0.5; gfx.strokeStyle = '#ffe04a'; gfx.lineWidth = 1;
+  gfx.beginPath(); gfx.arc(cx, cy, 14, 0, Math.PI * 2); gfx.stroke();
+  gfx.restore();
 }
 
 function drawReactPrompt(r) {
@@ -242,10 +242,10 @@ function drawReactPrompt(r) {
 // The Senzu Bean, tossed in a high arc from the edge of the ring
 function drawBean(b) {
   const k = Math.min(1, b.t / b.dur), x = b.x0 + (b.x1 - b.x0) * k, y = b.y0 + (b.y1 - b.y0) * k - Math.sin(k * Math.PI) * 30;
-  ctx.save(); ctx.translate(x, y); ctx.rotate(b.t * 12);
-  ctx.fillStyle = '#2f7d1e'; ctx.beginPath(); ctx.ellipse(0, 0, 3, 2, 0, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = '#7fd85a'; ctx.beginPath(); ctx.ellipse(-0.6, -0.5, 1.6, 0.9, 0, 0, Math.PI * 2); ctx.fill();
-  ctx.restore();
+  gfx.save(); gfx.translate(x, y); gfx.rotate(b.t * 12);
+  gfx.fillStyle = '#2f7d1e'; gfx.beginPath(); gfx.ellipse(0, 0, 3, 2, 0, 0, Math.PI * 2); gfx.fill();
+  gfx.fillStyle = '#7fd85a'; gfx.beginPath(); gfx.ellipse(-0.6, -0.5, 1.6, 0.9, 0, 0, Math.PI * 2); gfx.fill();
+  gfx.restore();
 }
 
 // Where two beams meet: a ball of energy that swells with every press, throwing off sparks.
@@ -253,29 +253,29 @@ function drawClashBall() {
   const { pb, bb, s: k } = clash;
   const x = pb.x0 + (bb.x0 - pb.x0) * k, y = pb.y + (bb.y - pb.y) * k;
   const r = (bb.big ? 15 : 12) + 3 * (clash.pulse || 0) + 1.5 * Math.sin(game.t * 40);
-  ctx.save(); ctx.globalCompositeOperation = 'lighter';
-  const g = ctx.createRadialGradient(x, y, 0, x, y, r * 2.4);
+  gfx.save(); gfx.globalCompositeOperation = 'lighter';
+  const g = gfx.createRadialGradient(x, y, 0, x, y, r * 2.4);
   g.addColorStop(0, 'rgba(255,255,255,0.95)'); g.addColorStop(0.35, 'rgba(160,230,255,0.7)'); g.addColorStop(1, 'rgba(60,140,255,0)');
-  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r * 2.4, 0, Math.PI * 2); ctx.fill();
+  gfx.fillStyle = g; gfx.beginPath(); gfx.arc(x, y, r * 2.4, 0, Math.PI * 2); gfx.fill();
   // crackling rays
-  ctx.strokeStyle = '#e8fbff'; ctx.lineWidth = 1;
+  gfx.strokeStyle = '#e8fbff'; gfx.lineWidth = 1;
   for (let i = 0; i < 7; i++) {
     const a = game.t * 9 + i * 0.9 + Math.sin(game.t * 23 + i) * 0.6, l = r * (1.3 + 0.9 * Math.abs(Math.sin(game.t * 17 + i * 2)));
-    ctx.globalAlpha = 0.5 + 0.5 * Math.abs(Math.sin(game.t * 31 + i));
-    ctx.beginPath(); ctx.moveTo(x + Math.cos(a) * r * 0.6, y + Math.sin(a) * r * 0.6); ctx.lineTo(x + Math.cos(a) * l, y + Math.sin(a) * l); ctx.stroke();
+    gfx.globalAlpha = 0.5 + 0.5 * Math.abs(Math.sin(game.t * 31 + i));
+    gfx.beginPath(); gfx.moveTo(x + Math.cos(a) * r * 0.6, y + Math.sin(a) * r * 0.6); gfx.lineTo(x + Math.cos(a) * l, y + Math.sin(a) * l); gfx.stroke();
   }
-  ctx.restore();
-  FX.kiGlow(ctx, x, y, r * 0.75, game.t);
+  gfx.restore();
+  FX.kiGlow(gfx, x, y, r * 0.75, game.t);
 }
 
 // A ki barrier in front of a blocking fighter; it flares white when a hit lands on it.
 function drawGuard(f) {
   const flare = f.anim === 'blockHit', s = f.scale;
   const cx = f.x + f.facing * 13 * s, cy = f.y - 24 * s;
-  ctx.save();
-  ctx.globalAlpha = (flare ? 0.75 : 0.35) + 0.08 * Math.sin(game.t * 20);
-  ctx.beginPath(); ctx.ellipse(cx, cy, 6, 23 * s, 0, -Math.PI / 2, Math.PI / 2, f.facing < 0);
-  ctx.fillStyle = flare ? 'rgba(255,255,255,0.45)' : 'rgba(120,210,255,0.22)'; ctx.fill();
-  ctx.strokeStyle = flare ? '#ffffff' : '#8fe3ff'; ctx.lineWidth = flare ? 2 : 1.2; ctx.stroke();
-  ctx.restore();
+  gfx.save();
+  gfx.globalAlpha = (flare ? 0.75 : 0.35) + 0.08 * Math.sin(game.t * 20);
+  gfx.beginPath(); gfx.ellipse(cx, cy, 6, 23 * s, 0, -Math.PI / 2, Math.PI / 2, f.facing < 0);
+  gfx.fillStyle = flare ? 'rgba(255,255,255,0.45)' : 'rgba(120,210,255,0.22)'; gfx.fill();
+  gfx.strokeStyle = flare ? '#ffffff' : '#8fe3ff'; gfx.lineWidth = flare ? 2 : 1.2; gfx.stroke();
+  gfx.restore();
 }

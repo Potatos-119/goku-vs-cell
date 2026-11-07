@@ -203,7 +203,6 @@ function barrier(f) {
 }
 
 // A Cell Junior called in by Perfect Cell: it flies at the enemy, strikes once (a launcher) and vanishes.
-const JR_FRAMES = { in: '17.0', dash: '18.10', hit: '18.7' };
 function callJunior(f) {
   const x = clamp(f.x - f.facing * 14, 16, W - 16);
   minions.push({ owner: f, x, y: FLOOR, dir: f.facing, t: 0, state: 'in' });
@@ -433,23 +432,23 @@ function updateSpirit(dt) {
 function drawSpirit() {
   const sb = game.spirit;
   if (!sb) return;
-  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  gfx.save(); gfx.globalCompositeOperation = 'lighter';
   if (sb.phase === 'boom') {
     // the explosion: its two rings, swelling and fading out
     const k = sb.t / 0.6;
     [[FX_ART.spiritRing1, 0.5 + k * 0.7], [FX_ART.spiritRing2, 0.3 + k * 1.1]].forEach(([a, sc]) => {
       const im = art(a), w = im.width * sc * 0.6, h = im.height * sc * 0.6;
-      ctx.globalAlpha = Math.max(0, 1 - k); ctx.drawImage(im, sb.x - w / 2, sb.y - h / 2, w, h);
+      gfx.globalAlpha = Math.max(0, 1 - k); gfx.drawImage(im, sb.x - w / 2, sb.y - h / 2, w, h);
     });
   } else {
     const im = art(FX_ART.spiritBall), fade = sb.phase === 'fizzle' ? Math.max(0, 1 - sb.t / 0.3) : 1;
     const r = sb.r * (sb.phase === 'fizzle' ? 1 + sb.t * 2 : 1) * (1 + 0.04 * Math.sin(game.t * 25));
-    const g = ctx.createRadialGradient(sb.x, sb.y, r * 0.5, sb.x, sb.y, r * 1.8);
+    const g = gfx.createRadialGradient(sb.x, sb.y, r * 0.5, sb.x, sb.y, r * 1.8);
     g.addColorStop(0, `rgba(120,230,255,${0.5 * fade})`); g.addColorStop(1, 'rgba(60,160,255,0)');
-    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(sb.x, sb.y, r * 1.8, 0, Math.PI * 2); ctx.fill();
-    ctx.globalAlpha = fade; ctx.drawImage(im, sb.x - r, sb.y - r, r * 2, r * 2);
+    gfx.fillStyle = g; gfx.beginPath(); gfx.arc(sb.x, sb.y, r * 1.8, 0, Math.PI * 2); gfx.fill();
+    gfx.globalAlpha = fade; gfx.drawImage(im, sb.x - r, sb.y - r, r * 2, r * 2);
   }
-  ctx.restore();
+  gfx.restore();
 }
 
 function startUlt(f) {

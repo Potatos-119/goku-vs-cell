@@ -67,12 +67,15 @@ Options cover difficulty, volume, calm mode and the arena, and they're saved bet
 - `game/`: the game, one file per system (input, combat, boss AI, cutscenes, menus, rendering), loaded
   in order as plain scripts
 - `data.js`: the frames for each move, the move list and the combo list
-- `sheets.js`, `frames.js`: sprite loading. `assets/frames/` holds every frame already cut out and
-  packed into one atlas, so the game doesn't need a canvas to load its art
+- `gfx.js`: the renderer. There's no canvas: the game is drawn as SVG, one element per shape, sprite or
+  line of text, and elements are reused from frame to frame so only what changed gets touched
+- `frames.js`: loads the sprite frames, already cut out and packed into one atlas in `assets/frames/`
+- `sheets.js`: cuts those frames out of the original sheets. Only the bake tool uses it
 - `audio.js`: music, sound effects and the sound slice table
 - `stage.js`: the arena and the damage the fight does to it
 - `tools/balance.js`: plays the boss at high speed and measures how hard it hits per phase
-- `tools/bake.js`: re-bakes the frames after a sheet changes (`tools/atlas.html` shows the result)
+- `tools/bake.html`: re-bakes the frames after a sheet changes (`tools/atlas.html` shows the result)
+- `tools/scene.js`: freezes the game on a fixed scene, for comparing screenshots between versions
 - `tools/frames.html`, `tools/sounds.html`: browse sheet frames and sound slices
 
 The boss tuning lives in `BOSS_FLOW` and `BOSS_COMBO_BUDGET` in `game/boss-ai.js`.

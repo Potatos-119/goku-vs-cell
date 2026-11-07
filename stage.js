@@ -1,9 +1,9 @@
-// The Cell Games arena: the background art in assets/img (the painted version below is the
-// fallback if it can't load). On top of it run the live bits: drifting dust, a news
+// The Cell Games arena: the background art in assets/img (the painted version below stands in
+// until it has loaded, or if it can't). On top of it run the live bits: drifting dust, a news
 // helicopter, rocks lifted by power-ups and the cracks fighters leave in the ring.
 const Stage = (() => {
   const W = 320, H = 180, S = 4, HORIZON = 110, RING = 128, FLOOR = 162;
-  let painted = null, decals = [], dust = [], debris = [], heliX = -30, clock = 0;
+  let decals = [], dust = [], debris = [], heliX = -30, clock = 0;
   let chunks = [], rings = [], shadows = [], birds = { x: -60, y: 30, t: 9 }, gusts = [];
   // environment impact: billowing dust, distant explosions on the mountains, wind streaks
   let clouds = [], blasts = [], winds = [];
@@ -56,10 +56,9 @@ const Stage = (() => {
     c.fillStyle = 'rgba(255,240,210,0.35)'; c.fillRect(l, top, r - l, 1);
   }
 
-  function paint() {
+  // drawn straight into the frame (same seed every time, so it looks the same each frame)
+  function paint(c) {
     seed = 11;
-    const cv = document.createElement('canvas'); cv.width = W * S; cv.height = H * S;
-    const c = cv.getContext('2d'); c.scale(S, S);
     // sky and sun
     let g = c.createLinearGradient(0, 0, 0, HORIZON);
     g.addColorStop(0, '#4a7fc0'); g.addColorStop(0.5, '#8cbde0'); g.addColorStop(1, '#f1dfb8');
@@ -124,7 +123,6 @@ const Stage = (() => {
       c.fillStyle = '#fffefb'; c.fillRect(x - 1, RING - 22, 8, 2.4);
       c.fillStyle = 'rgba(60,50,40,0.25)'; c.beginPath(); c.ellipse(x + 3, RING, 6, 1.2, 0, 0, Math.PI * 2); c.fill();
     }
-    return cv;
   }
 
   function reset() {
@@ -262,153 +260,152 @@ const Stage = (() => {
     gusts = gusts.filter(g => g.x < W + 60);
   }
 
-  function drawCrater(ctx, d) {
+  function drawCrater(gfx, d) {
     const rx = 12 * d.size, ry = 3.3 * d.size, cy = FLOOR + 1.5;
-    ctx.save(); ctx.translate(d.x, cy); ctx.scale(1, ry / rx);
-    const g = ctx.createRadialGradient(0, 0, 0.5, 0, 0, rx);
+    gfx.save(); gfx.translate(d.x, cy); gfx.scale(1, ry / rx);
+    const g = gfx.createRadialGradient(0, 0, 0.5, 0, 0, rx);
     g.addColorStop(0, 'rgba(12,14,34,0.85)'); g.addColorStop(0.55, 'rgba(28,33,68,0.6)'); g.addColorStop(0.85, 'rgba(50,58,100,0.25)'); g.addColorStop(1, 'rgba(50,58,100,0)');
-    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, rx, 0, Math.PI * 2); ctx.fill();
-    ctx.lineWidth = 2.2;
-    ctx.strokeStyle = 'rgba(10,12,30,0.7)'; ctx.beginPath(); ctx.arc(0, 0, rx * 0.72, Math.PI * 1.05, Math.PI * 1.95); ctx.stroke();
-    ctx.strokeStyle = 'rgba(240,245,255,0.75)'; ctx.beginPath(); ctx.arc(0, 0, rx * 0.8, Math.PI * 0.08, Math.PI * 0.92); ctx.stroke();
-    ctx.restore();
-    ctx.strokeStyle = 'rgba(20,23,48,0.8)'; ctx.lineWidth = 0.7;
-    for (const seg of d.lines) { ctx.beginPath(); seg.forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)); ctx.stroke(); }
+    gfx.fillStyle = g; gfx.beginPath(); gfx.arc(0, 0, rx, 0, Math.PI * 2); gfx.fill();
+    gfx.lineWidth = 2.2;
+    gfx.strokeStyle = 'rgba(10,12,30,0.7)'; gfx.beginPath(); gfx.arc(0, 0, rx * 0.72, Math.PI * 1.05, Math.PI * 1.95); gfx.stroke();
+    gfx.strokeStyle = 'rgba(240,245,255,0.75)'; gfx.beginPath(); gfx.arc(0, 0, rx * 0.8, Math.PI * 0.08, Math.PI * 0.92); gfx.stroke();
+    gfx.restore();
+    gfx.strokeStyle = 'rgba(20,23,48,0.8)'; gfx.lineWidth = 0.7;
+    for (const seg of d.lines) { gfx.beginPath(); seg.forEach(([x, y], i) => i ? gfx.lineTo(x, y) : gfx.moveTo(x, y)); gfx.stroke(); }
     for (const p of d.pieces) {
-      ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.tilt * 0.3);
-      ctx.fillStyle = '#a9b1d6'; ctx.fillRect(-p.w / 2, -p.h, p.w, p.h);
-      ctx.fillStyle = '#d9def5'; ctx.fillRect(-p.w / 2, -p.h, p.w, 0.6);
-      ctx.strokeStyle = 'rgba(30,34,64,0.9)'; ctx.lineWidth = 0.5; ctx.strokeRect(-p.w / 2, -p.h, p.w, p.h);
-      ctx.restore();
+      gfx.save(); gfx.translate(p.x, p.y); gfx.rotate(p.tilt * 0.3);
+      gfx.fillStyle = '#a9b1d6'; gfx.fillRect(-p.w / 2, -p.h, p.w, p.h);
+      gfx.fillStyle = '#d9def5'; gfx.fillRect(-p.w / 2, -p.h, p.w, 0.6);
+      gfx.strokeStyle = 'rgba(30,34,64,0.9)'; gfx.lineWidth = 0.5; gfx.strokeRect(-p.w / 2, -p.h, p.w, p.h);
+      gfx.restore();
     }
   }
 
-  function drawScorch(ctx, d) {
+  function drawScorch(gfx, d) {
     const y = FLOOR + 1, heat = Math.max(0, 1 - d.t / 1.8), n = d.jag.length - 1;
-    ctx.save();
+    gfx.save();
     // the gouge: a ragged dark band, deepest in the middle, tapering at both ends, its near lip lit
     for (let i = 0; i < n; i++) {
       const x = d.x0 + i * 4, w = Math.min(4, d.x1 - x);
       if (w <= 0) break;
       const taper = Math.min(1, (i + 1) / 3, (n - i) / 3);
       const h = (5 + d.jag[i] * 2) * d.width * taper;
-      ctx.fillStyle = 'rgba(40,38,60,0.55)'; ctx.fillRect(x, y - h / 2, w, h);
-      ctx.fillStyle = 'rgba(14,12,26,0.75)'; ctx.fillRect(x, y - h / 4, w, h / 2);
-      ctx.fillStyle = 'rgba(245,248,255,0.55)'; ctx.fillRect(x, y + h / 2, w, 0.7);
+      gfx.fillStyle = 'rgba(40,38,60,0.55)'; gfx.fillRect(x, y - h / 2, w, h);
+      gfx.fillStyle = 'rgba(14,12,26,0.75)'; gfx.fillRect(x, y - h / 4, w, h / 2);
+      gfx.fillStyle = 'rgba(245,248,255,0.55)'; gfx.fillRect(x, y + h / 2, w, 0.7);
       if (heat > 0) {
-        ctx.fillStyle = `rgba(255,${120 + Math.round(110 * heat)},${40 + Math.round(60 * heat)},${0.9 * heat})`;
-        ctx.fillRect(x, y - h / 6, w, h / 3);
+        gfx.fillStyle = `rgba(255,${120 + Math.round(110 * heat)},${40 + Math.round(60 * heat)},${0.9 * heat})`;
+        gfx.fillRect(x, y - h / 6, w, h / 3);
       }
     }
-    ctx.restore();
+    gfx.restore();
   }
 
-  function drawFarBlast(ctx, b) {
+  function drawFarBlast(gfx, b) {
     const s = b.size, x = b.x, t = b.t;
-    ctx.save();
+    gfx.save();
     // the flash lights up the sky for an instant
-    if (t < 0.18) { ctx.fillStyle = `rgba(255,250,225,${(1 - t / 0.18) * 0.55 * Math.min(1, s)})`; ctx.fillRect(0, 0, W, FAR + 14); }
+    if (t < 0.18) { gfx.fillStyle = `rgba(255,250,225,${(1 - t / 0.18) * 0.55 * Math.min(1, s)})`; gfx.fillRect(0, 0, W, FAR + 14); }
     // the fireball: a dome that swells on the horizon, white-hot core to orange
     const fireT = 1.3 * Math.max(0.5, s), fire = Math.max(0, 1 - t / fireT);
     if (fire > 0) {
       const r = (10 + 24 * Math.sqrt(1 - fire)) * s;
-      const g = ctx.createRadialGradient(x, FAR, 0, x, FAR, r);
+      const g = gfx.createRadialGradient(x, FAR, 0, x, FAR, r);
       g.addColorStop(0, `rgba(255,255,240,${fire})`); g.addColorStop(0.35, `rgba(255,214,120,${fire})`);
       g.addColorStop(0.7, `rgba(255,130,50,${0.8 * fire})`); g.addColorStop(1, 'rgba(200,70,30,0)');
-      ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(x, FAR, r, r * 0.9, 0, Math.PI, 0); ctx.fill();
+      gfx.fillStyle = g; gfx.beginPath(); gfx.ellipse(x, FAR, r, r * 0.9, 0, Math.PI, 0); gfx.fill();
       // a pillar of light shooting up out of it
-      ctx.fillStyle = `rgba(255,248,220,${0.7 * fire * fire})`;
-      ctx.fillRect(x - 2 * s, FAR - r * 1.6, 4 * s, r * 1.6);
+      gfx.fillStyle = `rgba(255,248,220,${0.7 * fire * fire})`;
+      gfx.fillRect(x - 2 * s, FAR - r * 1.6, 4 * s, r * 1.6);
     }
     // then the mushroom: a stem of smoke and a rolling cap, drifting and fading
     const smoke = Math.min(1, Math.max(0, t - 0.25) * 2) * Math.max(0, 1 - t / b.life);
     if (smoke > 0) {
       const rise = Math.min(1, t / 2.2), top = FAR - (16 + 30 * rise) * s, lean = b.lean * rise * s;
-      ctx.fillStyle = `rgba(92,80,78,${0.55 * smoke})`;
-      ctx.beginPath(); ctx.moveTo(x - 4 * s, FAR); ctx.lineTo(x - 2.5 * s + lean, top); ctx.lineTo(x + 2.5 * s + lean, top); ctx.lineTo(x + 4 * s, FAR); ctx.fill();
+      gfx.fillStyle = `rgba(92,80,78,${0.55 * smoke})`;
+      gfx.beginPath(); gfx.moveTo(x - 4 * s, FAR); gfx.lineTo(x - 2.5 * s + lean, top); gfx.lineTo(x + 2.5 * s + lean, top); gfx.lineTo(x + 4 * s, FAR); gfx.fill();
       for (let i = 0; i < 7; i++) {
         const a = (i / 6) * Math.PI, cr = (5 + 3 * rise) * s;
         const cx = x + lean + Math.cos(a) * 9 * s * (0.6 + rise * 0.6), cy = top + 2 - Math.sin(a) * 4 * s;
-        ctx.fillStyle = `rgba(${120 - i * 4},${104 - i * 3},${100 - i * 3},${0.6 * smoke})`;
-        ctx.beginPath(); ctx.arc(cx, cy, cr, 0, Math.PI * 2); ctx.fill();
+        gfx.fillStyle = `rgba(${120 - i * 4},${104 - i * 3},${100 - i * 3},${0.6 * smoke})`;
+        gfx.beginPath(); gfx.arc(cx, cy, cr, 0, Math.PI * 2); gfx.fill();
       }
       // the fire still glowing under the smoke
-      ctx.fillStyle = `rgba(255,150,70,${0.35 * smoke * Math.max(0, 1 - t / 2.5)})`;
-      ctx.beginPath(); ctx.ellipse(x, FAR, 10 * s, 3 * s, 0, Math.PI, 0); ctx.fill();
+      gfx.fillStyle = `rgba(255,150,70,${0.35 * smoke * Math.max(0, 1 - t / 2.5)})`;
+      gfx.beginPath(); gfx.ellipse(x, FAR, 10 * s, 3 * s, 0, Math.PI, 0); gfx.fill();
     }
-    ctx.restore();
+    gfx.restore();
   }
 
-  function drawClouds(ctx) {
+  function drawClouds(gfx) {
     for (const c of clouds) {
       const a = Math.min(1, c.t * 8) * (1 - c.t / c.life);
-      ctx.fillStyle = `rgba(${200 + Math.round(c.shade * 30)},${192 + Math.round(c.shade * 28)},${180 + Math.round(c.shade * 24)},${0.55 * a})`;
-      ctx.beginPath(); ctx.arc(c.x, c.y - c.r * 0.5, c.r, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = `rgba(120,110,110,${0.18 * a})`;
-      ctx.beginPath(); ctx.arc(c.x, c.y - c.r * 0.2, c.r * 0.8, 0, Math.PI); ctx.fill();
+      gfx.fillStyle = `rgba(${200 + Math.round(c.shade * 30)},${192 + Math.round(c.shade * 28)},${180 + Math.round(c.shade * 24)},${0.55 * a})`;
+      gfx.beginPath(); gfx.arc(c.x, c.y - c.r * 0.5, c.r, 0, Math.PI * 2); gfx.fill();
+      gfx.fillStyle = `rgba(120,110,110,${0.18 * a})`;
+      gfx.beginPath(); gfx.arc(c.x, c.y - c.r * 0.2, c.r * 0.8, 0, Math.PI); gfx.fill();
     }
   }
 
-  function drawBack(ctx, dim = 0) {
-    ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+  function drawBack(gfx, dim = 0) {
+    gfx.imageSmoothingEnabled = true; gfx.imageSmoothingQuality = 'high';
     const photo = photos[arena], a = ARENAS[arena];
     if (photo.complete && photo.naturalWidth) {
       const h = photo.naturalHeight * a.w / photo.naturalWidth;
-      ctx.drawImage(photo, a.x, a.top(h), a.w, h);
+      gfx.drawImage(photo, a.x, a.top(h), a.w, h);
     } else {
-      if (!painted) { painted = paint(); reset(); }
-      ctx.drawImage(painted, 0, 0, W, H);
+      paint(gfx);
     }
     if (!shadows.length) reset();
     // cloud shadows drifting over the ring
     for (const sh of shadows) {
-      const g = ctx.createRadialGradient(sh.x, sh.y, 2, sh.x, sh.y, sh.r);
+      const g = gfx.createRadialGradient(sh.x, sh.y, 2, sh.x, sh.y, sh.r);
       g.addColorStop(0, 'rgba(20,26,70,0.1)'); g.addColorStop(1, 'rgba(20,26,70,0)');
-      ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(sh.x, sh.y, sh.r, sh.r * 0.28, 0, 0, Math.PI * 2); ctx.fill();
+      gfx.fillStyle = g; gfx.beginPath(); gfx.ellipse(sh.x, sh.y, sh.r, sh.r * 0.28, 0, 0, Math.PI * 2); gfx.fill();
     }
-    ctx.imageSmoothingEnabled = false;
+    gfx.imageSmoothingEnabled = false;
     // helicopter crossing the sky
     const hx = Math.round(heliX), hy = 40 + Math.round(Math.sin(clock * 0.8) * 2);
-    ctx.fillStyle = '#4a4f5a'; ctx.fillRect(hx, hy, 6, 3); ctx.fillRect(hx - 5, hy + 1, 5, 1); ctx.fillRect(hx - 6, hy, 1, 2);
-    ctx.fillStyle = 'rgba(40,40,50,0.6)'; ctx.fillRect(hx - 3 + (Math.floor(clock * 30) % 2) * 2, hy - 1, 9, 1);
+    gfx.fillStyle = '#4a4f5a'; gfx.fillRect(hx, hy, 6, 3); gfx.fillRect(hx - 5, hy + 1, 5, 1); gfx.fillRect(hx - 6, hy, 1, 2);
+    gfx.fillStyle = 'rgba(40,40,50,0.6)'; gfx.fillRect(hx - 3 + (Math.floor(clock * 30) % 2) * 2, hy - 1, 9, 1);
     // birds, wings flapping
     if (birds.t <= 0) {
-      ctx.fillStyle = '#2c3048';
+      gfx.fillStyle = '#2c3048';
       [[0, 0], [7, 3], [-6, 4], [13, 6]].forEach(([dx, dy], i) => {
         const bx = Math.round(birds.x + dx), by = Math.round(birds.y + dy), up = Math.floor(clock * 8 + i) % 2;
-        ctx.fillRect(bx - 2, by - up, 2, 1); ctx.fillRect(bx, by, 1, 1); ctx.fillRect(bx + 1, by - up, 2, 1);
+        gfx.fillRect(bx - 2, by - up, 2, 1); gfx.fillRect(bx, by, 1, 1); gfx.fillRect(bx + 1, by - up, 2, 1);
       });
     }
-    for (const b of blasts) drawFarBlast(ctx, b);
-    for (const d of decals) d.scorch ? drawScorch(ctx, d) : drawCrater(ctx, d);
+    for (const b of blasts) drawFarBlast(gfx, b);
+    for (const d of decals) d.scorch ? drawScorch(gfx, d) : drawCrater(gfx, d);
     for (const r of rings) {
       const k = r.t / 0.45, rx = (8 + k * 70) * r.size;
-      ctx.strokeStyle = `rgba(220,235,255,${0.7 * (1 - k)})`; ctx.lineWidth = 1.4;
-      ctx.beginPath(); ctx.ellipse(r.x, FLOOR + 1, rx, rx * 0.2, 0, 0, Math.PI * 2); ctx.stroke();
+      gfx.strokeStyle = `rgba(220,235,255,${0.7 * (1 - k)})`; gfx.lineWidth = 1.4;
+      gfx.beginPath(); gfx.ellipse(r.x, FLOOR + 1, rx, rx * 0.2, 0, 0, Math.PI * 2); gfx.stroke();
     }
     for (const d of debris) {
-      ctx.fillStyle = `rgba(150,148,175,${Math.min(1, (d.life - d.t) / Math.min(1, d.life))})`;
-      ctx.fillRect(Math.round(d.x + Math.sin(d.t * 4 + d.wob) * 2), Math.round(d.y), Math.ceil(d.r), Math.ceil(d.r));
+      gfx.fillStyle = `rgba(150,148,175,${Math.min(1, (d.life - d.t) / Math.min(1, d.life))})`;
+      gfx.fillRect(Math.round(d.x + Math.sin(d.t * 4 + d.wob) * 2), Math.round(d.y), Math.ceil(d.r), Math.ceil(d.r));
     }
     for (const c of chunks) {
-      ctx.save(); ctx.translate(Math.round(c.x), Math.round(c.y)); ctx.rotate(c.rot); ctx.globalAlpha = Math.min(1, (1.4 - c.t) * 2);
-      ctx.fillStyle = '#9da6cf'; ctx.fillRect(-c.r, -c.r * 0.6, c.r * 2, c.r * 1.2);
-      ctx.fillStyle = '#2a2f55'; ctx.fillRect(-c.r, c.r * 0.3, c.r * 2, c.r * 0.3);
-      ctx.restore();
+      gfx.save(); gfx.translate(Math.round(c.x), Math.round(c.y)); gfx.rotate(c.rot); gfx.globalAlpha = Math.min(1, (1.4 - c.t) * 2);
+      gfx.fillStyle = '#9da6cf'; gfx.fillRect(-c.r, -c.r * 0.6, c.r * 2, c.r * 1.2);
+      gfx.fillStyle = '#2a2f55'; gfx.fillRect(-c.r, c.r * 0.3, c.r * 2, c.r * 0.3);
+      gfx.restore();
     }
     for (const w of winds) {
-      ctx.fillStyle = `rgba(240,232,214,${0.5 * (1 - w.t / 0.35)})`;
-      ctx.fillRect(Math.round(w.v > 0 ? w.x : w.x - w.len), Math.round(w.y), Math.round(w.len), 1);
+      gfx.fillStyle = `rgba(240,232,214,${0.5 * (1 - w.t / 0.35)})`;
+      gfx.fillRect(Math.round(w.v > 0 ? w.x : w.x - w.len), Math.round(w.y), Math.round(w.len), 1);
     }
-    drawClouds(ctx);
-    if (dim) { ctx.fillStyle = `rgba(0,0,0,${dim})`; ctx.fillRect(0, 0, W, H); }
+    drawClouds(gfx);
+    if (dim) { gfx.fillStyle = `rgba(0,0,0,${dim})`; gfx.fillRect(0, 0, W, H); }
   }
 
-  function drawFront(ctx) {
-    for (const d of dust) { ctx.fillStyle = `rgba(235,225,205,${d.a})`; ctx.fillRect(Math.round(d.x), Math.round(d.y), 1, 1); }
+  function drawFront(gfx) {
+    for (const d of dust) { gfx.fillStyle = `rgba(235,225,205,${d.a})`; gfx.fillRect(Math.round(d.x), Math.round(d.y), 1, 1); }
     for (const g of gusts) {
-      ctx.fillStyle = 'rgba(255,255,255,0.22)'; ctx.fillRect(Math.round(g.x), Math.round(g.y), Math.round(g.len), 1);
-      ctx.fillStyle = 'rgba(255,255,255,0.12)'; ctx.fillRect(Math.round(g.x + g.len * 0.3), Math.round(g.y) + 2, Math.round(g.len * 0.6), 1);
+      gfx.fillStyle = 'rgba(255,255,255,0.22)'; gfx.fillRect(Math.round(g.x), Math.round(g.y), Math.round(g.len), 1);
+      gfx.fillStyle = 'rgba(255,255,255,0.12)'; gfx.fillRect(Math.round(g.x + g.len * 0.3), Math.round(g.y) + 2, Math.round(g.len * 0.6), 1);
     }
   }
 

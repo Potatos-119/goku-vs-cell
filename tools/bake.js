@@ -2,9 +2,8 @@
 // recolours, gold auras, anchors worked out: everything sheets.js does at load time) and packs them
 // into a few atlas images, so the game can load finished frames instead of cutting them on a canvas.
 //
-// Run it in the game page (python3 -m http.server 8766, open http://localhost:8766), in the console:
-//   paste this file, then:  await bakeFrames()
-// It downloads frames-bake.json. Then, from the project folder:
+// Serve the project folder (python3 -m http.server 8766), open http://localhost:8766/tools/bake.html
+// and press Bake. It downloads frames-bake.json. Then, from the project folder:
 //   node tools/write-frames.js ~/Downloads/frames-bake.json
 // which writes assets/frames/atlas-N.png and assets/frames/frames.json.
 //
@@ -27,7 +26,7 @@
     // frames named directly in the code (title, select screen, Cell Juniors, the SSJ hair template)
     for (const id of ['11.0', '0.2']) add('goku', id);
     for (const id of ['12.0', '0.0']) add('cell', id);
-    if (typeof JR_FRAMES !== 'undefined') for (const id of Object.values(JR_FRAMES)) add('cell', id);
+    for (const id of Object.values(JR_FRAMES)) add('cell', id);
     return list;
   }
 
@@ -55,8 +54,8 @@
     });
   }
 
-  window.bakeFrames = async function ({ download = true } = {}) {
-    if (!Sheets.sheets.goku) await Sheets.load();
+  window.bakeFrames = async function ({ download = true, base = '../' } = {}) {
+    if (!Sheets.sheets.goku) await Sheets.load(base);
     for (const [sheet, ref] of wanted()) Sheets.frame(sheet, ref);
     // everything in the cache: the list above plus anything the game has asked for while running
     const frames = [...Sheets.cache.entries()].map(([key, c]) => ({ key, c }));

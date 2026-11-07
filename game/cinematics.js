@@ -329,7 +329,7 @@ function drawCutin() {
   const cell = C.seq[i][0], sx = (cell % C.cols) * C.w, sy = Math.floor(cell / C.cols) * C.h;
   // a quick fade at each end, so it cuts in and out like the anime rather than popping
   const a = Math.min(1, c.t / 0.08, (C.dur - c.t) / 0.1);
-  ctx.save(); ctx.globalAlpha = clamp(a, 0, 1); ctx.imageSmoothingEnabled = false;
-  ctx.drawImage(C.img, sx, sy, C.w, C.h, 0, 0, W, H);
-  ctx.restore();
+  gfx.save(); gfx.globalAlpha = clamp(a, 0, 1); gfx.imageSmoothingEnabled = false;
+  gfx.drawImage(C.img, sx, sy, C.w, C.h, 0, 0, W, H);
+  gfx.restore();
 }

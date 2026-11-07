@@ -25,7 +25,7 @@ function loop(now) {
   pollGamepad();
   // hit-freeze frames skip input, so keep those key presses for the next real frame
   if (step(raw) !== 'frozen') pressed.clear();
-  render();
+  gfx.beginFrame(); render(); gfx.endFrame();
   requestAnimationFrame(loop);
 }
 

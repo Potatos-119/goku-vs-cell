@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Frame Baker</title>
+<!-- Cuts every sprite frame out of the sheets (sheets.js does the cutting, on a canvas, here only)
+     and downloads them packed into an atlas. See the top of tools/bake.js. -->
+<style>
+  body { margin: 0; padding: 16px; background: #1b1830; color: #ddd; font: 14px/1.5 system-ui, sans-serif; }
+  button { font: inherit; padding: 8px 16px; border-radius: 6px; border: 0; background: #ffd23a; color: #1b1830; cursor: pointer; }
+  code { color: #ffd23a; }
+</style>
+</head>
+<body>
+<h1>Frame baker</h1>
+<p>Bakes every frame the game uses into one download, <code>frames-bake.json</code>. Then run
+<code>node tools/write-frames.js ~/Downloads/frames-bake.json</code> from the project folder and check
+the result in <a href="atlas.html" style="color:#9ff">atlas.html</a>.</p>
+<button id="go">Bake</button>
+<p id="out"></p>
+<script src="../sheets.js"></script>
+<script src="../data.js"></script>
+<script src="bake.js"></script>
+<script>
+document.getElementById('go').onclick = async () => {
+  const out = await bakeFrames();
+  document.getElementById('out').textContent = `${Object.keys(out.frames).length} frames in ${out.atlases.length} atlas image(s), downloaded.`;
+};
+</script>
+</body>
+</html>

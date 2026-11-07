@@ -124,8 +124,8 @@ function menuInput() {
 function drawMenu() {
   if (!game.menu.length) return;
   const top = game.menu[game.menu.length - 1], m = MENUS[top.id](), who = guideWho();
-  ctx.setTransform(S, 0, 0, S, 0, 0);
-  ctx.fillStyle = m.page ? 'rgba(6,5,16,0.96)' : 'rgba(6,5,16,0.86)'; ctx.fillRect(0, 0, W, H);
+  gfx.setTransform(S, 0, 0, S, 0, 0);
+  gfx.fillStyle = m.page ? 'rgba(6,5,16,0.96)' : 'rgba(6,5,16,0.86)'; gfx.fillRect(0, 0, W, H);
   text(m.title, W / 2, 6, 15, '#ffe04a', 'center');
   let y = 28;
   if (m.page === 'moves') {
@@ -163,7 +163,7 @@ function trainingRefill(dt) {
 // Training checklist: every named combo, ticked once you've landed it; the next one to try is lit.
 function drawChecklist() {
   const list = COMBOS[player.who], next = list.find(c => !game.learned.has(c.name));
-  ctx.fillStyle = 'rgba(6,5,16,0.55)'; ctx.fillRect(W - 98, 30, 94, 11 + list.length * 6 + (next ? 9 : 0));
+  gfx.fillStyle = 'rgba(6,5,16,0.55)'; gfx.fillRect(W - 98, 30, 94, 11 + list.length * 6 + (next ? 9 : 0));
   small('COMBO CHECKLIST', W - 51, 32, '#9ff', 'center', 4);
   list.forEach((c, k) => {
     const got = game.learned.has(c.name);

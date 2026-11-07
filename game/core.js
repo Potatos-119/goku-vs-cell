@@ -4,12 +4,10 @@ const W = 320, H = 180, FLOOR = 162, GRAV = 1300, JUMP_V = -400;
 const PLAYER_HP = 100, BOSS_HP = 300;
 // Perfect Cell's own health bar once he completes himself (see bossPhase)
 const PERFECT_HP = 200;
-const canvas = document.getElementById('game');
-// the world is 320x180; draw it 4x, or 8x on big/retina screens so the arena art and text stay
-// sharp instead of being stretched (a multiple of 4 keeps S x zoom whole, so pixel art stays crisp)
-const S = screen.width * (window.devicePixelRatio || 1) > 1900 ? 8 : 4;
-canvas.width = W * S; canvas.height = H * S;
-const ctx = canvas.getContext('2d');
+// the world is 320x180, drawn as SVG (gfx.js) at 4x: one world pixel is 4 units of the drawing, which
+// the browser scales to the window. SVG stays sharp at any size, so S doesn't depend on the screen.
+const S = 4;
+const gfx = new Gfx(document.getElementById('game'), W * S, H * S);
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const rand = (a, b) => a + Math.random() * (b - a);

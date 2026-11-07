@@ -11,38 +11,39 @@
   @font-face { font-family: Saiyan; src: url(assets/font/Saiyan-Sans.ttf); }
   html, body { margin: 0; height: 100%; background: #07060d; overflow: hidden; }
   body { display: flex; align-items: center; justify-content: center; }
-  canvas { position: relative; width: min(100vw, calc(100vh * 16 / 9)); aspect-ratio: 16 / 9; image-rendering: pixelated; display: block;
+  #game { position: relative; width: min(100vw, calc(100vh * 16 / 9)); aspect-ratio: 16 / 9; image-rendering: pixelated; display: block;
            box-shadow: 0 0 60px 20px rgba(0, 0, 0, .55); }
   /* the game is 16:9; on any other screen shape, fill the leftover space with a blurred, darker
      copy of the arena instead of black bars */
   body::before { content: ''; position: fixed; inset: -60px; background: url(assets/img/arena.jpg) center / cover;
                  filter: blur(28px) brightness(.45) saturate(1.2); }
-  /* preload fonts so canvas text uses them */
+  /* load the fonts up front, so the first text drawn already uses them */
   .preload { position: absolute; opacity: 0; font-family: Saiyan; } .preload b { font-family: 'Press Start 2P'; }
 </style>
 </head>
 <body>
-<canvas id="game"></canvas>
+<svg id="game"></svg>
 <div class="preload">a<b>a</b></div>
-<script src="sheets.js?v=105"></script>
-<script src="data.js?v=105"></script>
-<script src="fx.js?v=105"></script>
-<script src="audio.js?v=105"></script>
-<script src="stage.js?v=105"></script>
+<script src="frames.js?v=106"></script>
+<script src="gfx.js?v=106"></script>
+<script src="data.js?v=106"></script>
+<script src="fx.js?v=106"></script>
+<script src="audio.js?v=106"></script>
+<script src="stage.js?v=106"></script>
 <!-- the game itself, split by system; plain scripts sharing one global scope, so the order matters -->
-<script src="game/core.js?v=105"></script>
-<script src="game/input.js?v=105"></script>
-<script src="game/fighters.js?v=105"></script>
-<script src="game/combat.js?v=105"></script>
-<script src="game/fighter-update.js?v=105"></script>
-<script src="game/player.js?v=105"></script>
-<script src="game/boss-ai.js?v=105"></script>
-<script src="game/projectiles.js?v=105"></script>
-<script src="game/cinematics.js?v=105"></script>
-<script src="game/cutscenes.js?v=105"></script>
-<script src="game/menus.js?v=105"></script>
-<script src="game/loop.js?v=105"></script>
-<script src="game/render.js?v=105"></script>
-<script src="game/main.js?v=105"></script>
+<script src="game/core.js?v=106"></script>
+<script src="game/input.js?v=106"></script>
+<script src="game/fighters.js?v=106"></script>
+<script src="game/combat.js?v=106"></script>
+<script src="game/fighter-update.js?v=106"></script>
+<script src="game/player.js?v=106"></script>
+<script src="game/boss-ai.js?v=106"></script>
+<script src="game/projectiles.js?v=106"></script>
+<script src="game/cinematics.js?v=106"></script>
+<script src="game/cutscenes.js?v=106"></script>
+<script src="game/menus.js?v=106"></script>
+<script src="game/loop.js?v=106"></script>
+<script src="game/render.js?v=106"></script>
+<script src="game/main.js?v=106"></script>
 </body>
 </html>
