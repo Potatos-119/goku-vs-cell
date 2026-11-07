@@ -122,4 +122,16 @@ function setForm(f, form) {
   f.form = form;
   if (f.who === 'cell') Object.assign(f, { speed: CELL_INFO[form].speed, dmgMul: CELL_INFO[form].dmgMul, scale: CELL_INFO[form].scale || 1.25 });
   else Object.assign(f, form === 'ssj' ? { speed: 1.15, dmgMul: 1.35 } : { speed: 1, dmgMul: 1 });
+  versusHeal(f, form);
+}
+// versus: the first time a fighter reaches a stronger form in a round, it heals a little and its guard
+// refills (VERSUS_HEAL). Powering down and back up doesn't heal again.
+function versusHeal(f, form) {
+  if (!game || !game.versus || !VERSUS_HEAL[form] || f.hp <= 0 || ['ko', 'end'].includes(game.mode)) return;
+  f.healedForms = f.healedForms || new Set();
+  if (f.healedForms.has(form)) return;
+  f.healedForms.add(form);
+  const add = Math.min(VERSUS_HEAL[form], f.maxHp - f.hp);
+  f.hp += add; f.stamina = 100; f.guardBroken = false;
+  if (add > 0) popups.push({ text: '+' + Math.round(add) + ' HP', x: f.x, y: f.y - 70, t: 0, c: '#8f8' });
 }

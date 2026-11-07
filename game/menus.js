@@ -26,8 +26,12 @@ function quitToSelect() {
   reset(); game.pick = pick; game.mode = 'select'; Audio8.music.play('bg', true);
 }
 // Versus: two people on one keyboard (or gamepads), no boss. Both fighters start in their base form
-// with the same health and evolve or transform themselves (T at full ki), as you do in story mode.
-const VERSUS_HP = 150;
+// with the same health and evolve or transform themselves (T at full ki), as you do in story mode;
+// transforming the first time heals a little (versusHeal).
+const VERSUS_HP = 200;
+// health back the first time each form is reached in a round: Goku has one form to reach, Cell two,
+// so both can win back 40
+const VERSUS_HEAL = { ssj: 40, semi: 20, perfect: 20 };
 function startVersus(side) {
   reset(side); game.versus = true; Audio8.music.play('bg');
   setForm(goku, 'base'); setForm(cell, 'imperfect'); // without the boss's extra speed and damage
