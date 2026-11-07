@@ -107,7 +107,9 @@ function damage(def, src, dmg, heavy, dir, kind = 'melee', opts = {}) {
       def.play('knock'); def.y -= 1;
       if (kind === 'proj') sfx.kiHit(); else if (kind === 'beam') sfx.clash(); else sfx.smash();
       if (opts.spike) { def.vy = 420; def.vx = dir * 40; def.spiked = true; }
-      else if (opts.launch) { def.vy = -390; def.vx = dir * 45; if (src === player) { comboToken('launch'); game.chaseT = 0.55; } else if (def === player) comboToken('launch', src); }
+      else if (opts.launch) { def.vy = -390; def.vx = dir * 45; if (src === player) comboToken('launch'); else if (def === player) comboToken('launch', src);
+        // a person who launched gets a moment where a jump chases them up (player 2 in versus too)
+        if (human(src)) src.chaseT = 0.55; }
       // a beam holds a flying enemy up and drives them back; its last tick blasts them away
       else if (juggling && kind === 'beam' && !heavy) { def.vy = -125; def.vx = dir * 60; }
       else if (kind === 'beam') { def.vy = -300; def.vx = dir * 210; }

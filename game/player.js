@@ -114,7 +114,7 @@ function playerInput(dt, g = player, foe = boss) {
     if (act('jump')) {
       g.play('jump'); g.sq = -0.14; sfx.whoosh();
       // just after a launcher, the jump chases them up
-      if (game.chaseT > 0 && foe.state === 'knock') { g.vy = JUMP_V - 70; g.vx = g.facing * 90; game.chaseT = 0; }
+      if (g.chaseT > 0 && foe.state === 'knock') { g.vy = JUMP_V - 70; g.vx = g.facing * 90; g.chaseT = 0; }
       else { g.vy = JUMP_V; g.vx = dir * 120; }
       return;
     }

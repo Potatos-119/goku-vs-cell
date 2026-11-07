@@ -115,7 +115,7 @@ function step(raw) {
   bursts = bursts.filter(b => b.t < 0.35);
   if (game.freeze > 0) { game.freeze -= raw; return 'frozen'; }
   game.ct += raw;
-  game.chaseT -= raw;
+  for (const f of [goku, cell]) f.chaseT = (f.chaseT || 0) - raw;
 
   if (game.mode === 'fight') {
     playerInput(dt);
