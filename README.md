@@ -248,7 +248,7 @@ from the `.png` frame sheets next to them, which hold each distinct frame once; 
 To change the music, swap either file. The paths are in `TRACKS` in `audio.js`. There's also a
 `VOICE_CLIPS` table there if you want to add recorded voice lines.
 
-The options (from the pause menu, or the menu after you pick a fighter) cover music and sound volume,
+The options (from the pause menu, or the menu after you pick a fighter) cover difficulty (Easy hits you for 65%, Hard for 130%, and the boss thinks and reacts slower or faster to match), music and sound volume,
 music on/off, calm mode and the arena. They're saved between visits.
 
 ## Files

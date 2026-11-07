@@ -6,6 +6,7 @@ const JUGGLE_MAX = 5;
 const COUNTER_STATES = ['attack', 'airAtk', 'cast', 'kameCharge', 'windup'];
 function damage(def, src, dmg, heavy, dir, kind = 'melee', opts = {}) {
   if ((def.inv > 0 && kind !== 'ult') || (def.state === 'down' && !opts.otg) || ['tele', 'transform', 'evolve'].includes(def.state) || def.hp <= 0 || game.mode !== 'fight') return false;
+  if (def === player) dmg *= diff().taken;
   // a Super Dash swats ki blasts aside, and so does a boss being spammed with them while it attacks
   // or dashes in, so spam gets plowed through instead of locking it down
   if (kind === 'proj' && !opts.pierce && ((def.superDash && def.state === 'dash') || (def === boss && ai.spam >= 2 && ['attack', 'dash'].includes(def.state)))) {

@@ -85,6 +85,7 @@ const MENUS = {
   ] }),
   // left / right change a setting; it's saved for next time
   options: () => ({ title: 'OPTIONS', items: [
+    { label: 'DIFFICULTY  ' + diff().label, go: () => cycleDifficulty(1), adjust: cycleDifficulty },
     { label: 'MUSIC VOLUME  ' + bars(Audio8.vol.music), adjust: d => Audio8.setVolume('music', Audio8.vol.music + d) },
     { label: 'SOUND FX VOLUME  ' + bars(Audio8.vol.sfx), adjust: d => Audio8.setVolume('sfx', Audio8.vol.sfx + d) },
     { label: 'MUSIC  ' + (Audio8.music.muted ? 'OFF' : 'ON'), go: () => Audio8.music.toggleMute(), adjust: () => Audio8.music.toggleMute() },

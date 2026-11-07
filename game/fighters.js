@@ -63,6 +63,22 @@ function toggleCalm() {
   settings.calm = !settings.calm;
   try { localStorage.setItem('calmMode', settings.calm ? '1' : '0'); } catch (e) { /* not saved, still works */ }
 }
+// difficulty (remembered between visits): how hard the boss hits you, how often it decides what to do
+// next (think) and how likely it is to answer your ki blasts (react). Normal is the game as tuned.
+const DIFFICULTY = {
+  easy: { label: 'EASY', taken: 0.65, think: 1.5, react: 0.55 },
+  normal: { label: 'NORMAL', taken: 1, think: 1, react: 1 },
+  hard: { label: 'HARD', taken: 1.3, think: 0.7, react: 1.25 },
+};
+const DIFF_LEVELS = Object.keys(DIFFICULTY);
+settings.difficulty = 'normal';
+try { const d = localStorage.getItem('difficulty'); if (DIFFICULTY[d]) settings.difficulty = d; } catch (e) { /* storage blocked */ }
+const diff = () => DIFFICULTY[settings.difficulty];
+function cycleDifficulty(d = 1) {
+  const i = DIFF_LEVELS.indexOf(settings.difficulty);
+  settings.difficulty = DIFF_LEVELS[(i + (d > 0 ? 1 : DIFF_LEVELS.length - 1)) % DIFF_LEVELS.length];
+  try { localStorage.setItem('difficulty', settings.difficulty); } catch (e) { /* not saved, still works */ }
+}
 function shake(n) { game.shake = Math.min(14, Math.max(game.shake, n) + n * 0.2); }
 
 let goku, cell, player, boss, projs, beams, sparks, ghosts, popups, trails, zips, minions, bursts, kiMotes, clash, timers, game;

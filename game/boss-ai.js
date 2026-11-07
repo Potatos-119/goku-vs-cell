@@ -106,7 +106,7 @@ function bossAI(dt) {
     const gap = (c.x - p.x) * Math.sign(p.vx), eta = gap / Math.abs(p.vx);
     if (gap < 0 || eta > 0.38) continue;
     p.seen = true;
-    if (!c.free || Math.random() > SHOT_REACT[ph] + ai.spam * 0.05) continue;
+    if (!c.free || Math.random() > SHOT_REACT[ph] * diff().react + ai.spam * 0.05) continue;
     const dist = Math.abs(g.x - c.x), r = Math.random();
     c.facing = g.x > c.x ? 1 : -1;
     if (ph >= 1 && ai.vanishCd <= 0 && r < 0.2) return vanish(c, g);
@@ -128,7 +128,7 @@ function bossAI(dt) {
     if (d < 220) return superDash(c);
   }
   if ((ai.think -= dt) > 0) return;
-  ai.think = rand(0.8, 1.2) * AI_REACT[ph] / c.speed * (isCell ? 1 : 0.85);
+  ai.think = rand(0.8, 1.2) * AI_REACT[ph] / c.speed * (isCell ? 1 : 0.85) * diff().think;
   const dist = Math.abs(g.x - c.x), close = dist < 48, r = Math.random();
   const dashIn = () => { c.superDash = false; c.play('dash'); c.t2 = 0.24; c.vx = c.facing * 280 * c.speed; Stage.puff(c.x, c.facing); };
   const combo = () => {
