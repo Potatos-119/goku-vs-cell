@@ -98,8 +98,26 @@ function drawHUD() {
     text(c.text, W - 8, 44 + i * 12, 10 + pop, '#ff8a6a', 'right', '#5a0a00');
     gfx.globalAlpha = 1;
   });
+  if (game.versus) return drawVersusHints();
   const hint = hintFor(player);
   if (hint && game.mode === 'fight' && !beams.length && !game.comboNames.length) text(hint, W / 2, 41, 8, '#9ff', 'center'); // below the name labels, which a long hint would cover
+}
+
+// Versus: each player's hint under their own name, one line per tip, in that player's keys. Online,
+// the friend plays with the normal keys on their own computer; on one keyboard player 2 has their own.
+const P2_KEY_NAMES = { T: ']', O: "'", U: ';', Q: '\\', S: 'DOWN' };
+function drawVersusHints() {
+  if (game.mode !== 'fight' || beams.length) return;
+  const sides = [
+    [player, 32, 'left', game.combo.n < 2],
+    [boss, W - 32, 'right', !game.comboNames.some(c => c.boss)],
+  ];
+  for (const [f, x, align, clear] of sides) {
+    let hint = hintFor(f);
+    if (!hint || !clear) continue;
+    if (f === boss && !(window.Net && Net.role === 'host')) hint = hint.replace(/\b[TOUQS]\b/g, k => P2_KEY_NAMES[k]);
+    hint.split(/\s{3,}/).forEach((line, i) => text(line.trim(), x, 40 + i * 8, 6, '#9ff', align));
+  }
 }
 
 // Icon in a dark frame. crop: draw just the top square of a tall portrait.
