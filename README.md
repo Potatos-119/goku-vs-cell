@@ -17,7 +17,7 @@ ground strings with the wall-bounce slash when you're near the edge, a launcher,
 Kamehameha, and he hits back when he blocks one of your attacks. He jumps in, Instant Transmissions from
 the start, fires air Kamehamehas from a jump and throws ki barrages. Each phase he does all of it more
 often, and he uses the Instant Kamehameha from his Super Saiyan phase on. The numbers are `GOKU_BOSS`,
-`GOKU_CHASE`, `GOKU_CANCEL` and `GOKU_PUNISH` in `game.js`.
+`GOKU_CHASE`, `GOKU_CANCEL` and `GOKU_PUNISH` in `game/fighters.js` and `game/boss-ai.js`.
 
 The boss gets meaner as it goes. From phase two it can vanish out of your attacks and hit you from behind.
 It also watches what you do: charge in front of it, whiff, or let your guard break and it punishes you.
@@ -212,11 +212,11 @@ Music:
 - `assets/audio/bg-theme.mp3` loops during fights. It's a 4-minute cut of the background OST.
 - `assets/audio/perfect-cell.mp3` plays when Cell becomes Perfect (as the boss or as you). It's 83 seconds
   of a Perfect Cell theme cover (22.8s to 106.1s of the track), cut so its big hit lands 6.1 seconds in
-  (`PERFECT_HIT` in `game.js`): his aura flares, the close-up of his reveal plays, and he appears as Perfect
+  (`PERFECT_HIT` in `game/cutscenes.js`): his aura flares, the close-up of his reveal plays, and he appears as Perfect
   Cell right on the hit. The theme carries on through the fight, then fades back into the fight music.
 - `assets/audio/ssj-transform.mp3` plays when Goku goes Super Saiyan. It's 15 seconds of Blue Saiyan
   (57.4s to 72.5s of the track), and the build-up hits 5.05 seconds in. The transformation is a short
-  cinematic timed to that hit, so his hair turns gold right on it (`SSJ_PEAK` in `game.js`). After that
+  cinematic timed to that hit, so his hair turns gold right on it (`SSJ_PEAK` in `game/cutscenes.js`). After that
   the fight theme comes back.
 
 Kamehameha sound:
@@ -253,7 +253,21 @@ music on/off, calm mode and the arena. They're saved between visits.
 
 ## Files
 
-- `game.js`: the game loop, fighters, boss AI, beams, cutscenes and HUD
+- `game/`: the game itself, one file per system. They're plain scripts sharing globals, loaded in this order:
+  - `core.js`: world size, the canvas and small helpers
+  - `input.js`: keyboard and gamepad bindings, the input buffer
+  - `fighters.js`: the `Fighter` class, game state and `reset()`
+  - `combat.js`: damage, blocking, dashes, ki blasts, beams and the Spirit Bomb
+  - `fighter-update.js`: each fighter's per-frame update, landing and transforms
+  - `player.js`: chains, cancels and reading the player's input
+  - `boss-ai.js`: the boss AI and its tuning numbers
+  - `projectiles.js`: projectiles, beams, beam clashes and drawing them
+  - `cinematics.js`: answering finishers, the final clash and cut-ins
+  - `cutscenes.js`: intros, phase changes, transformations and the ending
+  - `menus.js`: the menu stack, options and training mode
+  - `loop.js`: the camera and the main loop
+  - `render.js`: the HUD, title, select screen and drawing each frame
+  - `main.js`: starts the game
 - `data.js`: which sprite-sheet frames make up each move, plus the move and combo lists
 - `sheets.js`: cuts the sheets into frames and removes the white background
 - `audio.js`: the music player, the recorded and generated sound effects, jingles, and the voice clip hook
