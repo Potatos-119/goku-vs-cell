@@ -291,6 +291,8 @@ async function finish(result) {
     setForm(goku, 'base'); Stage.cloud(goku.x, 0.7); game.flash = Math.max(game.flash, 0.3);
   }
   winner.play('win');
+  // versus: someone always wins, and the story's last words don't fit
+  if (game.versus) { Audio8.music.winner(); await wait(1.2); game.mode = 'end'; return; }
   if (win) Audio8.music.winner(); else Audio8.music.defeat();
   const LINES = {
     goku: winner === goku ? "It's over, Cell." : 'Hahaha! Is that the best the Saiyans have? Pathetic!',

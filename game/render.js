@@ -63,13 +63,20 @@ function drawHUD() {
   bar(32, 7, 100, 7, player.hp / player.maxHp, player.hp / player.maxHp > 0.3 ? '#ffd23a' : '#ff4a3a');
   const bossBar = boss.who === 'cell' ? CELL_INFO[boss.form].bar : ['#ff9a3a', '#ffd84a', '#fff27a'][game.phase];
   bar(W - 132, 7, 100, 7, boss.hp / boss.maxHp, bossBar, true);
-  if (!game.juniors) { gfx.fillStyle = '#000'; [1, 2].forEach(k => gfx.fillRect(W - 132 + Math.round(100 * k / 3), 7, 1, 7)); }
+  if (!game.juniors && !game.versus) { gfx.fillStyle = '#000'; [1, 2].forEach(k => gfx.fillRect(W - 132 + Math.round(100 * k / 3), 7, 1, 7)); }
   const kiFull = player.ki >= 100 && Math.floor(game.t * 6) % 2;
   bar(32, 17, 70, 4, player.ki / 100, kiFull ? '#ffffff' : '#4fd2ff');
   const broken = player.guardBroken && Math.floor(game.t * 8) % 2;
   bar(32, 24, 50, 2, player.stamina / 100, broken ? '#ff5a3a' : player.guardBroken ? '#a0503a' : '#9be36b');
-  text(NAME(player), 32, 28, 9, '#fff');
-  text(NAME(boss), W - 32, 16, 9, '#fff', 'right');
+  text((game.versus ? 'P1  ' : '') + NAME(player), 32, 28, 9, '#fff');
+  if (game.versus) {
+    // player 2's ki and guard bars, mirrored on their side
+    const kiFull2 = boss.ki >= 100 && Math.floor(game.t * 6) % 2;
+    bar(W - 102, 17, 70, 4, boss.ki / 100, kiFull2 ? '#ffffff' : '#4fd2ff', true);
+    const broken2 = boss.guardBroken && Math.floor(game.t * 8) % 2;
+    bar(W - 82, 24, 50, 2, boss.stamina / 100, broken2 ? '#ff5a3a' : boss.guardBroken ? '#a0503a' : '#9be36b', true);
+    text(NAME(boss) + '  P2', W - 32, 28, 9, '#fff', 'right');
+  } else text(NAME(boss), W - 32, 16, 9, '#fff', 'right');
   if (game.training) text('TRAINING', W / 2, 6, 11, '#9ff', 'center');
   else text(String(Math.max(0, Math.ceil(game.time))), W / 2, 4, 16, '#ffe04a', 'center');
   if (game.combo.n >= 2) {
@@ -266,7 +273,7 @@ function render() {
     gfx.fillStyle = g; gfx.beginPath(); gfx.arc(b.x, b.y, r, 0, Math.PI * 2); gfx.fill(); gfx.restore();
   }
   for (const f of order) if ((f.state === 'block' || (f.state === 'pose' && f.anim === 'block')) && f.visible) drawGuard(f);
-  if (game.react && game.react.def === player && !game.react.answer) drawReactRing(game.react);
+  if (game.react && human(game.react.def) && !game.react.answer) drawReactRing(game.react);
   for (const b of beams) beamLight(b);
   for (const b of beams) drawBeam(b);
   if (clash) drawClashBall();
@@ -299,11 +306,11 @@ function render() {
     text(b.text, W / 2, 62 - (1 - pop) * 10, 28, '#ffe04a', 'center', '#7a1a00');
   }
   if (game.mode === 'end') {
-    text(game.result === 'win' ? 'YOU WIN!' : `${boss.who.toUpperCase()} WINS`, W / 2, 46, 28, game.result === 'win' ? '#ffe04a' : '#ff8a6a', 'center');
+    text(game.versus ? (game.result === 'win' ? 'P1 WINS!' : 'P2 WINS!') : game.result === 'win' ? 'YOU WIN!' : `${boss.who.toUpperCase()} WINS`, W / 2, 46, 28, game.result === 'win' ? '#ffe04a' : '#ff8a6a', 'center');
     if (Math.floor(game.t * 2) % 2) text('ENTER  FIGHT AGAIN      ESC  CHOOSE FIGHTER', W / 2, 82, 9, '#fff', 'center');
   }
   if (game.cutin) drawCutin();
-  if (game.react && game.react.def === player && !game.react.answer) drawReactPrompt(game.react);
+  if (game.react && human(game.react.def) && !game.react.answer) drawReactPrompt(game.react);
   if (game.training && game.mode === 'fight') drawChecklist();
   drawDialogue();
   drawMenu();

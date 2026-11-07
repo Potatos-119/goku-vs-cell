@@ -24,6 +24,15 @@ function quitToSelect() {
   const pick = game.side === 'cell' ? 1 : 0;
   reset(); game.pick = pick; game.mode = 'select'; Audio8.music.play('bg', true);
 }
+// Versus: two people on one keyboard (or gamepads), no boss. Both fighters start in their base form
+// with the same health and evolve or transform themselves (T at full ki), as you do in story mode.
+const VERSUS_HP = 150;
+function startVersus(side) {
+  reset(side); game.versus = true; Audio8.music.play('bg');
+  setForm(goku, 'base'); setForm(cell, 'imperfect'); // without the boss's extra speed and damage
+  for (const f of [goku, cell]) f.hp = f.maxHp = VERSUS_HP;
+  startFight();
+}
 function startTraining(side) {
   reset(side); game.training = true; Audio8.music.play('bg');
   player.ki = 100; startFight();
@@ -78,6 +87,7 @@ const MENUS = {
   mode: () => ({ title: sideOfPick().toUpperCase(), items: [
     { label: 'STORY MODE', go: () => { reset(sideOfPick()); Audio8.music.play('bg'); intro(); } },
     { label: 'TRAINING  (PRACTISE COMBOS)', go: () => startTraining(sideOfPick()) },
+    { label: 'VERSUS  (2 PLAYERS)', go: () => openMenu('versus') },
     { label: 'MOVE LIST', go: () => openMenu('moves') },
     { label: 'COMBO LIST', go: () => openMenu('combos') },
     { label: 'OPTIONS', go: () => openMenu('options') },
@@ -105,6 +115,7 @@ const MENUS = {
   moves: () => ({ title: guideWho().toUpperCase() + '  MOVE LIST', page: 'moves', items: [{ label: 'BACK', go: closeMenu }] }),
   combos: () => ({ title: guideWho().toUpperCase() + '  COMBOS', page: 'combos', items: [{ label: 'BACK', go: closeMenu }] }),
   controls: () => ({ title: 'CONTROLS', page: 'controls', items: [{ label: 'BACK', go: closeMenu }] }),
+  versus: () => ({ title: 'VERSUS', page: 'versus', items: [{ label: 'START', go: () => { game.menu = []; startVersus(sideOfPick()); } }, { label: 'BACK', go: closeMenu }] }),
 };
 
 function cycleArena(d) {
@@ -140,12 +151,17 @@ function drawMenu() {
       small(c.name, 32, y, got ? '#8f8' : '#ffd23a', 'left', 5); small(c.how, 140, y, '#ddd', 'left', 5); y += step;
     }
     small('LAND A COMBO IN A FIGHT OR IN TRAINING TO TICK IT OFF  (+8 KI EACH TIME)', W / 2, y + 2, '#9ff');
+  } else if (m.page === 'versus') {
+    small('P1 PLAYS ' + sideOfPick().toUpperCase() + ', P2 THE OTHER ONE.  NO BOSS, SAME HEALTH', W / 2, y - 6, '#ddd'); y += 6;
+    small('ACTION', 14, y, '#9ff', 'left'); small('PLAYER 1', 130, y, '#9ff', 'left'); small('PLAYER 2', 230, y, '#9ff', 'left'); y += 10;
+    for (const [a, k, p] of VERSUS_ROWS) { small(a, 14, y, '#ffd23a', 'left'); small(k, 130, y, '#fff', 'left'); small(p, 230, y, '#fff', 'left'); y += 9; }
+    small('ONE GAMEPAD PLAYS AS P2.  WITH TWO, ONE EACH', W / 2, y + 2, '#9ff');
   } else if (m.page === 'controls') {
     small('ACTION', 14, y, '#9ff', 'left'); small('KEYBOARD', 120, y, '#9ff', 'left'); small('GAMEPAD', 230, y, '#9ff', 'left'); y += 10;
     for (const [a, k, p] of CONTROL_ROWS) { small(a, 14, y, '#ffd23a', 'left'); small(k, 120, y, '#fff', 'left'); small(p, 230, y, '#fff', 'left'); y += 9; }
   }
   // items (focused one highlighted); info pages show just BACK at the bottom
-  const iy = m.page ? H - 18 : 44;
+  const iy = m.page === 'versus' ? H - 34 : m.page ? H - 18 : 44;
   m.items.forEach((it, k) => {
     const on = k === top.i;
     text((on ? '> ' : '') + it.label, W / 2, iy + k * 15, on ? 12 : 10, on ? '#ffe04a' : '#ccc', 'center');

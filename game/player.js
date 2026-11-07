@@ -68,7 +68,11 @@ function comboToken(tok, src = player) {
     for (let k = c.moves.length - 2; k >= 0 && i >= 0; k--) if (match(combo.steps[i], c.moves[k])) i--;
     if (i >= 0) continue;
     c.done.add(combo.name);
-    if (!mine) { c.names.push({ name: combo.name }); game.comboNames.push({ text: combo.name + '!', t: 0, boss: true }); continue; }
+    if (!mine) {
+      c.names.push({ name: combo.name }); game.comboNames.push({ text: combo.name + '!', t: 0, boss: true });
+      if (game.versus) src.ki = Math.min(100, src.ki + 8); // player 2 earns ki for combos too
+      continue;
+    }
     game.learned.add(combo.name);
     player.ki = Math.min(100, player.ki + 8);
     game.comboNames.push({ text: combo.name + '!', t: 0 });
@@ -76,8 +80,10 @@ function comboToken(tok, src = player) {
   }
 }
 
-function playerInput(dt) {
-  const g = player, foe = boss, isGoku = g.who === 'goku';
+// g: the fighter being controlled (the player, or in versus player 2's fighter), with the current
+// controller's keys
+function playerInput(dt, g = player, foe = boss) {
+  const isGoku = g.who === 'goku';
   const dir = (keys.right ? 1 : 0) - (keys.left ? 1 : 0);
   let dashDir = dashReq && game.ct - dashReq.t <= BUFFER ? dashReq.dir : 0;
   if (act('dash')) dashDir = dir || g.facing;

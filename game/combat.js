@@ -10,7 +10,7 @@ const BOSS_COMBO_GAP = 1.5;
 const COUNTER_STATES = ['attack', 'airAtk', 'cast', 'kameCharge', 'windup'];
 function damage(def, src, dmg, heavy, dir, kind = 'melee', opts = {}) {
   if ((def.inv > 0 && kind !== 'ult') || (def.state === 'down' && !opts.otg) || ['tele', 'transform', 'evolve'].includes(def.state) || def.hp <= 0 || game.mode !== 'fight') return false;
-  if (def === player) dmg *= diff().taken;
+  if (def === player && !game.versus) dmg *= diff().taken;
   // a Super Dash swats ki blasts aside, and so does a boss being spammed with them while it attacks
   // or dashes in, so spam gets plowed through instead of locking it down
   if (kind === 'proj' && !opts.pierce && ((def.superDash && def.state === 'dash') || (def === boss && ai.spam >= 2 && ['attack', 'dash'].includes(def.state)))) {
@@ -36,10 +36,10 @@ function damage(def, src, dmg, heavy, dir, kind = 'melee', opts = {}) {
   // the Special Beam Cannon drills through a guard like a grab does
   let blocking = kind !== 'ult' && !opts.grab && !opts.pierce && def.state === 'block' && def.facing === -dir;
   const counter = !blocking && !juggling && COUNTER_STATES.includes(def.state) && !(def.state === 'attack' && def.hitDone);
-  if (blocking && def === player && kind !== 'beam' && def.blockT < PARRY_WINDOW) return perfectBlock(def, src, kind);
+  if (blocking && human(def) && kind !== 'beam' && def.blockT < PARRY_WINDOW) return perfectBlock(def, src, kind);
   // every blocked hit wears down the player's guard; when stamina runs out it breaks and the hit lands
   let broke = false;
-  if (blocking && def === player && (def.stamina -= dmg * 1.6) <= 0) { guardBreak(def); blocking = false; broke = true; }
+  if (blocking && human(def) && (def.stamina -= dmg * 1.6) <= 0) { guardBreak(def); blocking = false; broke = true; }
   if (blocking) {
     dmg *= 0.15; def.vx = dir * 90; def.ki = Math.min(100, def.ki + 3);
     // the guard takes it differently by what it is: a light hit drives them into a crouch, a heavy
@@ -73,7 +73,7 @@ function damage(def, src, dmg, heavy, dir, kind = 'melee', opts = {}) {
     // (beams keep more of their damage: they're the combo's finisher)
     // the boss's combos on the player scale down harder (PLAYER_SCALING), so one long combo can't take
     // most of your health
-    const sc = def === player ? PLAYER_SCALING : { step: 0.07, min: 0.45, beamMin: 0.75 };
+    const sc = human(def) ? PLAYER_SCALING : { step: 0.07, min: 0.45, beamMin: 0.75 };
     dmg *= Math.max(kind === 'beam' ? sc.beamMin : sc.min, 1 - sc.step * def.comboTaken);
     def.comboTaken++;
     sparks.push({ x: def.x - dir * 6, y: def.y - 30, t: 0, c: '#fff6b8' });
@@ -176,7 +176,7 @@ function meleeCheck(f, foe) {
 function dash(f, dir) {
   const air = f.y < FLOOR - 2, fwd = dir === f.facing;
   if (air && f.airDashed) return;
-  if (f === player) dashReq = null;
+  if (human(f)) withController(ctlOf(f), () => { dashReq = null; });
   f.superDash = false;
   f.play(air ? (fwd ? 'airDash' : 'airBack') : (fwd ? 'dash' : 'backdash'), 'dash');
   f.t2 = air ? 0.22 : fwd ? 0.25 : 0.2;
@@ -258,7 +258,7 @@ function spawnProjectile(f) {
   const kind = { kiCast: 'kiBall', finger: 'finger', death: 'death', barrage: f.who === 'goku' ? 'kiBall' : 'finger', cannon: 'cannon' }[f.anim];
   const [hx, hy] = f.hand(f.anim);
   const stats = { kiBall: [300, 6, false], finger: [330, 8, false], death: [560, 12, true], cannon: [640, 14, true] }[kind];
-  if (f === player && f.emitted === 1) ai.spam++; // a barrage counts once
+  if (f === player && !game.versus && f.emitted === 1) ai.spam++; // a barrage counts once
   const p = { owner: f, kind, x: hx, y: hy, dir: f.facing, vx: stats[0] * f.facing, dmg: stats[1] * f.dmgMul, heavy: stats[2], size: 1 };
   // a charged one (held L): bigger, harder and a little slower
   const lv = f.charged ? f.chargeLv || 0 : 0;

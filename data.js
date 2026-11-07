@@ -384,6 +384,16 @@ const MOVES = {
     ['O  (AIR, AFTER A HIT TOO)', 'Solar Kamehameha finisher (Perfect, full ki)'],
   ],
 };
+// versus: who presses what (player 2's keys are P2_BINDINGS in game/input.js)
+const VERSUS_ROWS = [
+  ['MOVE / JUMP / BLOCK', 'A D / W / S', 'ARROWS'],
+  ['PUNCH / KICK', 'J / K', ',  /  .'],
+  ['KI / BEAM / ULTIMATE', 'L / U / O', '/  ;  \''],
+  ['CHARGE / TRANSFORM', 'I / T', '[  /  ]'],
+  ['VANISH / DASH', 'Q / L-SHIFT', '\\  /  R-SHIFT'],
+  ['GRAB', 'F', '-'],
+  ['CELL SPECIALS', 'G / E / Y', '=  /  0  /  9'],
+];
 const CONTROL_ROWS = [
   ['MOVE', 'A / D or arrows', 'Stick / d-pad'],
   ['JUMP', 'W / Space', 'A'],

@@ -40,7 +40,7 @@ function updateFighter(f, foe, dt) {
   // moving is a short hover a few pixels off the ring rather than sliding on it
   const lift = f.state === 'walk' ? 3 + Math.sin(f.at * 5) : f.state === 'dash' ? 4 : 0;
   f.hover += (lift - f.hover) * Math.min(1, dt * 10);
-  if (f === player) {
+  if (human(f)) {
     // holding block drains stamina; it refills shortly after letting go
     if (f.state === 'block') { f.stamina -= 6 * dt; f.staminaDelay = 0.6; if (f.stamina <= 0) guardBreak(f); }
     else if ((f.staminaDelay -= dt) <= 0) f.stamina = Math.min(100, f.stamina + 28 * dt);
@@ -72,7 +72,7 @@ function updateFighter(f, foe, dt) {
       break;
     case 'cast':
       // still holding L when the blast would leave the hand: hold it and charge it up instead
-      if (f === player && keys.ki && !f.charged && ['kiCast', 'finger'].includes(f.anim) && f.emitted === 0 && f.fi >= [].concat(f.A().emitAt)[0]) {
+      if (human(f) && ctlOf(f).keys.ki && !f.charged && ['kiCast', 'finger'].includes(f.anim) && f.emitted === 0 && f.fi >= [].concat(f.A().emitAt)[0]) {
         startHold(f); break;
       }
       { const shots = [].concat(f.A().emitAt);
@@ -83,14 +83,14 @@ function updateFighter(f, foe, dt) {
       // the blast grows over HOLD_FULL seconds, draining up to 12 more ki (the boss doesn't pay)
       if (f.chargeLv < 1) {
         const d = Math.min(dt / HOLD_FULL, 1 - f.chargeLv), cost = d * 12;
-        if (f !== player || f.ki >= cost) { if (f === player) f.ki -= cost; f.chargeLv += d; }
+        if (!human(f) || f.ki >= cost) { if (human(f)) f.ki -= cost; f.chargeLv += d; }
       }
       f.holdT += dt;
       if (Math.random() < dt * (10 + 30 * f.chargeLv)) {
         const [hx, hy] = f.hand(f.who === 'goku' ? 'kiCast' : 'death'), a = Math.random() * Math.PI * 2, d = 14 + Math.random() * 10;
         kiMotes.push({ x: hx + Math.cos(a) * d, y: hy + Math.sin(a) * d, vx: -Math.cos(a) * d * 3, vy: -Math.sin(a) * d * 3, t: 0, life: 0.3, c: f.who === 'goku' ? '#ffe680' : '#e7a8ff' });
       }
-      const holding = f === player ? keys.ki : f.holdT < f.aiHold;
+      const holding = human(f) ? ctlOf(f).keys.ki : f.holdT < f.aiHold;
       if (!holding || f.holdT > HOLD_FULL + 0.6) releaseHold(f);
       break;
     }
@@ -129,7 +129,7 @@ function updateFighter(f, foe, dt) {
       // back to the held guard once a blocked hit has played out (or on landing from an air block)
       if (['blockHit', 'blockHeavy'].includes(f.anim) && f.animDone) { f.anim = f.y < FLOOR - 2 && f.A('airBlock') ? 'airBlock' : 'block'; f.at = 9; }
       if (f.anim === 'airBlock' && f.y >= FLOOR) { f.anim = 'block'; f.at = 9; }
-      if (f !== player && (f.t2 -= dt) <= 0) f.play('idle');
+      if (!human(f) && (f.t2 -= dt) <= 0) f.play('idle');
       break;
     case 'tele':
       if ((f.t2 -= dt) <= 0 && !f.visible) {
@@ -229,7 +229,7 @@ function finishTransform(f) {
 function settle(f) {
   if (f.state === 'transform') finishTransform(f);
   if (f.state === 'evolve') { f.t2 = 0; updateFighter(f, foeOf(f), 0); }
-  if (f === player && f.state === 'kameCharge') f.ki = Math.min(100, f.ki + (f.kiPaid || 50));
+  if (human(f) && f.state === 'kameCharge') f.ki = Math.min(100, f.ki + (f.kiPaid || 50));
   Object.assign(f, { visible: true, x: f.state === 'tele' ? f.teleTo : f.x, y: FLOOR, vx: 0, vy: 0, queue: [], next: null, big: false, floating: false });
   if (f.hp > 0) f.play('idle');
 }

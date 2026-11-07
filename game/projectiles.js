@@ -93,7 +93,9 @@ function updateBeams(dt) {
     // the AI pushes harder each phase, harder still with a giant beam, and hardest in the final clash
     // (the final clash is a fixed, fair push: about 6 presses a second hold it, a little more wins)
     const push = clash.final ? 0.19 : 0.155 + 0.015 * game.phase + (B.big ? 0.03 : 0);
-    clash.s -= push * surge * tire * dt;
+    // in versus there's no AI push: player 2 mashes back (Up, comma or semicolon), press for press
+    if (game.versus) { if (['jump', 'punch', 'beam'].some(a => P2.pressed.has(a))) { clash.s -= 0.03; clash.pulse = 1; } }
+    else clash.s -= push * surge * tire * dt;
     clash.pulse = Math.max(0, (clash.pulse || 0) - dt * 6);
     P.len = clash.s * D; B.len = (1 - clash.s) * D;
     game.shake = Math.max(game.shake, 3); // steady rumble while the beams push
@@ -108,8 +110,8 @@ function updateBeams(dt) {
       clash = null; game.banner = null; game.clashWinner = winner;
       // the final clash's ending is played out by finalClash() itself
       // the last mashes mustn't spill into a jump or a punch once it's over
-      if (final) { lastPress.punch = lastPress.beam = lastPress.jump = -99; beams = beams.filter(b => b.owner === winner); return; }
-      lastPress.punch = lastPress.beam = lastPress.jump = -99;
+      for (const c of [P1, P2]) c.lastPress.punch = c.lastPress.beam = c.lastPress.jump = -99;
+      if (final) { beams = beams.filter(b => b.owner === winner); return; }
       beams = beams.filter(b => b.owner === winner);
       winner.t2 = 0.4; loser.floating = false; loser.inv = 0;
       if (loser.hp > 0) loser.play('idle');
@@ -228,12 +230,13 @@ function drawReactRing(r) {
 }
 
 function drawReactPrompt(r) {
-  const f = r.def, flash = Math.floor(game.t * 8) % 2;
-  text('ANSWER IT!', W / 2, 92, 14, flash ? '#ffe04a' : '#ffffff', 'center');
+  const f = r.def, flash = Math.floor(game.t * 8) % 2, p2 = f !== player;
+  text(game.versus ? (p2 ? 'P2: ANSWER IT!' : 'P1: ANSWER IT!') : 'ANSWER IT!', W / 2, 92, 14, flash ? '#ffe04a' : '#ffffff', 'center');
+  const [kb, kv, ks] = p2 ? [';', '\\', 'DOWN'] : ['U', 'Q', 'S'];
   const opts = [
-    ['U  COUNTER BEAM', canKame(f) && f.ki >= COUNTER_KI],
-    ['Q  VANISH', f.ki >= 15],
-    ['S  BLOCK', true],
+    [kb + '  COUNTER BEAM', canKame(f) && f.ki >= COUNTER_KI],
+    [kv + '  VANISH', f.ki >= 15],
+    [ks + '  BLOCK', true],
   ];
   opts.forEach(([label, ok], i) => text(label, W / 2 + (i - 1) * 92, 108, 8, ok ? '#ffffff' : '#777777', 'center'));
   if (!canKame(f)) text('(COUNTER BEAM NEEDS SUPER SAIYAN)', W / 2, 120, 6, '#aaaaaa', 'center');

@@ -91,6 +91,9 @@ function shake(n) { game.shake = Math.min(14, Math.max(game.shake, n) + n * 0.2)
 
 let goku, cell, player, boss, projs, beams, sparks, ghosts, popups, trails, zips, minions, bursts, kiMotes, clash, timers, game;
 const foeOf = f => f === goku ? cell : goku;
+// who a person is playing: the player, and in versus the other fighter too (player 2)
+const human = f => f === player || (game.versus && f === boss);
+const ctlOf = f => f === player ? P1 : P2;
 const NAME = f => f.who === 'goku'
   ? (f.state.startsWith('ult') ? 'GOKU  SSJ3' : f.form === 'ssj' ? 'GOKU  SSJ' : 'GOKU')
   : f.form === 'junior' ? `CELL JR.  x${game.juniors ? game.juniors.left : 1}` : CELL_INFO[f.form].name;
@@ -109,8 +112,7 @@ function reset(side = (game && game.side) || 'goku') {
   projs = []; beams = []; sparks = []; ghosts = []; popups = []; trails = []; zips = []; minions = []; bursts = []; kiMotes = []; clash = null; timers = [];
   if (game) game.react = null;
   // the game clock restarts with each fight, so forget presses timed on the old clock
-  for (const a in lastPress) delete lastPress[a];
-  dashReq = null; lastTap.dir = 0;
+  for (const c of [P1, P2]) withController(c, () => { for (const a in lastPress) delete lastPress[a]; dashReq = null; lastTap.dir = 0; });
   Object.assign(cam, { x: W / 2, y: H / 2, z: 1, focus: null });
   Stage.reset(); Object.assign(ai, { think: 0.8, vanishCd: 3, ultCd: 6, spam: 0, barrierCd: 5, assistCd: 6, cannonCd: 6, rolled: 0, chase: null, airBeam: false, punishAt: -9 });
   game = { mode: 'title', comboNames: [], menu: [], training: false, ct: 0, chaseT: 0, cine: null, combo: { n: 0, t: 0, dmg: 0, moves: [], done: new Set() }, bossCombo: { moves: [], done: new Set(), names: [] }, learned: (game && game.learned) || new Set(), side, pick: side === 'cell' ? 1 : 0, time: 150, juniors: null, freeze: 0, shake: 0, flash: 0, phase: 0, slow: 1, banner: null, dlg: null, skip: false, result: null, t: 0, kameCd: 4 };

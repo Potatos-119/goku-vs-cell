@@ -13,16 +13,37 @@ const PAD_BINDINGS = {
   jump: [0, 12], confirm: [0, 9], back: [1, 8], ki: [1], punch: [2], kick: [3], block: [4, 13], dash: [5],
   charge: [6], beam: [7], vanish: [8], pause: [9], transform: [10], ult: [11], left: [14], right: [15],
 };
-const CODE_ACTIONS = {};
-for (const [a, codes] of Object.entries(BINDINGS)) for (const c of codes) (CODE_ACTIONS[c] = CODE_ACTIONS[c] || []).push(a);
+// Versus (two players on one keyboard): player 1 keeps the letters on the left, player 2 gets the arrows
+// and the keys around Enter, and the arrows, Space and right Shift stop counting for player 1.
+const P2_BINDINGS = {
+  left: ['ArrowLeft'], right: ['ArrowRight'], jump: ['ArrowUp'], block: ['ArrowDown'],
+  punch: ['Comma'], kick: ['Period'], ki: ['Slash'], beam: ['Semicolon'], ult: ['Quote'],
+  charge: ['BracketLeft'], transform: ['BracketRight'], vanish: ['Backslash'], dash: ['ShiftRight'],
+  grab: ['Minus'], barrier: ['Equal'], junior: ['Digit0'], cannon: ['Digit9'],
+};
+const P2_ONLY = new Set(Object.values(P2_BINDINGS).flat());
+const codeMap = table => { const m = {}; for (const [a, codes] of Object.entries(table)) for (const c of codes) (m[c] = m[c] || []).push(a); return m; };
+const CODE_ACTIONS = codeMap(BINDINGS), P2_CODE_ACTIONS = codeMap(P2_BINDINGS);
 // synthetic events (and some old browsers) carry no e.code: fall back to the key's name
 const codeOf = e => e.code || { ' ': 'Space', enter: 'Enter', escape: 'Escape', shift: 'ShiftLeft', arrowleft: 'ArrowLeft', arrowright: 'ArrowRight', arrowup: 'ArrowUp', arrowdown: 'ArrowDown' }[e.key.toLowerCase()] || 'Key' + e.key.toUpperCase();
 
-const keys = {}, pressed = new Set(), lastPress = {}, kbHeld = {}, padHeld = {};
-// double-tap a direction = dash. Detected as the keys are pressed (not once per frame), so two taps
+// A controller is one player's input: actions held, pressed this frame, the input buffer and the
+// double-tap dash. The input code below works on the current one (keys, pressed...); in versus the
+// game switches to player 2's controller while it reads player 2 (withController).
+// Double-tap a direction = dash. Detected as the keys are pressed (not once per frame), so two taps
 // during a hit-freeze still count; the request then waits in the input buffer like any other press.
-const lastTap = { dir: 0, t: -1 };
-let dashReq = null;
+const makeController = () => ({ keys: {}, pressed: new Set(), lastPress: {}, kbHeld: {}, padHeld: {}, lastTap: { dir: 0, t: -1 }, dashReq: null });
+const P1 = makeController(), P2 = makeController();
+let keys, pressed, lastPress, kbHeld, padHeld, lastTap, dashReq, ctl;
+function useController(c) {
+  if (ctl) ctl.dashReq = dashReq;
+  ctl = c; ({ keys, pressed, lastPress, kbHeld, padHeld, lastTap } = c); dashReq = c.dashReq;
+}
+function withController(c, fn) {
+  const prev = ctl; useController(c);
+  try { return fn(); } finally { useController(prev); }
+}
+useController(P1);
 function setHeld(src, action, down) {
   if (down && !kbHeld[action] && !padHeld[action]) {
     pressed.add(action); lastPress[action] = game ? game.ct : 0;
@@ -35,18 +56,34 @@ function setHeld(src, action, down) {
   src[action] = down;
   keys[action] = !!(kbHeld[action] || padHeld[action]);
 }
+// which player a key belongs to, and its actions
+function route(code) {
+  if (game && game.versus) {
+    if (P2_CODE_ACTIONS[code]) return [P2, P2_CODE_ACTIONS[code]];
+    if (P2_ONLY.has(code) || code === 'Space') return [P1, null];
+  }
+  return [P1, CODE_ACTIONS[code]];
+}
 addEventListener('keydown', e => {
-  const acts = CODE_ACTIONS[codeOf(e)];
+  const [c, acts] = route(codeOf(e));
   if (!acts) return;
   e.preventDefault();
-  if (!e.repeat) acts.forEach(a => setHeld(kbHeld, a, true));
+  if (!e.repeat) withController(c, () => acts.forEach(a => setHeld(c.kbHeld, a, true)));
 });
-addEventListener('keyup', e => (CODE_ACTIONS[codeOf(e)] || []).forEach(a => setHeld(kbHeld, a, false)));
+addEventListener('keyup', e => { const [c, acts] = route(codeOf(e)); if (acts) withController(c, () => acts.forEach(a => setHeld(c.kbHeld, a, false))); });
 // switching windows swallows keyup events, which would leave a key held forever
-addEventListener('blur', () => { for (const a in kbHeld) setHeld(kbHeld, a, false); });
+addEventListener('blur', () => { for (const c of [P1, P2]) withController(c, () => { for (const a in c.kbHeld) setHeld(c.kbHeld, a, false); }); });
+// one gamepad drives player 1; in versus a single gamepad is player 2's (player 1 has the keyboard),
+// and with two, the first is player 1's and the second player 2's
 function pollGamepad() {
-  const pad = [...(navigator.getGamepads ? navigator.getGamepads() : [])].find(p => p && p.connected);
-  if (!pad) return;
+  const pads = [...(navigator.getGamepads ? navigator.getGamepads() : [])].filter(p => p && p.connected);
+  if (!pads.length) return;
+  if (game && game.versus) {
+    if (pads.length === 1) return withController(P2, () => readPad(pads[0]));
+    withController(P1, () => readPad(pads[0])); withController(P2, () => readPad(pads[1]));
+  } else readPad(pads[0]);
+}
+function readPad(pad) {
   const btn = i => pad.buttons[i] && pad.buttons[i].pressed;
   const x = pad.axes[0] || 0, y = pad.axes[1] || 0, stick = Math.hypot(x, y) > 0.35; // radial deadzone
   for (const [a, list] of Object.entries(PAD_BINDINGS)) {

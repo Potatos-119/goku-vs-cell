@@ -40,7 +40,7 @@ function loop(now) {
   const raw = Math.min(0.05, (now - last) / 1000); last = now;
   pollGamepad();
   // hit-freeze frames skip input, so keep those key presses for the next real frame
-  if (step(raw) !== 'frozen') pressed.clear();
+  if (step(raw) !== 'frozen') { P1.pressed.clear(); P2.pressed.clear(); }
   gfx.beginFrame(); render(); drawFps(); gfx.endFrame();
   requestAnimationFrame(loop);
 }
@@ -67,7 +67,7 @@ function step(raw) {
   }
   if (game.mode === 'paused') return;
   if (game.mode === 'end') {
-    if (tap('confirm')) { reset(); Audio8.music.play('bg', true); startFight(); }
+    if (tap('confirm')) { if (game.versus) startVersus(game.side); else { reset(); Audio8.music.play('bg', true); startFight(); } }
     else if (tap('back')) { reset(); Audio8.music.play('bg', true); game.mode = 'select'; }
   }
   if (game.mode === 'intro' && tap('back')) { game.skip = true; timers.forEach(t => t.r()); if (game.dlg) game.dlg.done(); game.dlg = null; }
@@ -116,13 +116,16 @@ function step(raw) {
 
   if (game.mode === 'fight') {
     playerInput(dt);
+    // versus: player 2 drives the other fighter with their own controller, and there's no boss AI
+    if (game.versus && game.mode === 'fight') withController(P2, () => playerInput(dt, boss, player));
     // the player may have just started a cinematic: then the boss doesn't act and no phase starts
     // on top of it this frame
-    if (game.mode === 'fight' && !window.noAI && (!game.training || TRAIN.dummy === 'fight')) bossAI(dt);
+    if (game.versus) { /* both fighters are people */ }
+    else if (game.mode === 'fight' && !window.noAI && (!game.training || TRAIN.dummy === 'fight')) bossAI(dt);
     else if (game.mode === 'fight' && game.training && !window.noAI) dummyAI(dt);
     if (game.training) trainingRefill(dt);
     else game.time -= dt;
-    if (game.mode === 'fight' && !game.training && game.phase < 2 && !game.juniors && boss.hp <= boss.maxHp * (2 - game.phase) / 3 && boss.hp > 0 && boss.free) {
+    if (game.mode === 'fight' && !game.training && !game.versus && game.phase < 2 && !game.juniors && boss.hp <= boss.maxHp * (2 - game.phase) / 3 && boss.hp > 0 && boss.free) {
       // between Semi-Perfect and Perfect, Cell sends in the Cell Juniors first
       if (boss === cell && game.phase === 1) juniorsStart(); else bossPhase();
       return;

@@ -63,6 +63,10 @@ A gamepad works too. The full move list and every combo are in the pause menu, a
 
 Options cover difficulty, volume, calm mode and the arena, and they're saved between visits.
 
+There's a versus mode too, for two people on one keyboard: pick VERSUS after choosing a fighter.
+Player 2 plays the other one, with the arrows and the keys around Enter (the full layout is on the
+versus screen). One gamepad plays as player 2, and with two gamepads each player gets one.
+
 ## Files
 
 - `game/`: the game, one file per system (input, combat, boss AI, cutscenes, menus, rendering), loaded

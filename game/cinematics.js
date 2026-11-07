@@ -9,7 +9,7 @@
 const REACT_PERFECT = 0.35;
 function reactWindow(def, dur) {
   const r = { def, t: 0, dur, answer: null, at: 0 };
-  if (def !== player) {
+  if (!human(def)) {
     const ph = game.phase, x = Math.random();
     r.ai = x < 0.2 + 0.1 * ph && canKame(def) ? 'beam' : x < 0.5 + 0.1 * ph ? 'vanish' : x < 0.85 ? 'block' : null;
     r.aiAt = r.ai === 'vanish' ? dur - (Math.random() < 0.3 + 0.2 * ph ? 0.2 : 0.75) : rand(0.15, dur * 0.6);
@@ -23,12 +23,12 @@ function updateReact(raw) {
   if (!r) return;
   r.t += raw;
   if (r.answer) return;
-  const d = r.def, isP = d === player;
+  const d = r.def, isP = human(d), c = ctlOf(d);
   let a = null;
   if (isP) {
-    if (tap('beam') && canKame(d) && d.ki >= COUNTER_KI) a = 'beam';
-    else if (tap('vanish') && d.ki >= 15) a = 'vanish';
-    else if (keys.block && r.t > 0.2) a = 'block';
+    if (c.pressed.has('beam') && canKame(d) && d.ki >= COUNTER_KI) a = 'beam';
+    else if (c.pressed.has('vanish') && d.ki >= 15) a = 'vanish';
+    else if (c.keys.block && r.t > 0.2) a = 'block';
   } else if (r.ai && r.t >= r.aiAt) a = r.ai;
   if (!a) return;
   r.answer = a; r.at = r.t;
@@ -66,7 +66,7 @@ async function cinematicBeam(f, foe, r, dmg, knock, title) {
     ghosts.push({ img: teleArt(foe), x, y: FLOOR, t: 0 }); sfx.teleport();
     if (perfect) {
       foe.play('idle', 'pose'); f.inv = 0;
-      if (foe === player) foe.ki = Math.min(100, foe.ki + 20);
+      if (human(foe)) foe.ki = Math.min(100, foe.ki + 20);
       popups.push({ text: 'PERFECT DODGE!', x, y: FLOOR - 60, t: 0, c: '#ffe04a' });
       sfx.parry(); game.slow = 0.4;
       await wait(0.35, true);
