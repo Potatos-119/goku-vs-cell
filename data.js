@@ -340,7 +340,7 @@ const MOVES = {
     ['AFTER A HIT', 'Cancel into L, U, Q or a dash'],
     ['AIR HIT + U  /  DASH', 'Kamehameha, or air dash and J again'],
     ['L', 'Ki blast (8 ki, air too)'],
-    ['HOLD L', 'Charge a bigger ki blast: up to 20 damage, knocks down at full (up to 20 ki)'],
+    ['HOLD L', 'Bigger ki blast: up to 20 damage, knocks down (20 ki)'],
     ['TOWARD + L', 'Ki barrage: four blasts, left-right (15 ki)'],
     ['AFTER L HITS', 'J rushes in, or cancel into a dash, Q, U, L'],
     ['DOUBLE-TAP A / D', 'Dash, once in the air too'],
@@ -352,8 +352,8 @@ const MOVES = {
     ['T', 'Super Saiyan (full ki)'],
     ['U', 'Kamehameha (SSJ, 50 ki, air too)'],
     ['Q THEN U  /  U THEN Q', 'Instant Kamehameha (SSJ, full ki)'],
-    ['O', 'Spirit Bomb (base, full ki; also right after a hit) / Dragon Fist (SSJ, full ki)'],
-    ['O IN THE AIR (SSJ)', 'Power down mid-air, then a bigger Spirit Bomb (full ki)'],
+    ['O', 'Spirit Bomb (base, full ki) / Dragon Fist (SSJ)'],
+    ['O IN THE AIR (SSJ)', 'Power down mid-air: a bigger Spirit Bomb (full ki)'],
     ['S + O IN THE AIR (SSJ)', 'Spirit Bomb as a Super Saiyan (full ki)'],
     ['T  (AS SSJ)', 'Power down to base, keeping your ki'],
   ],
@@ -367,7 +367,7 @@ const MOVES = {
     ['AFTER A HIT', 'Cancel into L, U, Q, E or a dash'],
     ['AIR HIT + U  /  DASH', 'Death Beam / Kamehameha, or dash and J'],
     ['L', 'Finger beam (8 ki, air too)'],
-    ['HOLD L', 'Charge the Death Beam: up to 24 damage, knocks down (up to 20 ki)'],
+    ['HOLD L', 'Bigger Death Beam: up to 24 damage, knocks down'],
     ['AFTER L HITS', 'J rushes in, or cancel into a dash, Q, U, L'],
     ['TOWARD + L', 'Barrage (Semi-Perfect, 15 ki)'],
     ['G', 'Barrier: burst them away, even mid-combo (30 ki)'],
@@ -379,7 +379,7 @@ const MOVES = {
     ['F IN THE AIR', 'Re-launch a juggled enemy (once per combo)'],
     ['HOLD I', 'Charge ki and regenerate'],
     ['T', 'Evolve to the next form (full ki)'],
-    ['U', 'Kamehameha (50 ki). TOWARD + U: Death Beam (20 ki), any form'],
+    ['U', 'Kamehameha (50 ki); TOWARD + U: Death Beam (20 ki)'],
     ['Y', 'Special Beam Cannon: pierces guards (35 ki)'],
     ['O  (AIR, AFTER A HIT TOO)', 'Solar Kamehameha finisher (Perfect, full ki)'],
   ],
@@ -426,12 +426,12 @@ function actionLabel(a, c = P1) {
 // "W / S" in menus is the fixed menu up / down; "A / D" is moving.
 const KEY_ACTIONS = {
   J: 'punch', K: 'kick', L: 'ki', U: 'beam', O: 'ult', I: 'charge', T: 'transform', Q: 'vanish', S: 'block', W: 'jump',
-  F: 'grab', P: 'pause', G: 'barrier', E: 'junior', Y: 'cannon', A: 'left', D: 'right',
+  F: 'grab', P: 'pause', G: 'barrier', E: 'junior', Y: 'cannon',
   ENTER: 'confirm', ESC: 'back', SPACE: 'jump', SHIFT: 'dash',
 };
 function promptKeys(str, c = P1) {
   const pad = isPad(c.device);
-  return str.replace(/\bW\s*\/\s*S\b|\bA\s*\/\s*D\b|\b(?:ENTER|ESC|SPACE|SHIFT)\b|\b[JKLUOITQSWFPGEYAD]\b/g, k => {
+  return str.replace(/\bW\s*\/\s*S\b|\bA\s*\/\s*D\b|\b(?:ENTER|ESC|SPACE|SHIFT)\b|\b[JKLUOITQSWFPGEY]\b/g, k => {
     if (/^W\s*\/\s*S$/.test(k)) return pad ? 'D-PAD' : k;
     if (/^A\s*\/\s*D$/.test(k)) return pad ? 'STICK' : actionLabel('left', c) + ' / ' + actionLabel('right', c);
     return actionLabel(KEY_ACTIONS[k], c);

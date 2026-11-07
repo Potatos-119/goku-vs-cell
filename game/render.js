@@ -10,6 +10,14 @@ function small(str, x, y, color = '#fff', align = 'center', size = 5) {
   gfx.font = `${size}px "Press Start 2P", monospace`; gfx.fillStyle = color; gfx.textAlign = align; gfx.textBaseline = 'top';
   gfx.fillText(str, x, y);
 }
+// small text that must fit in maxW (a table column, the screen): a long line gets smaller rather than
+// running into the next column or off the edge
+function fitSmall(str, x, y, maxW, color = '#fff', align = 'left', size = 5) {
+  gfx.font = `${size}px "Press Start 2P", monospace`;
+  // PlayStation symbols are drawn bigger than the font (setText in gfx.js): count them wider
+  const w = gfx.measureText(str).width + (str.match(/[\u25a1\u25b3\u25cb\u2715]/g) || []).length * size * 0.9;
+  small(str, x, y, color, align, w > maxW ? Math.max(2.6, size * maxW / w) : size);
+}
 
 function drawBackground(dim) {
   Stage.drawBack(gfx, dim);
@@ -205,8 +213,8 @@ function drawSelect() {
     STORY[who].forEach((l, k) => small(l, cx - 48, 102 + k * 8, '#ddd', 'left'));
   });
   gfx.fillStyle = 'rgba(0,0,0,0.65)'; gfx.fillRect(0, 136, W, 44);
-  CONTROLS[game.pick ? 'cell' : 'goku'].forEach((l, i) => small(promptKeys(l), W / 2, 140 + i * 8));
-  small(promptKeys('A/D MOVE  DOUBLE-TAP A/D DASH (AIR TOO)  W JUMP  S BLOCK  I CHARGE  Q VANISH'), W / 2, 172, '#aaa');
+  CONTROLS[game.pick ? 'cell' : 'goku'].forEach((l, i) => fitSmall(promptKeys(l), W / 2, 140 + i * 8, W - 8, '#fff', 'center'));
+  fitSmall(promptKeys('A/D MOVE  DOUBLE-TAP A/D DASH (AIR TOO)  W JUMP  S BLOCK  I CHARGE  Q VANISH'), W / 2, 172, W - 8, '#aaa', 'center');
   if (Math.floor(game.t * 2) % 2) small(promptKeys('A / D  CHOOSE     ENTER  STORY / TRAINING / GUIDE'), W / 2, 22, '#fff');
 }
 

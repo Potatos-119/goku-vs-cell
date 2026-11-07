@@ -42,8 +42,8 @@ function drawToast() {
   const age = (performance.now() - toast.at) / 1000;
   if (age > 2.5) { toast = null; return; }
   gfx.setTransform(S, 0, 0, S, 0, 0); gfx.globalCompositeOperation = 'source-over'; gfx.globalAlpha = Math.min(1, (2.5 - age) * 3);
-  gfx.fillStyle = 'rgba(6,5,16,0.85)'; gfx.fillRect(W / 2 - 90, H - 24, 180, 11);
-  small(toast.text, W / 2, H - 21, '#9ff', 'center', 5); gfx.globalAlpha = 1; // low on the screen, clear of titles and the HUD
+  gfx.fillStyle = 'rgba(6,5,16,0.85)'; gfx.fillRect(W / 2 - 90, H - 40, 180, 11);
+  small(toast.text, W / 2, H - 37, '#9ff', 'center', 5); gfx.globalAlpha = 1; // low on the screen, clear of titles and the HUD
 }
 function drawFps() {
   if (!settings.fps || !fpsMeter.fps) return;

@@ -189,23 +189,24 @@ function drawMenu() {
   let y = 28;
   if (m.page === 'moves') {
     const step = Math.min(7, 128 / MOVES[who].length);
-    for (const [input, what] of MOVES[who]) { small(promptKeys(input), 14, y, '#ffd23a', 'left', 5); small(what, 118, y, '#fff', 'left', 5); y += step; }
+    // two columns, each line shrunk to fit its own (button names on a gamepad can be long)
+    for (const [input, what] of MOVES[who]) { fitSmall(promptKeys(input), 8, y, 104, '#ffd23a'); fitSmall(promptKeys(what), 116, y, W - 122, '#fff'); y += step; }
   } else if (m.page === 'combos') {
     const step = Math.min(9, 124 / COMBOS[who].length);
     for (const c of COMBOS[who]) {
       const got = game.learned.has(c.name);
       small(got ? '[X]' : '[ ]', 12, y, got ? '#8f8' : '#888', 'left', 5);
-      small(c.name, 32, y, got ? '#8f8' : '#ffd23a', 'left', 5); small(promptKeys(c.how), 140, y, '#ddd', 'left', 5); y += step;
+      fitSmall(c.name, 32, y, 104, got ? '#8f8' : '#ffd23a'); fitSmall(promptKeys(c.how), 140, y, W - 146, '#ddd'); y += step;
     }
-    small('LAND A COMBO IN A FIGHT OR IN TRAINING TO TICK IT OFF  (+5 KI EACH TIME)', W / 2, y + 2, '#9ff');
+    fitSmall('LAND A COMBO IN A FIGHT OR IN TRAINING TO TICK IT OFF  (+5 KI EACH TIME)', W / 2, y + 2, W - 12, '#9ff', 'center');
   } else if (m.page === 'versus') {
-    small('NO BOSS, SAME HEALTH.  CHANGE ANY KEY IN OPTIONS > KEYS & BUTTONS', W / 2, y - 6, '#ddd'); y += 6;
+    fitSmall('NO BOSS, SAME HEALTH.  CHANGE ANY KEY IN OPTIONS > KEYS & BUTTONS', W / 2, y - 6, W - 12, '#ddd', 'center'); y += 6;
     small('ACTION', 14, y, '#9ff', 'left'); small('PLAYER 1', 130, y, '#9ff', 'left'); small('PLAYER 2', 230, y, '#9ff', 'left'); y += 10;
-    for (const [a, k, p] of versusRows()) { small(a, 14, y, '#ffd23a', 'left'); small(k, 130, y, '#fff', 'left'); small(p, 230, y, '#fff', 'left'); y += 9; }
+    for (const [a, k, p] of versusRows()) { fitSmall(a, 14, y, 112, '#ffd23a'); fitSmall(k, 130, y, 96, '#fff'); fitSmall(p, 230, y, W - 234, '#fff'); y += 9; }
     small('ONE GAMEPAD PLAYS AS P2.  WITH TWO, ONE EACH', W / 2, y + 2, '#9ff');
   } else if (m.page === 'controls') {
     small('ACTION', 14, y, '#9ff', 'left'); small('KEYBOARD', 120, y, '#9ff', 'left'); small('GAMEPAD', 230, y, '#9ff', 'left'); y += 10;
-    for (const [a, k, p] of controlRows()) { small(a, 14, y, '#ffd23a', 'left'); small(k, 120, y, '#fff', 'left'); small(p, 230, y, '#fff', 'left'); y += 9; }
+    for (const [a, k, p] of controlRows()) { fitSmall(a, 14, y, 102, '#ffd23a'); fitSmall(k, 120, y, 106, '#fff'); fitSmall(p, 230, y, W - 234, '#fff'); y += 9; }
   }
   // items (focused one highlighted); info pages show just BACK at the bottom
   const iy = m.page ? H - 18 : 44, gap = Math.min(15, 112 / Math.max(1, m.items.length - 1));
