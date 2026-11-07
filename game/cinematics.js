@@ -66,7 +66,7 @@ async function cinematicBeam(f, foe, r, dmg, knock, title) {
     ghosts.push({ img: teleArt(foe), x, y: FLOOR, t: 0 }); sfx.teleport();
     if (perfect) {
       foe.play('idle', 'pose'); f.inv = 0;
-      if (human(foe)) foe.ki = Math.min(100, foe.ki + 20);
+      if (human(foe)) foe.ki = Math.min(100, foe.ki + 12);
       popups.push({ text: 'PERFECT DODGE!', x, y: FLOOR - 60, t: 0, c: '#ffe04a' });
       sfx.parry(); game.slow = 0.4;
       await wait(0.35, true);

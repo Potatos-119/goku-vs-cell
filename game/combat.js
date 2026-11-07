@@ -2,6 +2,10 @@
 // kind: 'melee' | 'proj' | 'beam' | 'ult' (ultimates can't be blocked or dodged)
 // opts: launch / spike / wallBounce / grab from the attack, token for combo recognition
 const JUGGLE_MAX = 5;
+// Ki for a clean hit, [attacker, the one hit] by kind: the one hit gets a little to fight back with.
+// A beam hits ten times a second, so each tick gives next to nothing, and finishers nothing: otherwise a
+// landed Kamehameha would pay for the next one and beams could be spammed. KI_BLOCKED: for a blocked hit.
+const KI_GAIN = { melee: [4, 3], proj: [2, 2], beam: [0.4, 0.4], ult: [0, 1] }, KI_BLOCKED = 2;
 // combo damage scaling for hits on the player (see the scaling below), and how long a gap still
 // keeps the boss's hits in one combo
 const PLAYER_SCALING = { step: 0.09, min: 0.35, beamMin: 0.6 };
@@ -41,7 +45,7 @@ function damage(def, src, dmg, heavy, dir, kind = 'melee', opts = {}) {
   let broke = false;
   if (blocking && human(def) && (def.stamina -= dmg * 1.6) <= 0) { guardBreak(def); blocking = false; broke = true; }
   if (blocking) {
-    dmg *= 0.15; def.vx = dir * 90; def.ki = Math.min(100, def.ki + 3);
+    dmg *= 0.15; def.vx = dir * 90; def.ki = Math.min(100, def.ki + KI_BLOCKED);
     // the guard takes it differently by what it is: a light hit drives them into a crouch, a heavy
     // one (or a launcher) knocks them back off their feet, and in the air it just pushes them away
     if (def.y < FLOOR - 2 && def.A('airBlock')) { def.anim = 'airBlock'; def.at = 0; def.vx = dir * 130; def.vy = Math.min(def.vy, -70); }
@@ -50,7 +54,8 @@ function damage(def, src, dmg, heavy, dir, kind = 'melee', opts = {}) {
     sparks.push({ x: def.x - dir * 8, y: def.y - 28, t: 0, c: '#9fe7ff' });
     sfx.block(); game.freeze = 0.04;
   } else {
-    def.ki = Math.min(100, def.ki + 4); src.ki = Math.min(100, src.ki + 6);
+    const [kiSrc, kiDef] = KI_GAIN[kind] || KI_GAIN.melee;
+    def.ki = Math.min(100, def.ki + kiDef); src.ki = Math.min(100, src.ki + kiSrc);
     def.flash = 0.08;
     if (src === player) {
       game.combo.n++; game.combo.t = 0;
@@ -150,7 +155,7 @@ function guardBreak(f) {
 const PARRY_WINDOW = 0.18;
 const WINDUP = 0.28; // pause between a vanish and its counterattack
 function perfectBlock(def, src, kind) {
-  def.ki = Math.min(100, def.ki + 25); def.stamina = Math.min(100, def.stamina + 15); def.inv = 0.25;
+  def.ki = Math.min(100, def.ki + 15); def.stamina = Math.min(100, def.stamina + 15); def.inv = 0.25;
   popups.push({ text: 'PERFECT!  +KI', x: def.x, y: def.y - 54, t: 0, c: '#8ff' });
   sparks.push({ x: def.x + def.facing * 10, y: def.y - 30, t: 0, c: '#ffffff' });
   game.freeze = 0.15; game.flash = 0.35; sfx.parry();

@@ -28,6 +28,9 @@ function quitToSelect() {
 // Versus: two people on one keyboard (or gamepads), no boss. Both fighters start in their base form
 // with the same health and evolve or transform themselves (T at full ki), as you do in story mode;
 // transforming the first time heals a little (versusHeal).
+// the fighter player 1 takes on the versus screen (player 2 gets the other one)
+let vsSide = null;
+const swapVsSides = () => { vsSide = (vsSide || sideOfPick()) === 'goku' ? 'cell' : 'goku'; };
 const VERSUS_HP = 200;
 // health back the first time each form is reached in a round: Goku has one form to reach, Cell two,
 // so both can win back 40
@@ -92,7 +95,7 @@ const MENUS = {
   mode: () => ({ title: sideOfPick().toUpperCase(), items: [
     { label: 'STORY MODE', go: () => { reset(sideOfPick()); Audio8.music.play('bg'); intro(); } },
     { label: 'TRAINING  (PRACTISE COMBOS)', go: () => startTraining(sideOfPick()) },
-    { label: 'VERSUS  (2 PLAYERS)', go: () => openMenu('versus') },
+    { label: 'VERSUS  (2 PLAYERS)', go: () => { vsSide = sideOfPick(); openMenu('versus'); } },
     { label: 'ONLINE  (PLAY A FRIEND)', go: () => Net.open(sideOfPick()) },
     { label: 'MOVE LIST', go: () => openMenu('moves') },
     { label: 'COMBO LIST', go: () => openMenu('combos') },
@@ -140,7 +143,22 @@ const MENUS = {
   moves: () => ({ title: guideWho().toUpperCase() + '  MOVE LIST', page: 'moves', items: [{ label: 'BACK', go: closeMenu }] }),
   combos: () => ({ title: guideWho().toUpperCase() + '  COMBOS', page: 'combos', items: [{ label: 'BACK', go: closeMenu }] }),
   controls: () => ({ title: 'CONTROLS', page: 'controls', items: [{ label: 'BACK', go: closeMenu }] }),
-  versus: () => ({ title: 'VERSUS', page: 'versus', items: [{ label: 'START', go: () => { game.menu = []; startVersus(sideOfPick()); } }, { label: 'BACK', go: closeMenu }] }),
+  // the versus setup: who plays which fighter, and which player each gamepad is (left / right changes)
+  versus: () => {
+    const p1 = vsSide || sideOfPick(), p2 = p1 === 'goku' ? 'cell' : 'goku', pads = connectedPads();
+    return { title: 'VERSUS', items: [
+      { label: 'PLAYER 1   ' + p1.toUpperCase(), go: swapVsSides, adjust: swapVsSides },
+      { label: 'PLAYER 2   ' + p2.toUpperCase(), go: swapVsSides, adjust: swapVsSides },
+      ...pads.slice(0, 2).map((pad, i) => {
+        const flip = () => { padOwners[i] = padOwner(i, pads.length) === P1 ? P2 : P1; };
+        return { label: 'GAMEPAD ' + (i + 1) + (padKind(pad) === 'ps' ? ' (PLAYSTATION)' : ' (XBOX)') + '   ' + (padOwner(i, pads.length) === P1 ? 'PLAYER 1' : 'PLAYER 2'), go: flip, adjust: flip };
+      }),
+      { label: 'KEYS FOR EACH PLAYER', go: () => openMenu('versusKeys') },
+      { label: 'START', go: () => { game.menu = []; startVersus(p1); } },
+      { label: 'BACK', go: closeMenu },
+    ] };
+  },
+  versusKeys: () => ({ title: 'VERSUS KEYS', page: 'versus', items: [{ label: 'BACK', go: closeMenu }] }),
 };
 
 function cycleArena(d) {
@@ -179,9 +197,9 @@ function drawMenu() {
       small(got ? '[X]' : '[ ]', 12, y, got ? '#8f8' : '#888', 'left', 5);
       small(c.name, 32, y, got ? '#8f8' : '#ffd23a', 'left', 5); small(promptKeys(c.how), 140, y, '#ddd', 'left', 5); y += step;
     }
-    small('LAND A COMBO IN A FIGHT OR IN TRAINING TO TICK IT OFF  (+8 KI EACH TIME)', W / 2, y + 2, '#9ff');
+    small('LAND A COMBO IN A FIGHT OR IN TRAINING TO TICK IT OFF  (+5 KI EACH TIME)', W / 2, y + 2, '#9ff');
   } else if (m.page === 'versus') {
-    small('P1 PLAYS ' + sideOfPick().toUpperCase() + ', P2 THE OTHER ONE.  NO BOSS, SAME HEALTH', W / 2, y - 6, '#ddd'); y += 6;
+    small('NO BOSS, SAME HEALTH.  CHANGE ANY KEY IN OPTIONS > KEYS & BUTTONS', W / 2, y - 6, '#ddd'); y += 6;
     small('ACTION', 14, y, '#9ff', 'left'); small('PLAYER 1', 130, y, '#9ff', 'left'); small('PLAYER 2', 230, y, '#9ff', 'left'); y += 10;
     for (const [a, k, p] of versusRows()) { small(a, 14, y, '#ffd23a', 'left'); small(k, 130, y, '#fff', 'left'); small(p, 230, y, '#fff', 'left'); y += 9; }
     small('ONE GAMEPAD PLAYS AS P2.  WITH TWO, ONE EACH', W / 2, y + 2, '#9ff');
@@ -190,7 +208,7 @@ function drawMenu() {
     for (const [a, k, p] of controlRows()) { small(a, 14, y, '#ffd23a', 'left'); small(k, 120, y, '#fff', 'left'); small(p, 230, y, '#fff', 'left'); y += 9; }
   }
   // items (focused one highlighted); info pages show just BACK at the bottom
-  const iy = m.page === 'versus' ? H - 34 : m.page ? H - 18 : 44, gap = Math.min(15, 112 / Math.max(1, m.items.length - 1));
+  const iy = m.page ? H - 18 : 44, gap = Math.min(15, 112 / Math.max(1, m.items.length - 1));
   if (m.compact) {
     // a long list (KEYS & BUTTONS): small rows, the one being changed in yellow
     m.items.forEach((it, k) => { const on = k === top.i; small((on ? '> ' : '') + it.label, W / 2, 26 + k * 7.4, on ? '#ffe04a' : '#ccc', 'center', 5); });

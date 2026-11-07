@@ -139,8 +139,12 @@ addEventListener('keydown', e => {
 addEventListener('keyup', e => { if (guestKey(e, false)) return; const [c, acts] = route(codeOf(e)); if (acts) withController(c, () => acts.forEach(a => setHeld(c.kbHeld, a, false))); });
 // switching windows swallows keyup events, which would leave a key held forever
 addEventListener('blur', () => { for (const c of [P1, P2]) withController(c, () => { for (const a in c.kbHeld) setHeld(c.kbHeld, a, false); }); });
-// one gamepad drives player 1; in versus a single gamepad is player 2's (player 1 has the keyboard),
-// and with two, the first is player 1's and the second player 2's
+// Outside versus the first gamepad is player 1's. In versus each pad plays the player picked for it on
+// the versus screen (padOwners); left alone, a single pad is player 2's (player 1 has the keyboard)
+// and with two, the first is player 1's and the second player 2's.
+const padOwners = [];
+const padOwner = (i, n) => padOwners[i] || (n === 1 ? P2 : i === 0 ? P1 : P2);
+const connectedPads = () => [...(navigator.getGamepads ? navigator.getGamepads() : [])].filter(p => p && p.connected);
 // which kind of gamepad player 1 holds, for the button names on the controls page
 let padStyle = 'xbox';
 function pollGamepad() {
@@ -156,8 +160,8 @@ function pollGamepad() {
   if (pads.length) padStyle = /054c|dualshock|dualsense|playstation|wireless controller/i.test(pads[0].id) ? 'ps' : 'xbox';
   const driven = new Map();
   if (game && game.versus && !(window.Net && Net.role === 'host')) {
-    if (pads.length === 1) driven.set(P2, pads[0]);
-    else if (pads.length > 1) { driven.set(P1, pads[0]); driven.set(P2, pads[1]); }
+    // each gamepad plays whoever the versus screen gave it (one pad can't share a player with another)
+    pads.slice(0, 2).forEach((pad, i) => { const c = padOwner(i, pads.length); if (!driven.has(c)) driven.set(c, pad); });
   } else if (pads.length) driven.set(P1, pads[0]);
   for (const c of [P1, P2]) withController(c, () => {
     if (driven.has(c)) readPad(driven.get(c));
@@ -193,8 +197,8 @@ function readPad(pad) {
 let toast = null;
 const showToast = text => { toast = { text, at: performance.now() }; };
 addEventListener('gamepadconnected', e => {
-  const kind = padKind(e.gamepad), n = [...navigator.getGamepads()].filter(p => p && p.connected).length;
-  const c = game && game.versus && !(window.Net && Net.role) && (n === 1 || e.gamepad.index > 0) ? P2 : P1;
+  const kind = padKind(e.gamepad), pads = connectedPads(), i = Math.max(0, pads.findIndex(p => p.index === e.gamepad.index));
+  const c = game && game.versus && !(window.Net && Net.role) ? padOwner(i, pads.length) : P1;
   c.device = kind; padStyle = kind;
   showToast((kind === 'ps' ? 'PLAYSTATION' : 'XBOX') + ' CONTROLLER CONNECTED' + (c === P2 ? '  (PLAYER 2)' : ''));
 });

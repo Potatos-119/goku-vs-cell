@@ -70,11 +70,11 @@ function comboToken(tok, src = player) {
     c.done.add(combo.name);
     if (!mine) {
       c.names.push({ name: combo.name }); game.comboNames.push({ text: combo.name + '!', t: 0, boss: true });
-      if (game.versus) src.ki = Math.min(100, src.ki + 8); // player 2 earns ki for combos too
+      if (game.versus) src.ki = Math.min(100, src.ki + 5); // player 2 earns ki for combos too
       continue;
     }
     game.learned.add(combo.name);
-    player.ki = Math.min(100, player.ki + 8);
+    player.ki = Math.min(100, player.ki + 5);
     game.comboNames.push({ text: combo.name + '!', t: 0 });
     sfx.parry();
   }

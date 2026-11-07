@@ -66,10 +66,10 @@ choosing a fighter) has a dummy you can set up and a checklist of combos to try.
 
 Options cover difficulty, volume, calm mode and the arena, and they're saved between visits.
 
-There's a versus mode too, for two people on one keyboard: pick VERSUS after choosing a fighter.
-Player 2 plays the other one, with the arrows and the keys around Enter (the full layout is on the
-versus screen). One gamepad plays as player 2, and with two gamepads each player gets one. Both
-start with 200 health, and transforming heals a little the first time each round (Super Saiyan +40,
+There's a versus mode too, for two people on one keyboard or gamepads: pick VERSUS after choosing a
+fighter. On the versus screen you choose who plays Goku and who plays Cell, and which player each
+gamepad is. Player 2's keys are the arrows and the keys around Enter (KEYS FOR EACH PLAYER shows them
+all). Both start with 200 health, and transforming heals a little the first time each round (Super Saiyan +40,
 each of Cell's evolutions +20), so powering up is a way back into a fight you're losing.
 
 To play a friend on another computer, pick ONLINE instead: one of you creates a room and reads out the
