@@ -163,6 +163,9 @@ const CELL_TEMPLATE = {
   airBlock: { fr: ['14.0'], fps: 1, loop: true },
   p1: { fr: ['13.1', '13.2', '13.2', '13.1'], fps: 13, hit: { at: 1, dmg: 6, reach: 32 } },
   p2: { fr: ['13.3', '13.4', '13.4'], fps: 12, hit: { at: 1, dmg: 7, reach: 34 } },
+  // the third J: a lunging strike (the lunge frame, 13.11) that knocks them away and ends the string, so
+  // J can't be mashed forever. It's slow to recover, so a blocked one can be punished
+  p3: { fr: ['13.2', '13.11', '13.11', '13.11', '13.11'], fps: 10, hit: { at: 1, dmg: 9, reach: 40, heavy: true } },
   k1: { fr: ['13.5', '13.6', '13.6', '13.5'], fps: 12, hit: { at: 1, dmg: 8, reach: 40 } },
   k2: { fr: ['13.7', '13.8', '13.8', '13.9'], fps: 10, hit: { at: 1, dmg: 11, reach: 40, heavy: true, launch: true } },
   finger: { fr: ['13.10', { id: '15.0', w: 24 }, { id: '15.0', w: 24 }], fps: 8, emitAt: 1, emit: 29 },
@@ -355,7 +358,8 @@ const MOVES = {
     ['T  (AS SSJ)', 'Power down to base, keeping your ki'],
   ],
   cell: [
-    ['J  /  K', 'Punch / kick, chain: J J K or K K'],
+    ['J  /  K', 'Punch / kick, chain: J J J, J J K or K K'],
+    ['J J J', 'Ends in a lunge that knocks them away'],
     ['J J K  /  K K', 'Ends in a launcher: W to chase them up'],
     ['TOWARD + J  /  K', 'Rush punch / heavy slash (wall bounce)'],
     ['J + K  /  F', 'Absorb: grab through a block, heals you'],

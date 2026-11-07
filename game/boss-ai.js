@@ -181,7 +181,7 @@ function bossAI(dt) {
   const dashIn = () => { c.superDash = false; c.play('dash'); c.t2 = 0.24; c.vx = c.facing * 280 * c.speed; Stage.puff(c.x, c.facing); };
   const combo = () => {
     const list = isCell
-      ? [['p2', 'k2'], ['p1', 'p2', 'k2'], ['k1', 'k2'], ['p1', 'k1'], ['p1', 'p2', 'k1', 'k2']]
+      ? [['p2', 'k2'], ['p1', 'p2', 'k2'], ['p1', 'p2', 'p3'], ['k1', 'k2'], ['p1', 'k1'], ['p1', 'p2', 'k1', 'k2']]
       : [['p1', 'p2', 'p3', 'p4'], ['p1', 'k1', 'k2', 'k3'], ['k1', 'k2', 'p3'], ['p1', 'p2', 'k3'], ['rush', 'p2', 'p3']];
     c.queue = pick(list).slice(0, ph + 2);
     startAttack(c, c.queue.shift()); ai.think = rand(0.5, 0.9) / c.speed;

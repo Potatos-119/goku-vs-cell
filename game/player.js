@@ -2,7 +2,7 @@
 // what J / K chain into after each attack
 const CHAINS = {
   goku: { j: { p1: 'p2', p2: 'p3', p3: 'p4', k1: 'p2', k2: 'p3', rush: 'p2' }, k: { p1: 'k1', p2: 'k2', p3: 'k3', k1: 'k2', k2: 'k3', rush: 'k2' } },
-  cell: { j: { p1: 'p2', k1: 'p2', rush: 'p2' }, k: { p1: 'k1', p2: 'k2', k1: 'k2', rush: 'k2' } },
+  cell: { j: { p1: 'p2', p2: 'p3', k1: 'p2', rush: 'p2' }, k: { p1: 'k1', p2: 'k2', k1: 'k2', rush: 'k2' } },
 };
 
 const AIR_CHAIN = { air: 'air2', air2: 'spike' };

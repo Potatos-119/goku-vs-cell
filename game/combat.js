@@ -231,6 +231,7 @@ function updateMinions(dt) {
 function startAttack(f, name) {
   f.play(name, 'attack'); f.vx = f.facing * 50;
   if (name === 'rush') f.vx = f.facing * 240;
+  if (name === 'p3' && f.who === 'cell') f.vx = f.facing * 150; // the lunge carries him in
   if (name === 'grab') f.vx = f.facing * 200;
 }
 
