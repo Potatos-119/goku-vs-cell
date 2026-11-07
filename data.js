@@ -394,17 +394,20 @@ const VERSUS_ROWS = [
   ['GRAB', 'F', '-'],
   ['CELL SPECIALS', 'G / E / Y', '=  /  0  /  9'],
 ];
+// gamepad buttons are written with Xbox names; on a PlayStation pad they read as its own
+const PS_NAMES = { A: 'CROSS', B: 'CIRCLE', X: 'SQUARE', Y: 'TRIANGLE', LB: 'L1', RB: 'R1', LT: 'L2', RT: 'R2', Back: 'SHARE', Start: 'OPTIONS' };
+const padLabel = s => padStyle === 'ps' ? s.replace(/\b(A|B|X|Y|LB|RB|LT|RT|Back|Start)\b/g, m => PS_NAMES[m]) : s;
 const CONTROL_ROWS = [
   ['MOVE', 'A / D or arrows', 'Stick / d-pad'],
   ['JUMP', 'W / Space', 'A'],
   ['BLOCK', 'S', 'LB / down'],
   ['PUNCH / KICK', 'J / K', 'X / Y'],
-  ['DRAGON RUSH / ABSORB', 'J + K / F', 'X + Y'],
-  ['CELL: BARRIER / JUNIOR', 'G / E', ''],
+  ['GRAB / AIR RE-LAUNCH', 'J + K / F', 'X + Y'],
+  ['CELL BARRIER / JR', 'G / E', ''],
   ['KI ATTACK', 'L', 'B'],
   ['BEAM / ULTIMATE', 'U / O', 'RT / R3'],
   ['CHARGE / TRANSFORM', 'I / T', 'LT / L3'],
-  ['DASH / VANISH', 'Double-tap, Shift / Q', 'RB / Back'],
+  ['DASH / VANISH', '2x tap, Shift / Q', 'RB / Back'],
   ['PAUSE', 'P', 'Start'],
   ['MUSIC / CALM / FPS', 'M / R / F2', ''],
 ];

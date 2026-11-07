@@ -160,7 +160,7 @@ function drawMenu() {
     small('ONE GAMEPAD PLAYS AS P2.  WITH TWO, ONE EACH', W / 2, y + 2, '#9ff');
   } else if (m.page === 'controls') {
     small('ACTION', 14, y, '#9ff', 'left'); small('KEYBOARD', 120, y, '#9ff', 'left'); small('GAMEPAD', 230, y, '#9ff', 'left'); y += 10;
-    for (const [a, k, p] of CONTROL_ROWS) { small(a, 14, y, '#ffd23a', 'left'); small(k, 120, y, '#fff', 'left'); small(p, 230, y, '#fff', 'left'); y += 9; }
+    for (const [a, k, p] of CONTROL_ROWS) { small(a, 14, y, '#ffd23a', 'left'); small(k, 120, y, '#fff', 'left'); small(padLabel(p), 230, y, '#fff', 'left'); y += 9; }
   }
   // items (focused one highlighted); info pages show just BACK at the bottom
   const iy = m.page === 'versus' ? H - 34 : m.page ? H - 18 : 44;

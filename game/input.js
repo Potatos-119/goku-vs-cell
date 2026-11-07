@@ -85,8 +85,11 @@ addEventListener('keyup', e => { if (guestKey(e, false)) return; const [c, acts]
 addEventListener('blur', () => { for (const c of [P1, P2]) withController(c, () => { for (const a in c.kbHeld) setHeld(c.kbHeld, a, false); }); });
 // one gamepad drives player 1; in versus a single gamepad is player 2's (player 1 has the keyboard),
 // and with two, the first is player 1's and the second player 2's
+// which kind of gamepad player 1 holds, for the button names on the controls page
+let padStyle = 'xbox';
 function pollGamepad() {
   const pads = [...(navigator.getGamepads ? navigator.getGamepads() : [])].filter(p => p && p.connected);
+  if (pads.length) padStyle = /054c|dualshock|dualsense|playstation|wireless controller/i.test(pads[0].id) ? 'ps' : 'xbox';
   const driven = new Map();
   if (game && game.versus && !(window.Net && Net.role === 'host')) {
     if (pads.length === 1) driven.set(P2, pads[0]);
@@ -106,6 +109,7 @@ function readPad(pad) {
     if (a === 'left') down = down || (stick && x < -0.5);
     if (a === 'right') down = down || (stick && x > 0.5);
     if (a === 'block') down = down || (stick && y > 0.6);
+    if (a === 'jump') down = down || (stick && y < -0.6); // the stick up jumps, like the d-pad
     setHeld(padHeld, a, down);
   }
 }
@@ -117,6 +121,13 @@ function act(a) {
   const age = game.ct - lastPress[a];
   if (!(age >= 0 && age <= BUFFER)) return false;
   lastPress[a] = -99; return true;
+}
+// Punch + kick together is the grab (F), and in the air the re-launch. On a gamepad the two buttons
+// rarely land in the same frame, so a punch or kick pressed on its own this very moment waits one
+// frame for the other before it counts as a plain hit
+function pairPending() {
+  const fresh = k => { const age = game.ct - lastPress[k]; return age >= 0 && age < 0.018; };
+  return fresh('punch') !== fresh('kick');
 }
 // two buttons pressed together (both still in the buffer)
 function chord(a, b) {

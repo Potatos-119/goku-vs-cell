@@ -117,6 +117,7 @@ const Net = {
       if (a === 'left') down = down || (stick && x < -0.5);
       if (a === 'right') down = down || (stick && x > 0.5);
       if (a === 'block') down = down || (stick && y > 0.6);
+      if (a === 'jump') down = down || (stick && y < -0.6);
       if (!!this.pad[a] !== down) { this.pad[a] = down; this.sendKey([a], down); }
     }
   },

@@ -145,7 +145,7 @@ function drawTitle() {
   text('CELL', W / 2 + 4, 30, 32, '#a8e27c', 'left');
   if (Math.floor(game.t * 2) % 2) text('PRESS ENTER', W / 2, 96, 14, '#ffe04a', 'center');
   small('P PAUSE / MENU   M MUSIC   R CALM MODE (LESS SHAKE)   ESC SKIP', W / 2, 156, '#ddd');
-  small('GAMEPAD WORKS TOO: A JUMP  X PUNCH  Y KICK  B KI  LB BLOCK  RB DASH  RT BEAM', W / 2, 165, '#aaa');
+  small('GAMEPAD WORKS TOO: ALL ITS BUTTONS ARE IN PAUSE > CONTROLS', W / 2, 165, '#aaa');
 }
 
 const CONTROLS = {

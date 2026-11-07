@@ -175,8 +175,9 @@ function playerInput(dt, g = player, foe = boss) {
     if (isGoku && g.form === 'ssj' && g.ki >= 100 && act('ult')) return keys.block ? spiritBomb(g) : airSpirit(g);
     // the dunk: S + J (or K) in the air slams straight down at them
     if (keys.block && (act('punch') || act('kick'))) { g.facing = foe.x > g.x ? 1 : -1; return g.play('spike', 'airAtk'); }
-    // F in the air: the re-launch (it only finds them once they're up in the air)
-    if (act('grab')) return g.play('airLaunch', 'airAtk');
+    // F (or punch + kick together) in the air: the re-launch (it only finds them once they're up)
+    if (act('grab') || chord('punch', 'kick')) return g.play('airLaunch', 'airAtk');
+    if (pairPending()) return;
     if (act('punch') || act('kick')) g.play('air', 'airAtk');
     // holding S in the air: an air guard (arms crossed), until you land or let go
     else if (keys.block && !g.guardBroken && g.A('airBlock')) { g.play('airBlock', 'block'); g.blockT = 0; }
@@ -185,10 +186,10 @@ function playerInput(dt, g = player, foe = boss) {
     if (g.hitLanded) {
       if (airCancel(g, foe, dashDir)) return;
     }
+    // F (or punch + kick together) mid-string: the re-launch next (straight away, once a hit has landed)
+    if (act('grab') || chord('punch', 'kick')) { if (g.hitLanded) { g.facing = foe.x > g.x ? 1 : -1; return g.play('airLaunch', 'airAtk'); } g.next = 'airLaunch'; }
     // S + J mid-string goes straight to the dunk
-    if (AIR_CHAIN[g.anim] && (act('punch') || act('kick'))) g.next = keys.block ? 'spike' : AIR_CHAIN[g.anim];
-    // F mid-string: the re-launch next (straight away, once a hit has landed)
-    if (act('grab')) { if (g.hitLanded) { g.facing = foe.x > g.x ? 1 : -1; return g.play('airLaunch', 'airAtk'); } g.next = 'airLaunch'; }
+    else if (AIR_CHAIN[g.anim] && !pairPending() && (act('punch') || act('kick'))) g.next = keys.block ? 'spike' : AIR_CHAIN[g.anim];
   } else if (g.state === 'cast' && g.hitLanded) {
     // the ki blast hit: J rushes in after it (an air hit in the air), or cancel like a landed punch
     if (g.y < FLOOR - 1) { if (!airCancel(g, foe, dashDir) && (act('punch') || act('kick'))) g.play('air', 'airAtk'); }
