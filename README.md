@@ -56,6 +56,7 @@ Open http://localhost:8766 and press Enter.
 | O | Finisher at full ki |
 | P | Pause: move list, combo list, controls, options |
 | M / R | Music / calm mode (less shake and flashing) |
+| F2 | FPS counter (also in Options) |
 
 A gamepad works too. The full move list and every combo are in the pause menu, and training mode
 (pick it after choosing a fighter) has a dummy you can set up and a checklist of combos to try.

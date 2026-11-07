@@ -396,5 +396,5 @@ const CONTROL_ROWS = [
   ['CHARGE / TRANSFORM', 'I / T', 'LT / L3'],
   ['DASH / VANISH', 'Double-tap, Shift / Q', 'RB / Back'],
   ['PAUSE', 'P', 'Start'],
-  ['MUSIC / CALM MODE', 'M / R', ''],
+  ['MUSIC / CALM / FPS', 'M / R / F2', ''],
 ];

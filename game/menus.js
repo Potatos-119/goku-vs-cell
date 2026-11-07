@@ -90,6 +90,7 @@ const MENUS = {
     { label: 'SOUND FX VOLUME  ' + bars(Audio8.vol.sfx), adjust: d => Audio8.setVolume('sfx', Audio8.vol.sfx + d) },
     { label: 'MUSIC  ' + (Audio8.music.muted ? 'OFF' : 'ON'), go: () => Audio8.music.toggleMute(), adjust: () => Audio8.music.toggleMute() },
     { label: 'CALM MODE  ' + (settings.calm ? 'ON' : 'OFF'), go: toggleCalm, adjust: toggleCalm },
+    { label: 'FPS COUNTER  ' + (settings.fps ? 'ON' : 'OFF'), go: toggleFps, adjust: toggleFps },
     { label: 'ARENA  ' + Stage.arena.toUpperCase(), go: () => cycleArena(1), adjust: cycleArena },
     { label: 'BACK', go: closeMenu },
   ] }),

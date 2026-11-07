@@ -20,17 +20,34 @@ function updateCamera(raw) {
 
 // ---------- main loop ----------
 let last = performance.now();
+// FPS counter: frames counted over half a second, plus the slowest frame in that time (one long frame
+// is a visible hitch even when the average looks fine)
+const fpsMeter = { frames: 0, time: 0, worst: 0, fps: 0, worstMs: 0 };
+function measureFps(ms) {
+  const m = fpsMeter;
+  m.frames++; m.time += ms; m.worst = Math.max(m.worst, ms);
+  if (m.time >= 500) { m.fps = Math.round(m.frames * 1000 / m.time); m.worstMs = Math.round(m.worst); m.frames = 0; m.time = 0; m.worst = 0; }
+}
+function drawFps() {
+  if (!settings.fps || !fpsMeter.fps) return;
+  const { fps, worstMs } = fpsMeter, color = fps >= 58 ? '#8f8' : fps >= 45 ? '#ffd23a' : '#ff6a5a';
+  gfx.setTransform(S, 0, 0, S, 0, 0); gfx.globalAlpha = 1; gfx.globalCompositeOperation = 'source-over';
+  gfx.fillStyle = 'rgba(0,0,0,0.55)'; gfx.fillRect(2, H - 10, 62, 8);
+  small(`${fps} FPS  ${worstMs}MS`, 4, H - 8, color, 'left', 5);
+}
 function loop(now) {
+  measureFps(now - last);
   const raw = Math.min(0.05, (now - last) / 1000); last = now;
   pollGamepad();
   // hit-freeze frames skip input, so keep those key presses for the next real frame
   if (step(raw) !== 'frozen') pressed.clear();
-  gfx.beginFrame(); render(); gfx.endFrame();
+  gfx.beginFrame(); render(); drawFps(); gfx.endFrame();
   requestAnimationFrame(loop);
 }
 
 function step(raw) {
   game.t += raw;
+  if (tap('fps')) toggleFps();
   if (tap('calm')) { toggleCalm(); popups.push({ text: settings.calm ? 'CALM MODE: LESS SHAKE + FLASH' : 'CALM MODE OFF', x: W / 2, y: 60, t: 0, c: '#fff' }); }
   // the heartbeat layer comes in when you're close to defeat
   Audio8.heartbeat(game.mode === 'fight' && !game.training && player.hp > 0 && player.hp < player.maxHp * 0.25);

@@ -59,6 +59,13 @@ class Fighter {
 const settings = { calm: false };
 try { settings.calm = localStorage.getItem('calmMode') === '1'; } catch (e) { /* storage blocked */ }
 // Screen shake as decaying trauma: hits add to it instead of resetting it, and it eases back to rest.
+// the FPS counter in the corner (F2, or Options), remembered between visits
+settings.fps = false;
+try { settings.fps = localStorage.getItem('fpsCounter') === '1'; } catch (e) { /* storage blocked */ }
+function toggleFps() {
+  settings.fps = !settings.fps;
+  try { localStorage.setItem('fpsCounter', settings.fps ? '1' : '0'); } catch (e) { /* not saved, still works */ }
+}
 function toggleCalm() {
   settings.calm = !settings.calm;
   try { localStorage.setItem('calmMode', settings.calm ? '1' : '0'); } catch (e) { /* not saved, still works */ }
