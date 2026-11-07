@@ -67,6 +67,13 @@ There's a versus mode too, for two people on one keyboard: pick VERSUS after cho
 Player 2 plays the other one, with the arrows and the keys around Enter (the full layout is on the
 versus screen). One gamepad plays as player 2, and with two gamepads each player gets one.
 
+To play a friend on another computer, pick ONLINE instead: one of you creates a room and reads out the
+4-letter code, the other types it in. The one who made the room runs the fight; the other's screen
+shows it and sends their keys back (they play with the normal keys). The two browsers connect
+directly (WebRTC, through the free PeerJS service, which only introduces them), so it's free and
+needs no server of ours. Some school or office networks block direct connections; then it won't
+connect.
+
 ## Files
 
 - `game/`: the game, one file per system (input, combat, boss AI, cutscenes, menus, rendering), loaded
@@ -77,6 +84,7 @@ versus screen). One gamepad plays as player 2, and with two gamepads each player
 - `frames.js`: loads the sprite frames, already cut out and packed into one atlas in `assets/frames/`
 - `sheets.js`: cuts those frames out of the original sheets. Only the bake tool uses it
 - `audio.js`: music, sound effects and the sound slice table
+- `net.js`: online play (rooms, sending the host's screen and sounds to the guest, the guest's keys back)
 - `stage.js`: the arena and the damage the fight does to it
 - `tools/balance.js`: plays the boss at high speed and measures how hard it hits per phase
 - `tools/bake.html`: re-bakes the frames after a sheet changes (`tools/atlas.html` shows the result)

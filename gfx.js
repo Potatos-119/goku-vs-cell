@@ -8,6 +8,10 @@
 // at all. Whatever wasn't drawn this frame is hidden.
 //
 // Sprites come from the baked atlas (frames.js): a frame is a window onto the atlas image.
+//
+// For online play the changes can be recorded (gfx.log): every new element and every attribute that
+// changed, by address. GfxMirror replays them on the other player's screen, so it shows exactly this
+// drawing without running the game.
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const BLEND = CSS.supports('mix-blend-mode', 'plus-lighter') ? 'plus-lighter' : 'screen';
 const TAU = Math.PI * 2;
@@ -31,9 +35,18 @@ class Gfx {
     this.grads = []; this.gn = 0; // gradients used this frame
     this.clips = []; this.cn = 0; // clip shapes used this frame
     this.measureCache = new Map();
+    this.log = null; // an array while recording (online host)
     this.reset();
   }
   make(tag) { return document.createElementNS(SVG_NS, tag); }
+
+  // drop every element: the next frame builds (and records) the whole picture from scratch, for a
+  // player who just joined
+  resync() {
+    for (const el of [...this.els, ...this.grads, ...this.clips]) el.remove();
+    this.els = []; this.grads = []; this.clips = [];
+    if (this.log) this.log.push(['X']);
+  }
 
   // ---- frame ----
   beginFrame() { this.n = 0; this.gn = 0; this.cn = 0; this.reset(); }
@@ -126,7 +139,7 @@ class Gfx {
     const anchor = { center: 'middle', right: 'end', end: 'end' }[this.st.align] || 'start';
     const base = { top: 'text-before-edge', hanging: 'hanging', middle: 'central', bottom: 'text-after-edge' }[this.st.baseline] || 'auto';
     const el = this.shape('text', { x: num(x), y: num(y), 'text-anchor': anchor, 'dominant-baseline': base, style: `font:${this.st.font};white-space:pre`, ...paint });
-    if (el.textContent !== String(s)) el.textContent = s;
+    if (el.textContent !== String(s)) { el.textContent = s; if (this.log) this.log.push([el._addr, '#', String(s)]); }
   }
   measureText(s) {
     const key = this.st.font + '|' + s;
@@ -153,8 +166,8 @@ class Gfx {
     if (!src) return;
     const g = this.shape('g', {}, 'img');
     if (!g.view) {
-      g.view = this.make('svg'); g.view.setAttribute('preserveAspectRatio', 'none'); g.view._a = {};
-      g.pic = this.make('image'); g.pic._a = {};
+      g.view = this.make('svg'); g.view.setAttribute('preserveAspectRatio', 'none'); g.view._a = {}; g.view._addr = g._addr + 'v';
+      g.pic = this.make('image'); g.pic._a = {}; g.pic._addr = g._addr + 'p';
       g.view.append(g.pic); g.append(g.view);
     }
     this.attr(g.view, 'x', num(dw < 0 ? dx + dw : dx)); this.attr(g.view, 'y', num(dh < 0 ? dy + dh : dy));
@@ -169,8 +182,9 @@ class Gfx {
   shape(tag, attrs, kind = tag) {
     let el = this.els[this.n];
     if (!el || el.kind !== kind) {
-      const fresh = this.make(tag); fresh.kind = kind; fresh._a = {};
+      const fresh = this.make(tag); fresh.kind = kind; fresh._a = {}; fresh._addr = 'e' + this.n;
       if (el) this.layer.replaceChild(fresh, el); else this.layer.append(fresh);
+      if (this.log) this.log.push(['E', this.n, tag, kind]);
       el = this.els[this.n] = fresh;
     }
     this.n++;
@@ -183,7 +197,7 @@ class Gfx {
     for (const k in attrs) this.attr(el, k, attrs[k]);
     return el;
   }
-  attr(el, k, v) { if (el._a[k] !== v) { el._a[k] = v; el.setAttribute(k, v); } }
+  attr(el, k, v) { if (el._a[k] !== v) { el._a[k] = v; el.setAttribute(k, v); if (this.log) this.log.push([el._addr, k, v]); } }
 
   // a colour, or a gradient written into <defs> (in the drawing's own coordinates)
   paint(p) {
@@ -191,18 +205,22 @@ class Gfx {
     const id = 'g' + this.gn, tag = p.kind === 'linear' ? 'linearGradient' : 'radialGradient';
     let el = this.grads[this.gn++];
     if (!el || el.tagName !== tag) {
-      const fresh = this.make(tag); fresh._a = {}; fresh.setAttribute('id', id); fresh.setAttribute('gradientUnits', 'userSpaceOnUse');
+      const fresh = this.make(tag); fresh._a = {}; fresh._addr = id; fresh.setAttribute('id', id); fresh.setAttribute('gradientUnits', 'userSpaceOnUse');
       if (el) this.defs.replaceChild(fresh, el); else this.defs.append(fresh);
+      if (this.log) this.log.push(['G', this.gn - 1, tag]);
       el = this.grads[this.gn - 1] = fresh;
     }
     const a = p.args.map(num);
     if (p.kind === 'linear') { this.attr(el, 'x1', a[0]); this.attr(el, 'y1', a[1]); this.attr(el, 'x2', a[2]); this.attr(el, 'y2', a[3]); }
     else { this.attr(el, 'fx', a[0]); this.attr(el, 'fy', a[1]); this.attr(el, 'fr', a[2]); this.attr(el, 'cx', a[3]); this.attr(el, 'cy', a[4]); this.attr(el, 'r', a[5]); }
     const stops = [...p.stops].sort((x, y) => x[0] - y[0]);
-    while (el.children.length > stops.length) el.lastChild.remove();
+    if (el.children.length > stops.length) {
+      while (el.children.length > stops.length) el.lastChild.remove();
+      if (this.log) this.log.push(['T', this.gn - 1, stops.length]);
+    }
     stops.forEach(([at, color], i) => {
       let s = el.children[i];
-      if (!s) { s = this.make('stop'); s._a = {}; el.append(s); }
+      if (!s) { s = this.make('stop'); s._a = {}; s._addr = el._addr + 's' + i; el.append(s); if (this.log) this.log.push(['S', this.gn - 1]); }
       this.attr(s, 'offset', num(at)); this.attr(s, 'stop-color', color);
     });
     return `url(#${id})`;
@@ -216,11 +234,69 @@ class Gfx {
     let el = this.clips[this.cn++];
     if (!el) {
       el = this.make('clipPath'); el.setAttribute('id', id); el.setAttribute('clipPathUnits', 'userSpaceOnUse');
-      el.shape = this.make('polygon'); el.append(el.shape); this.defs.append(el);
+      el.shape = this.make('polygon'); el.shape._a = {}; el.shape._addr = id + 'p'; el.append(el.shape); this.defs.append(el);
       this.clips[this.cn - 1] = el;
+      if (this.log) this.log.push(['C', this.cn - 1]);
     }
-    el.shape.setAttribute('points', local.map(([x, y]) => `${num(x)},${num(y)}`).join(' '));
+    this.attr(el.shape, 'points', local.map(([x, y]) => `${num(x)},${num(y)}`).join(' '));
     return id;
   }
 }
 window.Gfx = Gfx;
+
+// The other player's screen: applies a Gfx log (see Gfx.log) to an <svg> of its own, element for
+// element, so it shows the host's drawing exactly. Log entries:
+//   ['E', n, tag, kind]  the nth drawn element is new         ['G', i, tag]  gradient i is new
+//   ['S', i]             gradient i gets another stop          ['T', i, n]    gradient i keeps n stops
+//   ['C', i]             clip shape i is new                   ['X']          start over (resync)
+//   [address, name, value]  an attribute changed ('#' is the text)
+class GfxMirror {
+  // gfx: this page's own renderer, whose <svg> (style, defs, layer) it takes over
+  constructor(gfx) {
+    gfx.resync(); this.gfx = gfx;
+    this.at = {}; this.els = []; this.grads = []; this.clips = [];
+  }
+  make(tag, addr) { const el = document.createElementNS(SVG_NS, tag); if (addr) this.at[addr] = el; return el; }
+  apply(log) {
+    const { layer, defs } = this.gfx;
+    for (const op of log) {
+      switch (op[0]) {
+        case 'X':
+          for (const el of [...this.els, ...this.grads, ...this.clips]) el.remove();
+          this.at = {}; this.els = []; this.grads = []; this.clips = [];
+          break;
+        case 'E': {
+          const [, n, tag, kind] = op, addr = 'e' + n, el = this.make(tag, addr);
+          if (kind === 'img') {
+            const view = this.make('svg', addr + 'v'), pic = this.make('image', addr + 'p');
+            view.setAttribute('preserveAspectRatio', 'none'); view.append(pic); el.append(view);
+          }
+          if (this.els[n]) layer.replaceChild(el, this.els[n]); else layer.append(el);
+          this.els[n] = el;
+          break;
+        }
+        case 'G': {
+          const [, i, tag] = op, el = this.make(tag, 'g' + i);
+          el.setAttribute('id', 'g' + i); el.setAttribute('gradientUnits', 'userSpaceOnUse');
+          if (this.grads[i]) defs.replaceChild(el, this.grads[i]); else defs.append(el);
+          this.grads[i] = el;
+          break;
+        }
+        case 'S': { const g = this.grads[op[1]]; g.append(this.make('stop', `g${op[1]}s${g.children.length}`)); break; }
+        case 'T': { const g = this.grads[op[1]]; while (g.children.length > op[2]) g.lastChild.remove(); break; }
+        case 'C': {
+          const i = op[1], el = this.make('clipPath'), poly = this.make('polygon', `c${i}p`);
+          el.setAttribute('id', 'c' + i); el.setAttribute('clipPathUnits', 'userSpaceOnUse');
+          el.append(poly); defs.append(el); this.clips[i] = el;
+          break;
+        }
+        default: {
+          const el = this.at[op[0]];
+          if (!el) break;
+          if (op[1] === '#') el.textContent = op[2]; else el.setAttribute(op[1], op[2]);
+        }
+      }
+    }
+  }
+}
+window.GfxMirror = GfxMirror;

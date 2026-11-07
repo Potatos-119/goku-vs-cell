@@ -36,12 +36,15 @@ function drawFps() {
   small(`${fps} FPS  ${worstMs}MS`, 4, H - 8, color, 'left', 5);
 }
 function loop(now) {
+  // online guest: this screen only shows the host's (net.js); the game here doesn't run
+  if (window.Net && Net.role === 'guest') { last = now; Net.pollPad(); requestAnimationFrame(loop); return; }
   measureFps(now - last);
   const raw = Math.min(0.05, (now - last) / 1000); last = now;
   pollGamepad();
   // hit-freeze frames skip input, so keep those key presses for the next real frame
   if (step(raw) !== 'frozen') { P1.pressed.clear(); P2.pressed.clear(); }
   gfx.beginFrame(); render(); drawFps(); gfx.endFrame();
+  if (window.Net) Net.flush(); // online host: send the guest what changed
   requestAnimationFrame(loop);
 }
 
@@ -68,7 +71,7 @@ function step(raw) {
   if (game.mode === 'paused') return;
   if (game.mode === 'end') {
     if (tap('confirm')) { if (game.versus) startVersus(game.side); else { reset(); Audio8.music.play('bg', true); startFight(); } }
-    else if (tap('back')) { reset(); Audio8.music.play('bg', true); game.mode = 'select'; }
+    else if (tap('back')) { if (window.Net && Net.role === 'host') Net.drop(); reset(); Audio8.music.play('bg', true); game.mode = 'select'; }
   }
   if (game.mode === 'intro' && tap('back')) { game.skip = true; timers.forEach(t => t.r()); if (game.dlg) game.dlg.done(); game.dlg = null; }
 

@@ -58,30 +58,45 @@ function setHeld(src, action, down) {
 }
 // which player a key belongs to, and its actions
 function route(code) {
-  if (game && game.versus) {
+  // online, the other player is on another computer: this keyboard is all player 1's
+  if (game && game.versus && !(window.Net && Net.role === 'host')) {
     if (P2_CODE_ACTIONS[code]) return [P2, P2_CODE_ACTIONS[code]];
     if (P2_ONLY.has(code) || code === 'Space') return [P1, null];
   }
   return [P1, CODE_ACTIONS[code]];
 }
+// online guest: the keys go to the host (as player 2) instead of moving anything on this screen
+function guestKey(e, down) {
+  if (!window.Net || !(Net.role === 'guest' || Net.lobbyOpen)) return false;
+  if (Net.role !== 'guest') return true; // the lobby is open: keys are for it, not the game
+  const acts = CODE_ACTIONS[codeOf(e)];
+  if (acts) { e.preventDefault(); if (!e.repeat) Net.sendKey(acts, down); }
+  return true;
+}
 addEventListener('keydown', e => {
+  if (guestKey(e, true)) return;
   const [c, acts] = route(codeOf(e));
   if (!acts) return;
   e.preventDefault();
   if (!e.repeat) withController(c, () => acts.forEach(a => setHeld(c.kbHeld, a, true)));
 });
-addEventListener('keyup', e => { const [c, acts] = route(codeOf(e)); if (acts) withController(c, () => acts.forEach(a => setHeld(c.kbHeld, a, false))); });
+addEventListener('keyup', e => { if (guestKey(e, false)) return; const [c, acts] = route(codeOf(e)); if (acts) withController(c, () => acts.forEach(a => setHeld(c.kbHeld, a, false))); });
 // switching windows swallows keyup events, which would leave a key held forever
 addEventListener('blur', () => { for (const c of [P1, P2]) withController(c, () => { for (const a in c.kbHeld) setHeld(c.kbHeld, a, false); }); });
 // one gamepad drives player 1; in versus a single gamepad is player 2's (player 1 has the keyboard),
 // and with two, the first is player 1's and the second player 2's
 function pollGamepad() {
   const pads = [...(navigator.getGamepads ? navigator.getGamepads() : [])].filter(p => p && p.connected);
-  if (!pads.length) return;
-  if (game && game.versus) {
-    if (pads.length === 1) return withController(P2, () => readPad(pads[0]));
-    withController(P1, () => readPad(pads[0])); withController(P2, () => readPad(pads[1]));
-  } else readPad(pads[0]);
+  const driven = new Map();
+  if (game && game.versus && !(window.Net && Net.role === 'host')) {
+    if (pads.length === 1) driven.set(P2, pads[0]);
+    else if (pads.length > 1) { driven.set(P1, pads[0]); driven.set(P2, pads[1]); }
+  } else if (pads.length) driven.set(P1, pads[0]);
+  for (const c of [P1, P2]) withController(c, () => {
+    if (driven.has(c)) readPad(driven.get(c));
+    // no gamepad for this player now (unplugged, flat, or handed over): let go of what it held
+    else for (const a in c.padHeld) if (c.padHeld[a]) setHeld(c.padHeld, a, false);
+  });
 }
 function readPad(pad) {
   const btn = i => pad.buttons[i] && pad.buttons[i].pressed;

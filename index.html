@@ -19,31 +19,48 @@
                  filter: blur(28px) brightness(.45) saturate(1.2); }
   /* load the fonts up front, so the first text drawn already uses them */
   .preload { position: absolute; opacity: 0; font-family: Saiyan; } .preload b { font-family: 'Press Start 2P'; }
+  /* the online lobby */
+  #online { position: fixed; inset: 0; display: grid; place-items: center; background: rgba(6,5,16,.7); z-index: 2; padding: 16px; }
+  #online[hidden], #online [hidden] { display: none; }
+  #online .box { width: min(420px, 100%); background: #1b1830; color: #eee; border: 2px solid #ffd23a; border-radius: 10px;
+                 padding: 20px; font: 15px/1.5 system-ui, sans-serif; text-align: center; }
+  #online h2 { margin: 0 0 4px; font: 22px Saiyan, Impact, sans-serif; color: #ffe04a; letter-spacing: 1px; }
+  #online .who { margin: 0 0 14px; color: #bbb; }
+  #online button { font: inherit; font-weight: 600; padding: 9px 18px; border: 0; border-radius: 6px; background: #ffd23a; color: #1b1830; cursor: pointer; }
+  #online button.cancel { margin-top: 14px; background: #3a3560; color: #ddd; }
+  #online .or { margin: 14px 0 6px; color: #9a94c8; }
+  #online form { display: flex; gap: 8px; justify-content: center; }
+  #online input { width: 7em; font: 22px "Press Start 2P", monospace; text-align: center; text-transform: uppercase; padding: 6px;
+                  border-radius: 6px; border: 2px solid #3a3560; background: #0d0b1a; color: #fff; }
+  #online .big { font: 36px "Press Start 2P", monospace; color: #fff; margin: 6px 0; letter-spacing: 4px; }
+  #online .msg { min-height: 1.5em; margin: 8px 0 0; color: #ffd8a8; }
+  #online .hint { color: #9a94c8; font-size: 13px; }
 </style>
 </head>
 <body>
 <svg id="game"></svg>
 <div class="preload">a<b>a</b></div>
-<script src="frames.js?v=117"></script>
-<script src="gfx.js?v=117"></script>
-<script src="data.js?v=117"></script>
-<script src="fx.js?v=117"></script>
-<script src="audio.js?v=117"></script>
-<script src="stage.js?v=117"></script>
+<script src="frames.js?v=119"></script>
+<script src="gfx.js?v=119"></script>
+<script src="data.js?v=119"></script>
+<script src="fx.js?v=119"></script>
+<script src="audio.js?v=119"></script>
+<script src="stage.js?v=119"></script>
 <!-- the game itself, split by system; plain scripts sharing one global scope, so the order matters -->
-<script src="game/core.js?v=117"></script>
-<script src="game/input.js?v=117"></script>
-<script src="game/fighters.js?v=117"></script>
-<script src="game/combat.js?v=117"></script>
-<script src="game/fighter-update.js?v=117"></script>
-<script src="game/player.js?v=117"></script>
-<script src="game/boss-ai.js?v=117"></script>
-<script src="game/projectiles.js?v=117"></script>
-<script src="game/cinematics.js?v=117"></script>
-<script src="game/cutscenes.js?v=117"></script>
-<script src="game/menus.js?v=117"></script>
-<script src="game/loop.js?v=117"></script>
-<script src="game/render.js?v=117"></script>
-<script src="game/main.js?v=117"></script>
+<script src="game/core.js?v=119"></script>
+<script src="game/input.js?v=119"></script>
+<script src="game/fighters.js?v=119"></script>
+<script src="game/combat.js?v=119"></script>
+<script src="game/fighter-update.js?v=119"></script>
+<script src="game/player.js?v=119"></script>
+<script src="game/boss-ai.js?v=119"></script>
+<script src="game/projectiles.js?v=119"></script>
+<script src="game/cinematics.js?v=119"></script>
+<script src="game/cutscenes.js?v=119"></script>
+<script src="game/menus.js?v=119"></script>
+<script src="game/loop.js?v=119"></script>
+<script src="game/render.js?v=119"></script>
+<script src="game/main.js?v=119"></script>
+<script src="net.js?v=119"></script>
 </body>
 </html>

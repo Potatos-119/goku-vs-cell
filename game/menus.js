@@ -21,6 +21,7 @@ function closeAllMenus() {
   if (game.mode === 'paused') { game.mode = 'fight'; Audio8.music.play(); resumeCombatAudio(); }
 }
 function quitToSelect() {
+  if (window.Net && Net.role === 'host') Net.drop(); // leaving an online match ends it
   const pick = game.side === 'cell' ? 1 : 0;
   reset(); game.pick = pick; game.mode = 'select'; Audio8.music.play('bg', true);
 }
@@ -88,6 +89,7 @@ const MENUS = {
     { label: 'STORY MODE', go: () => { reset(sideOfPick()); Audio8.music.play('bg'); intro(); } },
     { label: 'TRAINING  (PRACTISE COMBOS)', go: () => startTraining(sideOfPick()) },
     { label: 'VERSUS  (2 PLAYERS)', go: () => openMenu('versus') },
+    { label: 'ONLINE  (PLAY A FRIEND)', go: () => Net.open(sideOfPick()) },
     { label: 'MOVE LIST', go: () => openMenu('moves') },
     { label: 'COMBO LIST', go: () => openMenu('combos') },
     { label: 'OPTIONS', go: () => openMenu('options') },
