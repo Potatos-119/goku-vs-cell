@@ -53,6 +53,10 @@ function updateFighter(f, foe, dt) {
     // (and so does the attacker mid air-string or air ki blast, so the two stay level)
     f.vy += GRAV * ((f.state === 'knock' && f.juggle > 0) || ['airAtk', 'cast'].includes(f.state) ? 0.7 : 1) * dt; f.y += f.vy * dt;
     if (f.y >= FLOOR) { f.y = FLOOR; f.vy = 0; landed(f); }
+    // a long juggle (a launcher, a re-launch, a beam carrying them) used to lift a fighter clean off
+    // the top of the screen, and whoever chased them with it
+    if (f.vy < 0 && f.y < CEILING + CEILING_EASE) f.vy = Math.max(f.vy, -420 * Math.max(0, (f.y - CEILING) / CEILING_EASE));
+    if (f.y < CEILING) f.y = CEILING;
   }
   if (f.y >= FLOOR) f.airDashed = false;
   f.x = clamp(f.x + f.vx * dt, 16, W - 16);

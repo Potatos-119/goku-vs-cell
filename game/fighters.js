@@ -40,7 +40,10 @@ class Fighter {
     if (!this.visible) return;
     const im = this.img;
     gfx.save();
-    gfx.translate(Math.round(this.x), Math.round(this.y - this.hover));
+    // hit-stop: whoever was just hit shudders while the game holds still (the drawing only, never where
+    // they really are; calm mode leaves it out)
+    const jolt = game.freeze > 0 && this.flash > 0 && !settings.calm ? (Math.floor(game.t * 45) % 2 ? 1 : -1) : 0;
+    gfx.translate(Math.round(this.x) + jolt, Math.round(this.y - this.hover));
     // a held stance breathes a little instead of standing frozen
     const breath = this.A().breathe ? Math.sin(this.at * 2.6) * 0.018 : 0;
     const k = this.scale * (im.k || 1);
@@ -115,7 +118,7 @@ function reset(side = (game && game.side) || 'goku') {
   for (const c of [P1, P2]) withController(c, () => { for (const a in lastPress) delete lastPress[a]; dashReq = null; lastTap.dir = 0; });
   Object.assign(cam, { x: W / 2, y: H / 2, z: 1, focus: null });
   Stage.reset(); Object.assign(ai, { think: 0.8, vanishCd: 3, ultCd: 6, spam: 0, barrierCd: 5, assistCd: 6, cannonCd: 6, rolled: 0, chase: null, airBeam: false, punishAt: -9 });
-  game = { mode: 'title', comboNames: [], menu: [], training: false, ct: 0, cine: null, combo: { n: 0, t: 0, dmg: 0, moves: [], done: new Set() }, bossCombo: { moves: [], done: new Set(), names: [] }, learned: (game && game.learned) || new Set(), side, pick: side === 'cell' ? 1 : 0, time: 150, juniors: null, freeze: 0, shake: 0, flash: 0, phase: 0, slow: 1, banner: null, dlg: null, skip: false, result: null, t: 0, kameCd: 4 };
+  game = { mode: 'title', comboNames: [], menu: [], training: false, ct: 0, cine: null, combo: { n: 0, t: 0, dmg: 0, moves: [], done: new Set() }, bossCombo: { moves: [], done: new Set(), names: [] }, learned: (game && game.learned) || new Set(), side, pick: side === 'cell' ? 1 : 0, time: ROUND_TIME, juniors: null, freeze: 0, shake: 0, flash: 0, phase: 0, slow: 1, banner: null, dlg: null, skip: false, result: null, t: 0, kameCd: 4 };
 }
 
 function setForm(f, form) {

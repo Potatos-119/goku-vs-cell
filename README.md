@@ -3,6 +3,8 @@
 A Dragon Ball boss fight I made in plain JavaScript, with no engine and no build step. Pick a side and
 fight the other one.
 
+**[Play it in your browser](https://potatos-119.github.io/goku-vs-cell/)** (keyboard or gamepad, nothing to install).
+
 Play Goku and you're trying to stop Cell before he gets perfect. He goes Semi-Perfect at 2/3 health,
 sends in three Cell Juniors at 1/3, then comes back as Perfect Cell for the last stretch. Play Cell and
 it flips: you evolve yourself (T at full ki) and Goku is the boss, going Super Saiyan at 2/3 and all out
@@ -18,7 +20,7 @@ name pops up on their side of the screen when they land one on you.
 | | |
 |---|---|
 | ![Final clash](assets/gifs/final-clash.gif) | ![Super Saiyan](assets/gifs/ssj-transform.gif) |
-| The final clash: mash Space to win it | Super Saiyan, timed to the music |
+| The final clash: mash Space to win it | Super Saiyan, trasformation |
 | ![Perfect Cell](assets/gifs/perfect-cell.gif) | ![Re-launch and dunk](assets/gifs/relaunch-dunk.gif) |
 | Perfect Cell's reveal | Air combo: launcher, re-launch, dunk |
 | ![Beam clash](assets/gifs/beam-clash.gif) | ![Spirit Bomb](assets/gifs/spirit-bomb.gif) |

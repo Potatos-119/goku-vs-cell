@@ -100,6 +100,9 @@ function drawHUD() {
     const pop = Math.max(0, 0.15 - game.combo.t) * 40;
     text(`${game.combo.n} HITS!`, 8, 44, 12 + pop, '#ffd23a', 'left', '#7a1a00');
     small(`${Math.round(game.combo.dmg)} DAMAGE`, 9, 60 + pop, '#fff', 'left');
+    // long combos hit softer: what the next hit is worth
+    const worth = Math.round(comboScale(boss) * 100);
+    if (worth < 100) small(`NEXT HIT ${worth}%`, 9, 68 + pop, worth <= 50 ? '#ff9a7a' : '#bbb', 'left', 4);
   }
   // named combos stack under the timer in screen space, newest at the bottom
   game.comboNames.filter(c => !c.boss).slice(-3).forEach((c, i) => {
@@ -340,7 +343,7 @@ function render() {
     text(b.text, W / 2, 62 - (1 - pop) * 10, 28, '#ffe04a', 'center', '#7a1a00');
   }
   if (game.mode === 'end') {
-    text(game.versus ? (game.result === 'win' ? 'P1 WINS!' : 'P2 WINS!') : game.result === 'win' ? 'YOU WIN!' : `${boss.who.toUpperCase()} WINS`, W / 2, 46, 28, game.result === 'win' ? '#ffe04a' : '#ff8a6a', 'center');
+    text(game.result === 'draw' ? 'DRAW!' : game.versus ? (game.result === 'win' ? 'P1 WINS!' : 'P2 WINS!') : game.result === 'win' ? 'YOU WIN!' : `${boss.who.toUpperCase()} WINS`, W / 2, 46, 28, game.result === 'draw' ? '#ffffff' : game.result === 'win' ? '#ffe04a' : '#ff8a6a', 'center');
     if (Math.floor(game.t * 2) % 2) text(promptKeys('ENTER  FIGHT AGAIN      ESC  CHOOSE FIGHTER'), W / 2, 82, 9, '#fff', 'center');
   }
   if (game.cutin) drawCutin();

@@ -8,7 +8,15 @@ const JUGGLE_MAX = 5;
 const KI_GAIN = { melee: [4, 3], proj: [2, 2], beam: [0.4, 0.4], ult: [0, 1] }, KI_BLOCKED = 2;
 // combo damage scaling for hits on the player (see the scaling below), and how long a gap still
 // keeps the boss's hits in one combo
-const PLAYER_SCALING = { step: 0.09, min: 0.35, beamMin: 0.6 };
+const PLAYER_SCALING = { step: 0.09, min: 0.35, beamMin: 0.6, free: 0 };
+// ...and for hits on the boss: the first two hits of a combo do full damage, then each one does 10%
+// less than the one before, down to 30% (a beam, the combo's finisher, never less than 60%)
+const BOSS_SCALING = { step: 0.1, min: 0.3, beamMin: 0.6, free: 1 };
+// how much of its damage the next hit on def will do, this far into the combo
+function comboScale(def, kind = 'melee') {
+  const sc = human(def) ? PLAYER_SCALING : BOSS_SCALING;
+  return Math.max(kind === 'beam' ? sc.beamMin : sc.min, 1 - sc.step * Math.max(0, def.comboTaken - sc.free));
+}
 const BOSS_COMBO_GAP = 1.5;
 // caught starting their own move: a counter hit, which hurts more and stuns for longer
 const COUNTER_STATES = ['attack', 'airAtk', 'cast', 'kameCharge', 'windup'];
@@ -78,8 +86,7 @@ function damage(def, src, dmg, heavy, dir, kind = 'melee', opts = {}) {
     // (beams keep more of their damage: they're the combo's finisher)
     // the boss's combos on the player scale down harder (PLAYER_SCALING), so one long combo can't take
     // most of your health
-    const sc = human(def) ? PLAYER_SCALING : { step: 0.07, min: 0.45, beamMin: 0.75 };
-    dmg *= Math.max(kind === 'beam' ? sc.beamMin : sc.min, 1 - sc.step * def.comboTaken);
+    dmg *= comboScale(def, kind);
     def.comboTaken++;
     sparks.push({ x: def.x - dir * 6, y: def.y - 30, t: 0, c: '#fff6b8' });
     game.freeze = heavy ? 0.12 : 0.06; shake(heavy ? 6 : 3);
@@ -153,6 +160,14 @@ function guardBreak(f) {
 
 // Block just as a hit lands: no damage, a big ki refund, and a punch or kick leaves the attacker reeling.
 const PARRY_WINDOW = 0.18;
+// ...but only a deliberate one: a press less than PARRY_COOLDOWN after the last press is an ordinary
+// guard. Without it, tapping block quickly perfect-blocked nearly every hit.
+const PARRY_COOLDOWN = 0.45;
+function raiseGuard(g, anim = 'block') {
+  g.play(anim, 'block');
+  g.blockT = game.ct - (g.guardAt ?? -9) < PARRY_COOLDOWN ? PARRY_WINDOW : 0;
+  g.guardAt = game.ct;
+}
 const WINDUP = 0.28; // pause between a vanish and its counterattack
 function perfectBlock(def, src, kind) {
   def.ki = Math.min(100, def.ki + 15); def.stamina = Math.min(100, def.stamina + 15); def.inv = 0.25;

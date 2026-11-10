@@ -67,11 +67,11 @@ function loop(now) {
 
 function step(raw) {
   game.t += raw;
-  if (tap('fps')) toggleFps();
-  if (tap('calm')) { toggleCalm(); popups.push({ text: settings.calm ? 'CALM MODE: LESS SHAKE + FLASH' : 'CALM MODE OFF', x: W / 2, y: 60, t: 0, c: '#fff' }); }
+  if (tapOnce('fps')) toggleFps();
+  if (tapOnce('calm')) { toggleCalm(); popups.push({ text: settings.calm ? 'CALM MODE: LESS SHAKE + FLASH' : 'CALM MODE OFF', x: W / 2, y: 60, t: 0, c: '#fff' }); }
   // the heartbeat layer comes in when you're close to defeat
   Audio8.heartbeat(game.mode === 'fight' && !game.training && player.hp > 0 && player.hp < player.maxHp * 0.25);
-  if (tap('music')) { Audio8.init(); popups.push({ text: Audio8.music.toggleMute() ? 'MUSIC OFF' : 'MUSIC ON', x: W / 2, y: 60, t: 0, c: '#fff' }); }
+  if (tapOnce('music')) { Audio8.init(); popups.push({ text: Audio8.music.toggleMute() ? 'MUSIC OFF' : 'MUSIC ON', x: W / 2, y: 60, t: 0, c: '#fff' }); }
   if (game.mode === 'title') {
     if (tap('confirm')) { Audio8.init(); Audio8.music.play('bg', true); game.mode = 'select'; sfx.blip(); }
     return;
@@ -97,7 +97,7 @@ function step(raw) {
   if (game.dlg) {
     const d = game.dlg;
     d.shown += raw * 45;
-    if (tap('confirm')) { if (d.shown < d.text.length) d.shown = d.text.length; else { game.dlg = null; d.done(); } }
+    if (tapOnce('confirm')) { if (d.shown < d.text.length) d.shown = d.text.length; else { game.dlg = null; d.done(); } }
   }
   const dt = raw * game.slow;
   timers = timers.filter(t => (t.t -= t.real ? raw : dt) > 0 || (t.r(), false));

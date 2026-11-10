@@ -156,7 +156,7 @@ async function bossPhase() {
   }
   cam.focus = null;
   if (boss === goku) Object.assign(goku, GOKU_BOSS[next]);
-  game.phase = next; game.kameCd = 3; ai.ultCd = 4;
+  game.phase = next; game.kameCd = 3; ai.ultCd = 4; game.time = ROUND_TIME;
   game.mode = 'fight';
 }
 
@@ -224,7 +224,7 @@ async function juniorsStart() {
   game.juniors = { left: JUNIORS, hp: cell.hp, maxHp: cell.maxHp };
   juniorIn();
   await say('GOKU', "Little Cells?! Fine... I'll take you all on!");
-  cam.focus = null;
+  cam.focus = null; game.time = ROUND_TIME;
   game.mode = 'fight';
 }
 
@@ -240,7 +240,7 @@ function juniorIn() {
 
 async function juniorDown() {
   const j = game.juniors;
-  game.mode = 'cut'; j.left--;
+  game.mode = 'cut'; j.left--; clash = null;
   popups.push({ text: 'CELL JR. DOWN!', x: cell.x, y: cell.y - 50, t: 0, c: '#9fd0ff' });
   game.slow = 0.4;
   await wait(0.9, true);
@@ -279,10 +279,16 @@ async function finish(result) {
   // knocked out as a Super Saiyan, the gold flickers out of his hair as he lies there
   if (goku.hp <= 0 && goku.form === 'ssj') await koPowerDown(goku);
   for (const f of [goku, cell]) if (f.hp > 0) settle(f);
-  const win = result === 'win' || (result === 'timeup' && player.hp / player.maxHp > boss.hp / boss.maxHp);
-  game.result = win ? 'win' : 'lose';
+  // Time ran out. Versus: whoever has more of their health left wins, and dead even is a draw. Story:
+  // the boss only has to outlast the clock, so it's a defeat (it used to be a win whenever you had the
+  // bigger share of health, which ended the whole story on the spot, even in its first stage)
+  const pr = player.hp / player.maxHp, br = boss.hp / boss.maxHp;
+  const draw = result === 'timeup' && game.versus && Math.abs(pr - br) < 0.005;
+  const win = result === 'win' || (result === 'timeup' && game.versus && pr > br);
+  game.result = draw ? 'draw' : win ? 'win' : 'lose';
   await wait(0.8);
   cam.focus = null;
+  if (draw) { Audio8.music.stop(); await wait(1.2); game.mode = 'end'; return; }
   const winner = win ? player : boss;
   // Goku powers down before his victory (it's played in his normal form, in his undershirt)
   if (winner === goku && goku.form === 'ssj') {

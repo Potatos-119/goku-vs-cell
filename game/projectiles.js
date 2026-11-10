@@ -3,6 +3,8 @@
 const tipX = p => p.ox != null ? p.x + p.dir * art(FX_ART[p.kind]).width * p.owner.scale : p.x;
 function updateProjectiles(dt) {
   for (const p of projs) {
+    // cancelled by another blast earlier this frame: it's gone, it doesn't get to hit as well
+    if (p.dead) continue;
     p.x += p.vx * dt;
     const foe = foeOf(p.owner), full = art(FX_ART[p.kind]).width * p.owner.scale * (p.size || 1), b = foe.box();
     // a long beam (one with an origin) only hits with its tip
@@ -16,7 +18,7 @@ function updateProjectiles(dt) {
       // a ki blast that connects can be cancelled like a landed punch
       if (hit && hit !== 'deflect' && p.owner.state === 'cast') p.owner.hitLanded = true;
     }
-    for (const q of projs) if (q !== p && q.owner !== p.owner && Math.abs(tipX(q) - tipX(p)) < 14 && Math.abs(q.y - p.y) < 14) {
+    if (!p.dead) for (const q of projs) if (q !== p && !q.dead && q.owner !== p.owner && Math.abs(tipX(q) - tipX(p)) < 14 && Math.abs(q.y - p.y) < 14) {
       // the Special Beam Cannon drills straight through ki blasts
       if (q.kind !== 'cannon') q.dead = true;
       if (p.kind !== 'cannon') p.dead = true;
@@ -75,7 +77,15 @@ function updateBeams(dt) {
   }
   // two beams meeting head-on = beam struggle; the player mashes J (or U) to push
   const pb = beams.find(b => b.owner === player), bb = beams.find(b => b.owner === boss);
-  if (pb && bb && !clash && beamsMeet(pb, bb)) startClash(pb, bb);
+  // (both must still be firing: a beam whose last tick just knocked the other one out mustn't lock with
+  // the beam they were firing a moment ago)
+  const firing = b => b && b.owner.state === 'kameFire' && b.owner.hp > 0;
+  if (firing(pb) && firing(bb) && !clash && beamsMeet(pb, bb)) startClash(pb, bb);
+  // and a clash is over the moment one of them is knocked out of it by anything else
+  if (clash && !(firing(clash.pb) && firing(clash.bb))) {
+    game.clashWinner = firing(clash.pb) ? clash.pb.owner : firing(clash.bb) ? clash.bb.owner : null;
+    clash = null; game.banner = null;
+  }
   if (clash) {
     const { pb: P, bb: B } = clash;
     // the struggle is along the line between the two hands: s is how far the meeting point has

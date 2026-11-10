@@ -207,6 +207,10 @@ addEventListener('gamepaddisconnected', () => {
   showToast('CONTROLLER DISCONNECTED');
 });
 const tap = a => pressed.has(a);
+// the same, but the press is used up: for keys that must act once per press. Presses are kept through
+// a hit-freeze (so the fighters don't lose them), and a plain tap() would read the same press again on
+// every frozen frame
+const tapOnce = a => pressed.delete(a);
 // input buffer: a press up to 0.12s before the fighter can act still goes through, once
 const BUFFER = 0.12;
 // (ages on the control clock, which stops during hit-freeze, so a press made in a freeze isn't lost)

@@ -106,7 +106,7 @@ function playerInput(dt, g = player, foe = boss) {
   if (g.free) {
     g.facing = foe.x > g.x ? 1 : -1;
     const toward = dir === g.facing;
-    if (keys.block && !g.guardBroken) { g.play('block'); g.blockT = 0; g.vx = 0; return; }
+    if (keys.block && !g.guardBroken) { raiseGuard(g); g.vx = 0; return; }
     if (keys.charge) {
       if (g.state !== 'charge') { g.play('charge'); sfx.chargeLoop(g); }
       g.vx = 0; return;
@@ -180,7 +180,7 @@ function playerInput(dt, g = player, foe = boss) {
     if (pairPending()) return;
     if (act('punch') || act('kick')) g.play('air', 'airAtk');
     // holding S in the air: an air guard (arms crossed), until you land or let go
-    else if (keys.block && !g.guardBroken && g.A('airBlock')) { g.play('airBlock', 'block'); g.blockT = 0; }
+    else if (keys.block && !g.guardBroken && g.A('airBlock')) raiseGuard(g, 'airBlock');
   } else if (g.state === 'airAtk') {
     // after an air hit lands: vanish, air-dash to restart the string, or finish with a beam / ki blast
     if (g.hitLanded) {
