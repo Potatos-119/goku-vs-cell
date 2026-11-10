@@ -434,20 +434,42 @@ const Stage = (() => {
       gfx.strokeStyle = `rgba(220,235,255,${0.7 * (1 - k)})`; gfx.lineWidth = 1.4;
       gfx.beginPath(); gfx.ellipse(r.x, FLOOR + 1, rx, rx * 0.2, 0, 0, Math.PI * 2); gfx.stroke();
     }
+    // rocks and dust come and go: a section of their own, so they don't disturb the clouds after them
+    if (gfx.section) gfx.section('backfx', true);
+    // there can be a couple of hundred of them in a beam clash: they're drawn as one shape per colour
+    // and shade (8 steps of fading) instead of an element each
+    const shapes = new Map(), add = (rgb, a, pts) => {
+      const k = Math.round(Math.max(0, Math.min(1, a)) * 8) / 8;
+      if (k <= 0) return;
+      const key = `rgba(${rgb},${k})`;
+      if (!shapes.has(key)) shapes.set(key, []);
+      shapes.get(key).push(pts);
+    };
     for (const d of debris) {
-      gfx.fillStyle = `rgba(150,148,175,${Math.min(1, (d.life - d.t) / Math.min(1, d.life))})`;
-      gfx.fillRect(Math.round(d.x + Math.sin(d.t * 4 + d.wob) * 2), Math.round(d.y), Math.ceil(d.r), Math.ceil(d.r));
+      const x = Math.round(d.x + Math.sin(d.t * 4 + d.wob) * 2), y = Math.round(d.y), r = Math.ceil(d.r);
+      add('150,148,175', (d.life - d.t) / Math.min(1, d.life), [x, y, r]); // a square: [x, y, size]
     }
     for (const c of chunks) {
-      gfx.save(); gfx.translate(Math.round(c.x), Math.round(c.y)); gfx.rotate(c.rot); gfx.globalAlpha = Math.min(1, (1.4 - c.t) * 2);
-      gfx.fillStyle = '#9da6cf'; gfx.fillRect(-c.r, -c.r * 0.6, c.r * 2, c.r * 1.2);
-      gfx.fillStyle = '#2a2f55'; gfx.fillRect(-c.r, c.r * 0.3, c.r * 2, c.r * 0.3);
-      gfx.restore();
+      const x = Math.round(c.x), y = Math.round(c.y), co = Math.cos(c.rot), si = Math.sin(c.rot), a = (1.4 - c.t) * 2;
+      // corners to the half pixel: the rocks are only a few pixels big
+      const half = v => Math.round(v * 2) / 2;
+      const box = (x0, y0, w, h) => [[x0, y0], [x0 + w, y0], [x0 + w, y0 + h], [x0, y0 + h]].map(([px, py]) => [half(x + px * co - py * si), half(y + px * si + py * co)]);
+      add('157,166,207', a, box(-c.r, -c.r * 0.6, c.r * 2, c.r * 1.2));
+      add('42,47,85', a, box(-c.r, c.r * 0.3, c.r * 2, c.r * 0.3));
+    }
+    for (const key of [...shapes.keys()].sort()) {
+      gfx.fillStyle = key; gfx.beginPath();
+      for (const pts of shapes.get(key)) {
+        if (typeof pts[0] === 'number') gfx.rect(pts[0], pts[1], pts[2], pts[2]);
+        else { pts.forEach(([px, py], i) => i ? gfx.lineTo(px, py) : gfx.moveTo(px, py)); gfx.closePath(); }
+      }
+      gfx.fill();
     }
     for (const w of winds) {
       gfx.fillStyle = `rgba(240,232,214,${0.5 * (1 - w.t / 0.35)})`;
       gfx.fillRect(Math.round(w.v > 0 ? w.x : w.x - w.len), Math.round(w.y), Math.round(w.len), 1);
     }
+    if (gfx.section) gfx.section('sky', true);
     drawClouds(gfx);
     if (dim) { gfx.fillStyle = `rgba(0,0,0,${dim})`; gfx.fillRect(0, 0, W, H); }
   }
@@ -456,7 +478,14 @@ const Stage = (() => {
     // rain falls in front of the fighters, slanting with the wind
     if (storm > 0.3) {
       gfx.fillStyle = `rgba(190,205,240,${0.3 * (storm - 0.3) / 0.7})`;
-      for (const r of rain) { gfx.save(); gfx.translate(Math.round(r.x), Math.round(r.y)); gfx.rotate(0.22); gfx.fillRect(0, 0, 0.6, 5); gfx.restore(); }
+      // every drop is a thin slanted strip, all of them one shape
+      const c = Math.cos(0.22), s = Math.sin(0.22);
+      gfx.beginPath();
+      for (const r of rain) {
+        const x = Math.round(r.x), y = Math.round(r.y);
+        gfx.moveTo(x, y); gfx.lineTo(x + 0.6 * c, y + 0.6 * s); gfx.lineTo(x + 0.6 * c - 5 * s, y + 0.6 * s + 5 * c); gfx.lineTo(x - 5 * s, y + 5 * c); gfx.closePath();
+      }
+      gfx.fill();
     }
     for (const d of dust) { gfx.fillStyle = `rgba(235,225,205,${d.a})`; gfx.fillRect(Math.round(d.x), Math.round(d.y), 1, 1); }
     for (const g of gusts) {

@@ -244,8 +244,13 @@ function render() {
   gfx.setTransform(k, 0, 0, k, Math.round((W / 2 / z - cam.x) * k), Math.round((H / 2 / z - cam.y) * k));
   // shake rides on top of the camera: a smooth wave scaled by trauma squared
   const tr = Math.min(1, game.shake / 12), amp = tr * tr * 12 * (settings.calm ? 0.3 : 1);
-  gfx.translate(Math.round(amp * Math.sin(game.t * 47)), Math.round(amp * 0.7 * Math.sin(game.t * 59 + 1.3)));
+  // (it moves the world's sections as a whole, so online only the shake itself is sent, not every element)
+  gfx.shake = [Math.round(amp * Math.sin(game.t * 47)) * k, Math.round(amp * 0.7 * Math.sin(game.t * 59 + 1.3)) * k];
+  // each part of the picture in a section of its own (see gfx.js): particles coming and going in one
+  // don't disturb the others
+  gfx.section('back', true);
   drawBackground(game.mode === 'cut' ? 0.25 : 0);
+  gfx.section('world', true);
   // during the Juniors, Semi-Perfect Cell watches from the back of the ring in his stance (his
   // front-facing pose is too rough to show)
   if (game.juniors) {
@@ -293,6 +298,7 @@ function render() {
     gfx.translate(Math.round(tr.x), Math.round(tr.y)); gfx.scale(tr.facing * tr.scale, tr.scale);
     gfx.drawImage(tr.im, -Math.round(tr.im.ax), -tr.im.height); gfx.restore();
   }
+  gfx.section('fighters', true);
   const order = player.state === 'attack' ? [boss, player] : [player, boss];
   order.forEach(f => f.draw());
   for (const m of minions) {
@@ -301,6 +307,7 @@ function render() {
     gfx.save(); gfx.translate(Math.round(m.x), Math.round(m.y)); gfx.scale(m.dir, 1);
     gfx.drawImage(im, -Math.round(im.ax), -im.height); gfx.restore();
   }
+  gfx.section('fx', true);
   // Barrier bursts: a bright sphere that swells and fades
   for (const b of bursts) {
     const k = b.t / 0.35, r = 10 + k * 52;
@@ -327,13 +334,16 @@ function render() {
   }
   for (const gh of ghosts) { gfx.globalAlpha = 1 - gh.t / 0.3; gfx.drawImage(gh.img, Math.round(gh.x - gh.img.width / 2), gh.y - gh.img.height); gfx.globalAlpha = 1; }
   for (const s of sparks) FX.spark(gfx, s.x, s.y, s.t, s.c);
+  gfx.section('front', true);
   Stage.drawFront(gfx);
+  gfx.section('popups', true);
   // kept on screen: a popup over someone at the edge would be cut in half
   gfx.font = '9px Saiyan, Impact, sans-serif';
   for (const pp of popups) {
     const half = gfx.measureText(pp.text).width / 2 + 3;
     text(pp.text, Math.round(clamp(pp.x, half, W - half)), Math.round(Math.max(10, pp.y - pp.t * 18)), 9, pp.c, 'center');
   }
+  gfx.section('hud');
   gfx.setTransform(S, 0, 0, S, 0, 0);
   if (game.flash > 0) { gfx.fillStyle = `rgba(255,250,220,${game.flash * (settings.calm ? 0.25 : 0.8)})`; gfx.fillRect(0, 0, W, H); }
   // the final clash is played without the HUD: it's a cinematic, and Cell is up where the bars are

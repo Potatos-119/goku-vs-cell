@@ -100,12 +100,14 @@ const Net = {
     const now = performance.now();
     if (now - (this.pingAt || 0) > 1000) { this.pingAt = now; try { c.send({ p: now }); } catch (e) { /* closing */ } }
     if (dc && dc.bufferedAmount > SEND_BACKLOG) {
-      // the link is behind: keep merging, but not forever (sounds this late are dropped too)
+      // the link is behind: keep merging (only the latest value of each change is kept, so the frames
+      // the guest skips cost nothing), but not forever (sounds this late are dropped too)
+      if (gfx.log.length > MAX_MERGED) gfx.log = compactLog(gfx.log);
       if (gfx.log.length > MAX_MERGED) { gfx.log = []; gfx.resync(); this.audio = []; }
       return;
     }
     if (!gfx.log.length && !this.audio.length) return;
-    c.send({ l: gfx.log, a: this.audio });
+    c.send({ l: compactLog(gfx.log), a: this.audio });
     gfx.log = []; this.audio = [];
   },
 
@@ -212,6 +214,19 @@ const Net = {
   },
 };
 window.Net = Net;
+
+// Several frames' changes merged into one: an attribute that changed more than once only needs its
+// last value. New elements, gradients, sections and resyncs keep their place; an attribute set before
+// its element was replaced was on the old element, so dropping it changes nothing.
+function compactLog(log) {
+  const seen = new Set(), out = [];
+  for (let i = log.length - 1; i >= 0; i--) {
+    const op = log[i];
+    if (op[0].length > 1) { const key = op[0] + ' ' + op[1]; if (seen.has(key)) continue; seen.add(key); }
+    out.push(op);
+  }
+  return out.reverse();
+}
 
 function loadPeerJs() {
   if (window.Peer) return Promise.resolve();

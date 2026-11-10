@@ -9,6 +9,11 @@
 //
 // Sprites come from the baked atlas (frames.js): a frame is a window onto the atlas image.
 //
+// The picture is drawn in sections (section()): the background, the fighters, the effects, the HUD...
+// each a <g> of its own with its own numbering, so a spark or a rock appearing in one doesn't shift
+// the numbers of everything drawn after it (which would make every later element look changed).
+// The screen shake moves whole sections (one transform on the <g>) instead of every element in them.
+//
 // For online play the changes can be recorded (gfx.log): every new element and every attribute that
 // changed, by address. GfxMirror replays them on the other player's screen, so it shows exactly this
 // drawing without running the game.
@@ -46,26 +51,52 @@ class Gfx {
     const style = this.make('style'); style.textContent = `.add{mix-blend-mode:${BLEND}}`; svg.append(style);
     this.defs = this.make('defs'); svg.append(this.defs);
     this.layer = this.make('g'); svg.append(this.layer);
-    this.els = []; this.n = 0;   // the drawn elements, in order
-    this.grads = []; this.gn = 0; // gradients used this frame
-    this.clips = []; this.cn = 0; // clip shapes used this frame
+    // sections, in the order they were first used; each keeps its drawn elements, gradients and clip
+    // shapes in order (n, gn, cn: how many of each this frame)
+    this.secs = []; this.secBy = {};
+    this.shake = [0, 0]; // screen pixels the shaken sections are moved by this frame
     this.measureCache = new Map();
     this.log = null; // an array while recording (online host)
+    this.section('main');
     this.reset();
+  }
+  // draw what follows into the named section; shaken ones move with the screen shake
+  section(name, shaken = false) {
+    let s = this.secBy[name];
+    if (!s) {
+      const k = this.secs.length;
+      s = { k, g: this.make('g'), els: [], n: 0, grads: [], gn: 0, clips: [], cn: 0, shaken: false };
+      s.g._a = {}; s.g._addr = 'L' + k;
+      this.layer.append(s.g); this.secs.push(s); this.secBy[name] = s;
+      if (this.log) this.log.push(['L', k]);
+    }
+    s.shaken = s.shaken || shaken;
+    this.cur = s;
+    return s;
   }
   make(tag) { return document.createElementNS(SVG_NS, tag); }
 
   // drop every element: the next frame builds (and records) the whole picture from scratch, for a
   // player who just joined
   resync() {
-    for (const el of [...this.els, ...this.grads, ...this.clips]) el.remove();
-    this.els = []; this.grads = []; this.clips = [];
+    for (const s of this.secs) for (const el of [s.g, ...s.grads, ...s.clips]) el.remove();
+    this.secs = []; this.secBy = {};
     if (this.log) this.log.push(['X']);
+    this.section('main');
   }
 
   // ---- frame ----
-  beginFrame() { this.n = 0; this.gn = 0; this.cn = 0; this.reset(); }
-  endFrame() { for (let i = this.n; i < this.els.length; i++) this.attr(this.els[i], 'display', 'none'); }
+  beginFrame() {
+    for (const s of this.secs) { s.n = s.gn = s.cn = 0; s.shaken = false; }
+    this.shake = [0, 0]; this.section('main'); this.reset();
+  }
+  endFrame() {
+    const [x, y] = this.shake;
+    for (const s of this.secs) {
+      for (let i = s.n; i < s.els.length; i++) this.attr(s.els[i], 'display', 'none');
+      this.attr(s.g, 'transform', s.shaken && (x || y) ? `translate(${num(x)} ${num(y)})` : 'translate(0 0)');
+    }
+  }
   reset() {
     this.st = {
       m: [1, 0, 0, 1, 0, 0], alpha: 1, comp: 'source-over', fill: '#000', stroke: '#000', lineWidth: 1,
@@ -195,14 +226,15 @@ class Gfx {
   // ---- elements ----
   // the next element in draw order: reuse last frame's if it's the same kind, else swap in a new one
   shape(tag, attrs, kind = tag) {
-    let el = this.els[this.n];
+    const s = this.cur;
+    let el = s.els[s.n];
     if (!el || el.kind !== kind) {
-      const fresh = this.make(tag); fresh.kind = kind; fresh._a = {}; fresh._addr = 'e' + this.n;
-      if (el) this.layer.replaceChild(fresh, el); else this.layer.append(fresh);
-      if (this.log) this.log.push(['E', this.n, tag, kind]);
-      el = this.els[this.n] = fresh;
+      const fresh = this.make(tag); fresh.kind = kind; fresh._a = {}; fresh._addr = `e${s.k}.${s.n}`;
+      if (el) s.g.replaceChild(fresh, el); else s.g.append(fresh);
+      if (this.log) this.log.push(['E', s.k, s.n, tag, kind]);
+      el = s.els[s.n] = fresh;
     }
-    this.n++;
+    s.n++;
     const [a, b, c, d, e, f] = this.st.m;
     this.attr(el, 'display', 'inline');
     this.attr(el, 'transform', `matrix(${num(a)} ${num(b)} ${num(c)} ${num(d)} ${num(e)} ${num(f)})`);
@@ -217,13 +249,13 @@ class Gfx {
   // a colour, or a gradient written into <defs> (in the drawing's own coordinates)
   paint(p) {
     if (!(p instanceof Gradient)) return p;
-    const id = 'g' + this.gn, tag = p.kind === 'linear' ? 'linearGradient' : 'radialGradient';
-    let el = this.grads[this.gn++];
+    const s = this.cur, i = s.gn++, id = `g${s.k}_${i}`, tag = p.kind === 'linear' ? 'linearGradient' : 'radialGradient';
+    let el = s.grads[i];
     if (!el || el.tagName !== tag) {
       const fresh = this.make(tag); fresh._a = {}; fresh._addr = id; fresh.setAttribute('id', id); fresh.setAttribute('gradientUnits', 'userSpaceOnUse');
       if (el) this.defs.replaceChild(fresh, el); else this.defs.append(fresh);
-      if (this.log) this.log.push(['G', this.gn - 1, tag]);
-      el = this.grads[this.gn - 1] = fresh;
+      if (this.log) this.log.push(['G', s.k, i, tag]);
+      el = s.grads[i] = fresh;
     }
     const a = p.args.map(num);
     if (p.kind === 'linear') { this.attr(el, 'x1', a[0]); this.attr(el, 'y1', a[1]); this.attr(el, 'x2', a[2]); this.attr(el, 'y2', a[3]); }
@@ -231,12 +263,12 @@ class Gfx {
     const stops = [...p.stops].sort((x, y) => x[0] - y[0]);
     if (el.children.length > stops.length) {
       while (el.children.length > stops.length) el.lastChild.remove();
-      if (this.log) this.log.push(['T', this.gn - 1, stops.length]);
+      if (this.log) this.log.push(['T', s.k, i, stops.length]);
     }
-    stops.forEach(([at, color], i) => {
-      let s = el.children[i];
-      if (!s) { s = this.make('stop'); s._a = {}; s._addr = el._addr + 's' + i; el.append(s); if (this.log) this.log.push(['S', this.gn - 1]); }
-      this.attr(s, 'offset', num(at)); this.attr(s, 'stop-color', color);
+    stops.forEach(([at, color], j) => {
+      let stop = el.children[j];
+      if (!stop) { stop = this.make('stop'); stop._a = {}; stop._addr = el._addr + 's' + j; el.append(stop); if (this.log) this.log.push(['S', s.k, i]); }
+      this.attr(stop, 'offset', num(at)); this.attr(stop, 'stop-color', color);
     });
     return `url(#${id})`;
   }
@@ -245,13 +277,13 @@ class Gfx {
   clipFor(poly) {
     const [a, b, c, d, e, f] = this.st.m, det = a * d - b * c;
     const local = poly.map(([x, y]) => [(d * (x - e) - c * (y - f)) / det, (a * (y - f) - b * (x - e)) / det]);
-    const id = 'c' + this.cn;
-    let el = this.clips[this.cn++];
+    const s = this.cur, i = s.cn++, id = `c${s.k}_${i}`;
+    let el = s.clips[i];
     if (!el) {
       el = this.make('clipPath'); el.setAttribute('id', id); el.setAttribute('clipPathUnits', 'userSpaceOnUse');
       el.shape = this.make('polygon'); el.shape._a = {}; el.shape._addr = id + 'p'; el.append(el.shape); this.defs.append(el);
-      this.clips[this.cn - 1] = el;
-      if (this.log) this.log.push(['C', this.cn - 1]);
+      s.clips[i] = el;
+      if (this.log) this.log.push(['C', s.k, i]);
     }
     this.attr(el.shape, 'points', local.map(([x, y]) => `${num(x)},${num(y)}`).join(' '));
     return id;
@@ -260,62 +292,72 @@ class Gfx {
 window.Gfx = Gfx;
 
 // The other player's screen: applies a Gfx log (see Gfx.log) to an <svg> of its own, element for
-// element, so it shows the host's drawing exactly. Log entries:
-//   ['E', n, tag, kind]  the nth drawn element is new         ['G', i, tag]  gradient i is new
-//   ['S', i]             gradient i gets another stop          ['T', i, n]    gradient i keeps n stops
-//   ['C', i]             clip shape i is new                   ['X']          start over (resync)
+// element, so it shows the host's drawing exactly. Log entries (k is the section):
+//   ['L', k]                section k is new (a <g> after the others)
+//   ['E', k, n, tag, kind]  the nth element of section k is new
+//   ['G', k, i, tag]        gradient i of section k is new      ['S', k, i]  it gets another stop
+//   ['T', k, i, n]          gradient i of section k keeps n stops
+//   ['C', k, i]             clip shape i of section k is new    ['X']        start over (resync)
 //   [address, name, value]  an attribute changed ('#' is the text)
 class GfxMirror {
   // gfx: this page's own renderer, whose <svg> (style, defs, layer) it takes over
   constructor(gfx) {
-    gfx.resync(); this.gfx = gfx;
-    this.at = {}; this.els = []; this.grads = []; this.clips = [];
+    gfx.resync();
+    for (const s of gfx.secs) s.g.remove(); // the host's sections take their place
+    this.gfx = gfx; this.at = {}; this.secs = [];
   }
   make(tag, addr) { const el = document.createElementNS(SVG_NS, tag); if (addr) this.at[addr] = el; return el; }
-  // the match is over: take the host's picture off this screen, so this page can draw its own again
-  dispose() {
-    for (const el of [...this.els, ...this.grads, ...this.clips]) el.remove();
-    this.at = {}; this.els = []; this.grads = []; this.clips = [];
-    this.gfx.resync();
+  clear() {
+    for (const s of this.secs) if (s) for (const el of [s.g, ...s.grads, ...s.clips]) if (el) el.remove();
+    this.at = {}; this.secs = [];
   }
+  // the match is over: take the host's picture off this screen, so this page can draw its own again
+  dispose() { this.clear(); this.gfx.resync(); }
   apply(log) {
     const { layer, defs } = this.gfx;
     for (const op of log) {
-      switch (op[0]) {
-        case 'X':
-          for (const el of [...this.els, ...this.grads, ...this.clips]) el.remove();
-          this.at = {}; this.els = []; this.grads = []; this.clips = [];
-          break;
-        case 'E': {
-          const [, n, tag, kind] = op, addr = 'e' + n, el = this.make(tag, addr);
-          if (kind === 'img') {
-            const view = this.make('svg', addr + 'v'), pic = this.make('image', addr + 'p');
-            view.setAttribute('preserveAspectRatio', 'none'); view.append(pic); el.append(view);
-          }
-          if (this.els[n]) layer.replaceChild(el, this.els[n]); else layer.append(el);
-          this.els[n] = el;
-          break;
+      // one entry that doesn't fit (it shouldn't happen) mustn't stop the rest of the picture
+      try { this.op(op, layer, defs); } catch (e) { /* skip it */ }
+    }
+  }
+  op(op, layer, defs) {
+    const s = this.secs[op[1]];
+    switch (op[0]) {
+      case 'X': this.clear(); break;
+      case 'L': {
+        const g = this.make('g', 'L' + op[1]);
+        layer.append(g); this.secs[op[1]] = { g, els: [], grads: [], clips: [] };
+        break;
+      }
+      case 'E': {
+        const [, k, n, tag, kind] = op, addr = `e${k}.${n}`, el = this.make(tag, addr);
+        if (kind === 'img') {
+          const view = this.make('svg', addr + 'v'), pic = this.make('image', addr + 'p');
+          view.setAttribute('preserveAspectRatio', 'none'); view.append(pic); el.append(view);
         }
-        case 'G': {
-          const [, i, tag] = op, el = this.make(tag, 'g' + i);
-          el.setAttribute('id', 'g' + i); el.setAttribute('gradientUnits', 'userSpaceOnUse');
-          if (this.grads[i]) defs.replaceChild(el, this.grads[i]); else defs.append(el);
-          this.grads[i] = el;
-          break;
-        }
-        case 'S': { const g = this.grads[op[1]]; g.append(this.make('stop', `g${op[1]}s${g.children.length}`)); break; }
-        case 'T': { const g = this.grads[op[1]]; while (g.children.length > op[2]) g.lastChild.remove(); break; }
-        case 'C': {
-          const i = op[1], el = this.make('clipPath'), poly = this.make('polygon', `c${i}p`);
-          el.setAttribute('id', 'c' + i); el.setAttribute('clipPathUnits', 'userSpaceOnUse');
-          el.append(poly); defs.append(el); this.clips[i] = el;
-          break;
-        }
-        default: {
-          const el = this.at[op[0]];
-          if (!el) break;
-          if (op[1] === '#') setText(el, op[2]); else el.setAttribute(op[1], op[2]);
-        }
+        if (s.els[n]) s.g.replaceChild(el, s.els[n]); else s.g.append(el);
+        s.els[n] = el;
+        break;
+      }
+      case 'G': {
+        const [, k, i, tag] = op, id = `g${k}_${i}`, el = this.make(tag, id);
+        el.setAttribute('id', id); el.setAttribute('gradientUnits', 'userSpaceOnUse');
+        if (s.grads[i]) defs.replaceChild(el, s.grads[i]); else defs.append(el);
+        s.grads[i] = el;
+        break;
+      }
+      case 'S': { const g = s.grads[op[2]]; g.append(this.make('stop', `${g.id}s${g.children.length}`)); break; }
+      case 'T': { const g = s.grads[op[2]]; while (g.children.length > op[3]) g.lastChild.remove(); break; }
+      case 'C': {
+        const [, k, i] = op, id = `c${k}_${i}`, el = this.make('clipPath'), poly = this.make('polygon', id + 'p');
+        el.setAttribute('id', id); el.setAttribute('clipPathUnits', 'userSpaceOnUse');
+        el.append(poly); defs.append(el); s.clips[i] = el;
+        break;
+      }
+      default: {
+        const el = this.at[op[0]];
+        if (!el) break;
+        if (op[1] === '#') setText(el, op[2]); else el.setAttribute(op[1], op[2]);
       }
     }
   }
