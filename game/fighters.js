@@ -118,7 +118,7 @@ function reset(side = (game && game.side) || 'goku') {
   for (const c of [P1, P2]) withController(c, () => { for (const a in lastPress) delete lastPress[a]; dashReq = null; lastTap.dir = 0; });
   Object.assign(cam, { x: W / 2, y: H / 2, z: 1, focus: null });
   Stage.reset(); Object.assign(ai, { think: 0.8, vanishCd: 3, ultCd: 6, spam: 0, barrierCd: 5, assistCd: 6, cannonCd: 6, rolled: 0, chase: null, airBeam: false, punishAt: -9 });
-  game = { mode: 'title', comboNames: [], menu: [], training: false, ct: 0, cine: null, combo: { n: 0, t: 0, dmg: 0, moves: [], done: new Set() }, bossCombo: { moves: [], done: new Set(), names: [] }, learned: (game && game.learned) || new Set(), side, pick: side === 'cell' ? 1 : 0, time: ROUND_TIME, juniors: null, freeze: 0, shake: 0, flash: 0, phase: 0, slow: 1, banner: null, dlg: null, skip: false, result: null, t: 0, kameCd: 4 };
+  game = { mode: 'title', comboNames: [], menu: [], training: false, ct: 0, cine: null, combo: { n: 0, t: 0, dmg: 0, moves: [], done: new Set() }, bossCombo: { moves: [], done: new Set(), names: [] }, learned: (game && game.learned) || new Set(), side, pick: side === 'cell' ? 1 : 0, time: ROUND_TIME, juniors: null, freeze: 0, shake: 0, flash: 0, phase: 0, slow: 1, banner: null, dlg: null, skip: false, result: null, t: 0, kameCd: 4, stats: newStats(), report: null };
 }
 
 function setForm(f, form) {

@@ -124,6 +124,13 @@ function step(raw) {
   updateReact(raw);
   if (game.bean) game.bean.t += raw;
   updateCamera(raw);
+  // the weather turns for the last stretch: the boss's final phase, or in versus once either fighter
+  // is down to their last 30%
+  // ...and the sky answers the big moments in any mode: someone transforming, a beam clash, a finisher
+  const bigMoment = !!clash || !!game.cine || !!game.react || (game.mode === 'cut' && beams.length > 0)
+    || [goku, cell].some(f => ['transform', 'evolve', 'ult1', 'ult2', 'ult3', 'spirit'].includes(f.state) || (f.state === 'pose' && ['kameCharge', 'ssjBuild', 'ssjRise', 'ssjFlare', 'power'].includes(f.anim)));
+  const lastStretch = !game.training && (game.versus ? Math.min(goku.hp / goku.maxHp, cell.hp / cell.maxHp) < 0.3 : game.phase >= 2);
+  Stage.setStorm(bigMoment || lastStretch, bigMoment);
   Stage.update(raw);
   for (const tr of trails) tr.t += raw;
   trails = trails.filter(tr => tr.t < 0.22);
@@ -145,7 +152,7 @@ function step(raw) {
     else if (game.mode === 'fight' && !window.noAI && (!game.training || TRAIN.dummy === 'fight')) bossAI(dt);
     else if (game.mode === 'fight' && game.training && !window.noAI) dummyAI(dt);
     if (game.training) trainingRefill(dt);
-    else game.time -= dt;
+    else { game.time -= dt; game.stats.time += dt; }
     if (game.mode === 'fight' && !game.training && !game.versus && game.phase < 2 && !game.juniors && boss.hp <= boss.maxHp * (2 - game.phase) / 3 && boss.hp > 0 && boss.free) {
       // between Semi-Perfect and Perfect, Cell sends in the Cell Juniors first
       if (boss === cell && game.phase === 1) juniorsStart(); else bossPhase();

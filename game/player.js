@@ -6,6 +6,8 @@ const CHAINS = {
 };
 
 const AIR_CHAIN = { air: 'air2', air2: 'spike' };
+// the hop that follows someone up off a ground bounce
+const CHASE_LOW_V = -300;
 
 // Cancels after a landed hit. Returns true when one happened.
 // Cell's Death Beam (every form): toward + U, so it stays reachable now that U is his Kamehameha
@@ -14,9 +16,9 @@ const deathBeamFirst = g => g.who === 'cell' && g.ki >= 20
   && ((keys.right ? 1 : 0) - (keys.left ? 1 : 0)) === g.facing;
 function cancel(g, foe, dashDir) {
   const isGoku = g.who === 'goku';
-  if (g.A().hit && g.A().hit.launch && act('jump')) {
-    // chase them into the air
-    g.play('jump'); g.sq = -0.14; g.vy = JUMP_V - 70; g.vx = g.facing * 90; sfx.whoosh(); return true;
+  if (g.A().hit && (g.A().hit.launch || g.A().hit.spike) && act('jump')) {
+    // chase them into the air (after a slam, a lower hop up to where the bounce takes them)
+    g.play('jump'); g.sq = -0.14; g.vy = g.A('jump') && g.chaseLow ? CHASE_LOW_V : JUMP_V - 70; g.vx = g.facing * 90; g.chaseT = 0; sfx.whoosh(); return true;
   }
   if (dashDir) { dash(g, dashDir); return true; }
   if (!isGoku && g.form === 'perfect' && g.ki >= 100 && act('ult')) { solarKame(g); return true; }
@@ -73,7 +75,7 @@ function comboToken(tok, src = player) {
       if (game.versus) src.ki = Math.min(100, src.ki + 5); // player 2 earns ki for combos too
       continue;
     }
-    game.learned.add(combo.name);
+    game.learned.add(combo.name); game.stats.named++;
     player.ki = Math.min(100, player.ki + 5);
     game.comboNames.push({ text: combo.name + '!', t: 0 });
     sfx.parry();
@@ -114,7 +116,7 @@ function playerInput(dt, g = player, foe = boss) {
     if (act('jump')) {
       g.play('jump'); g.sq = -0.14; sfx.whoosh();
       // just after a launcher, the jump chases them up
-      if (g.chaseT > 0 && foe.state === 'knock') { g.vy = JUMP_V - 70; g.vx = g.facing * 90; g.chaseT = 0; }
+      if (g.chaseT > 0 && foe.state === 'knock') { g.vy = g.chaseLow ? CHASE_LOW_V : JUMP_V - 70; g.vx = g.facing * 90; g.chaseT = 0; }
       else { g.vy = JUMP_V; g.vx = dir * 120; }
       return;
     }

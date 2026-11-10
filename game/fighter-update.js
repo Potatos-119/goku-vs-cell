@@ -179,7 +179,7 @@ function updateFighter(f, foe, dt) {
     case 'evolve':
       if ((f.t2 -= dt) <= 0) {
         setForm(f, CELL_FORMS[CELL_FORMS.indexOf(f.form) + 1]); f.play('idle');
-        game.flash = 1; shake(8); sfx.explode();
+        game.flash = 1; shake(8); sfx.explode(); Stage.strike();
         popups.push({ text: CELL_INFO[f.form].name + '!', x: f.x, y: f.y - 70, t: 0, c: '#a8e27c' });
       }
       break;
@@ -223,7 +223,7 @@ function airSpirit(f, combo = false) {
 }
 
 function finishTransform(f) {
-  setForm(f, 'ssj'); f.play('idle'); Stage.cloud(f.x, 1.6);
+  setForm(f, 'ssj'); f.play('idle'); Stage.cloud(f.x, 1.6); Stage.strike();
   Audio8.music.switchTo('ssj');
   game.flash = 1; shake(8); sfx.explode();
 }

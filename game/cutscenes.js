@@ -183,7 +183,7 @@ async function cellPerfectScene(f) {
   Voice.shout('cell', 'Perfection!');
   await perfectReveal(f);
   setForm(f, 'perfect'); f.play('power', 'pose');
-  game.flash = 1; shake(10); sfx.explode(); Stage.cloud(f.x, 1.6);
+  game.flash = 1; shake(10); sfx.explode(); Stage.cloud(f.x, 1.6); Stage.strike();
   popups.push({ text: CELL_INFO.perfect.name + '!', x: f.x, y: f.y - 70, t: 0, c: '#a8e27c' });
   await wait(0.9);
   f.play('idle'); f.inv = 0.5; cam.focus = null;
@@ -196,9 +196,9 @@ const SENZU_HP = 130;
 async function senzuBean(f) {
   const from = f.x < W / 2 ? W + 12 : -12;
   cam.focus = { f, z: 1.3 };
-  game.bean = { x0: from, y0: FLOOR - 100, x1: f.x, y1: f.y - 34, t: 0, dur: 0.75 };
   await say('KRILLIN', 'Goku! Catch!');
-  game.bean.t = 0; sfx.whoosh();
+  // (it used to be thrown as he started talking, so it hung in front of Goku until the line was read)
+  game.bean = { x0: from, y0: FLOOR - 100, x1: f.x, y1: f.y - 34, t: 0, dur: 0.75 }; sfx.whoosh();
   await wait(0.75);
   game.bean = null;
   Object.assign(f, { maxHp: Math.max(f.maxHp, SENZU_HP), ki: 100, stamina: 100, guardBroken: false });
@@ -307,6 +307,7 @@ async function finish(result) {
   // beaten by one of the Cell Juniors: he gets the last word
   if (game.juniors && winner === cell) await say('CELL JR.', 'Kee-hee! Papa, look! I broke the Saiyan!');
   else await say(winner.who.toUpperCase(), LINES[game.side]);
+  game.report = makeReport(win);
   game.mode = 'end';
 }
 

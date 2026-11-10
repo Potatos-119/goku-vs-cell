@@ -56,7 +56,7 @@ async function cinematicBeam(f, foe, r, dmg, knock, title) {
   }
   f.big = true; fireKame(f); f.t2 = 1.3;
   game.banner = { text: title, t: 0, dur: 1.4 };
-  game.flash = 1; shake(12); sfx.explode();
+  game.flash = 1; shake(12); sfx.explode(); Stage.strike();
   if (a === 'vanish') {
     const perfect = r.dur - r.at <= REACT_PERFECT;
     await wait(0.12, true);
@@ -73,7 +73,7 @@ async function cinematicBeam(f, foe, r, dmg, knock, title) {
       game.slow = 1;
       return; // the attacker is still firing the other way: punish them
     }
-    foe.hp = Math.max(game.training ? 1 : 0, foe.hp - dmg / 3);
+    directDamage(foe, dmg / 3);
     if (foe.hp <= 0) knock(); else foe.play('hurt', 'pose');
     popups.push({ text: 'TOO EARLY - GRAZED!', x, y: FLOOR - 60, t: 0, c: '#ff8a6a' });
     await wait(0.9, true);
@@ -81,7 +81,7 @@ async function cinematicBeam(f, foe, r, dmg, knock, title) {
     return;
   }
   if (a === 'block') {
-    foe.hp = Math.max(game.training ? 1 : 0, foe.hp - dmg / 2);
+    directDamage(foe, dmg / 2);
     if (foe.hp <= 0) { knock(); await wait(1.2, true); return; }
     Object.assign(foe, { stamina: 0, guardBroken: true, staminaDelay: 0.8, vx: f.facing * 60 });
     popups.push({ text: 'GUARD BREAK!', x: foe.x, y: foe.y - 58, t: 0, c: '#ff7a5a' });
@@ -90,7 +90,7 @@ async function cinematicBeam(f, foe, r, dmg, knock, title) {
     if (f.state === 'kameFire') f.t2 = Math.min(f.t2, 0.01); // already paid for it: the beam is done
     return;
   }
-  foe.hp = Math.max(game.training ? 1 : 0, foe.hp - dmg);
+  directDamage(foe, dmg);
   knock();
   await wait(1.4, true);
 }
@@ -108,7 +108,7 @@ function endCinematic(f, foe) {
 // fire point-blank. The enemy gets a moment to answer (see reactWindow); unanswered it deals 60
 // and launches them.
 async function instantKame(f) {
-  const foe = foeOf(f);
+  const foe = foeOf(f), scale = comboScale(foe, 'ult'); // out of a combo, it's worth less
   f.ki = 0;
   game.mode = 'cut'; projs = []; beams = []; minions = []; clash = null; game.banner = null; game.spirit = null;
   settle(foe);
@@ -145,7 +145,7 @@ async function instantKame(f) {
     Stage.puff(f.x, -away); Stage.puff(foe.x, away);
   }
   Voice.shout('goku', 'HAAAAAAA!');
-  await cinematicBeam(f, foe, r, 60, () => {
+  await cinematicBeam(f, foe, r, 60 * scale, () => {
     foe.play('knock'); foe.vy = -320; foe.vx = f.facing * 230; foe.y -= 1; Stage.crack(foe.x, 2);
   }, 'INSTANT KAMEHAMEHA!');
   endCinematic(f, foe);
@@ -155,7 +155,7 @@ async function instantKame(f) {
 // the enemy and fires a huge Kamehameha down into the ring. The enemy gets a moment to answer
 // (see reactWindow); unanswered it deals 60 and blasts them away.
 async function solarKame(f) {
-  const foe = foeOf(f);
+  const foe = foeOf(f), scale = comboScale(foe, 'ult');
   f.ki = 0;
   game.mode = 'cut'; projs = []; beams = []; minions = []; clash = null; game.banner = null; game.spirit = null;
   settle(foe); settle(f);
@@ -179,7 +179,7 @@ async function solarKame(f) {
   // the chant runs through the charge and the answer window, ending as he fires
   Voice.shout('cell', 'Solar... Kamehameha!'); if (!sfx.kameChant(f, 2.8, true)) sfx.charge(1.4); shake(4);
   const r = await reactWindow(foe, 1.4);
-  await cinematicBeam(f, foe, r, 60, () => {
+  await cinematicBeam(f, foe, r, 60 * scale, () => {
     foe.play('knock'); foe.vy = -220; foe.vx = f.facing * 200; foe.y -= 1; Stage.crack(foe.x, 2.5);
   }, 'SOLAR KAMEHAMEHA!');
   endCinematic(f, foe);

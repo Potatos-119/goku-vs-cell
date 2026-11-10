@@ -7,6 +7,20 @@ const Stage = (() => {
   let chunks = [], rings = [], shadows = [], birds = { x: -60, y: 30, t: 9 }, gusts = [];
   // environment impact: billowing dust, distant explosions on the mountains, wind streaks
   let clouds = [], blasts = [], winds = [];
+  // The weather follows the fight: a storm rolls in for its last stretch (setStorm, called by the game
+  // each frame). storm eases between 0 (clear) and 1; with it come a darker sky, heavy clouds along the
+  // top, rain, and lightning that lights the whole arena for an instant.
+  let storm = 0, stormTo = 0, storming = [], rain = [], bolt = null, boltIn = 2, glare = 0;
+  // quick: a surge for a big moment (a transformation, a beam clash, a finisher) comes in fast
+  let stormRate = 0.9;
+  const setStorm = (on, quick = false) => { stormTo = on ? 1 : 0; stormRate = quick ? 5 : 0.9; };
+  function strike() {
+    // a jagged line from the clouds down to the hills, with a short branch
+    let x = 30 + rnd() * (W - 60), y = 14;
+    const pts = [[x, y]], branch = [];
+    while (y < FAR - 4) { x += (rnd() - 0.5) * 18; y += 6 + rnd() * 10; pts.push([x, Math.min(y, FAR)]); if (!branch.length && rnd() < 0.3) branch.push([x, y], [x + (rnd() - 0.5) * 30, y + 14], [x + (rnd() - 0.5) * 44, y + 26]); }
+    bolt = { pts, branch, t: 0 }; glare = 1;
+  }
   const FAR = 104; // where the mountains meet the plain, for blasts on the horizon
   // two arenas. 'day' is the sharp, upscaled ring (assets/img/arena.jpg: the art with its sky
   // extended, so it is drawn from the top of the view, 340 wide and centred, which puts the
@@ -131,6 +145,10 @@ const Stage = (() => {
     // big soft cloud shadows sliding across the ring
     shadows = Array.from({ length: 3 }, (_, i) => ({ x: i * 140 - 40, y: 132 + rnd() * 30, r: 50 + rnd() * 40, v: 4 + rnd() * 4 }));
     birds = { x: -60, y: 30, t: 9 };
+    // (the storm clouds and the rain are always there, and only show as the storm comes in)
+    storming = Array.from({ length: 7 }, (_, i) => ({ x: i * 56 - 30 + rnd() * 20, y: 4 + rnd() * 16, r: 34 + rnd() * 26, v: 5 + rnd() * 6 }));
+    rain = Array.from({ length: 46 }, () => ({ x: rnd() * (W + 60), y: rnd() * H, v: 260 + rnd() * 120 }));
+    storm = 0; stormTo = 0; bolt = null; boltIn = 2; glare = 0;
   }
 
   // A crater where something heavy hits the ring: a dented bowl with a lit far rim, broken tile
@@ -233,6 +251,15 @@ const Stage = (() => {
 
   function update(dt) {
     clock += dt;
+    // the storm comes in over a couple of seconds and clears a little slower
+    storm += (stormTo - storm) * Math.min(1, dt * (stormTo > storm ? stormRate : 0.6));
+    if (storm > 0.02) {
+      for (const c of storming) { c.x -= c.v * dt; if (c.x < -c.r - 10) c.x = W + c.r + 10; }
+      for (const r of rain) { r.y += r.v * dt; r.x -= r.v * 0.22 * dt; if (r.y > FLOOR + 6) { r.y = -8; r.x = rnd() * (W + 60); } }
+      if (storm > 0.6 && (boltIn -= dt) <= 0) { boltIn = 2.5 + rnd() * 5; strike(); }
+    }
+    if (bolt && (bolt.t += dt) > 0.22) bolt = null;
+    glare = Math.max(0, glare - dt * 5);
     heliX += dt * 9; if (heliX > W + 40) heliX = -40;
     for (const d of dust) { d.x += d.v * dt; if (d.x > W + 4) { d.x = -4; d.y = 118 + rnd() * 60; } }
     for (const d of debris) { d.t += dt; d.y += d.vy * dt; d.x += d.vx * dt; d.vy *= 0.985; d.vx *= 0.94; }
@@ -363,6 +390,30 @@ const Stage = (() => {
       g.addColorStop(0, 'rgba(20,26,70,0.1)'); g.addColorStop(1, 'rgba(20,26,70,0)');
       gfx.fillStyle = g; gfx.beginPath(); gfx.ellipse(sh.x, sh.y, sh.r, sh.r * 0.28, 0, 0, Math.PI * 2); gfx.fill();
     }
+    if (storm > 0.02) {
+      const calm = typeof settings !== 'undefined' && settings.calm;
+      // the day goes dark, darker up in the sky than down on the ring
+      const sky = gfx.createLinearGradient(0, 0, 0, H);
+      sky.addColorStop(0, `rgba(14,12,40,${0.62 * storm})`); sky.addColorStop(0.6, `rgba(22,20,52,${0.42 * storm})`); sky.addColorStop(1, `rgba(26,24,56,${0.3 * storm})`);
+      gfx.fillStyle = sky; gfx.fillRect(0, 0, W, H);
+      // lightning: the sky lights up behind the clouds, then the bolt itself
+      if (glare > 0) { gfx.fillStyle = `rgba(214,226,255,${glare * (calm ? 0.08 : 0.3) * storm})`; gfx.fillRect(0, 0, W, FAR + 6); }
+      if (bolt) {
+        const a = (1 - bolt.t / 0.22) * (calm ? 0.5 : 1), flick = Math.floor(bolt.t * 60) % 3 !== 1;
+        const line = (pts, w, color) => { gfx.strokeStyle = color; gfx.lineWidth = w; gfx.beginPath(); pts.forEach(([x, y], i) => i ? gfx.lineTo(x, y) : gfx.moveTo(x, y)); gfx.stroke(); };
+        if (flick) {
+          line(bolt.pts, 3, `rgba(150,170,255,${0.35 * a})`); line(bolt.pts, 1, `rgba(255,255,255,${a})`);
+          if (bolt.branch.length) line(bolt.branch, 0.6, `rgba(230,238,255,${0.8 * a})`);
+        }
+      }
+      // heavy clouds along the top
+      for (const c of storming) {
+        const lit = Math.round(glare * 60);
+        const g = gfx.createRadialGradient(c.x, c.y, c.r * 0.2, c.x, c.y, c.r);
+        g.addColorStop(0, `rgba(${34 + lit},${32 + lit},${58 + lit},${0.85 * storm})`); g.addColorStop(1, 'rgba(30,28,54,0)');
+        gfx.fillStyle = g; gfx.beginPath(); gfx.ellipse(c.x, c.y, c.r, c.r * 0.42, 0, 0, Math.PI * 2); gfx.fill();
+      }
+    }
     gfx.imageSmoothingEnabled = false;
     // helicopter crossing the sky
     const hx = Math.round(heliX), hy = 40 + Math.round(Math.sin(clock * 0.8) * 2);
@@ -402,6 +453,11 @@ const Stage = (() => {
   }
 
   function drawFront(gfx) {
+    // rain falls in front of the fighters, slanting with the wind
+    if (storm > 0.3) {
+      gfx.fillStyle = `rgba(190,205,240,${0.3 * (storm - 0.3) / 0.7})`;
+      for (const r of rain) { gfx.save(); gfx.translate(Math.round(r.x), Math.round(r.y)); gfx.rotate(0.22); gfx.fillRect(0, 0, 0.6, 5); gfx.restore(); }
+    }
     for (const d of dust) { gfx.fillStyle = `rgba(235,225,205,${d.a})`; gfx.fillRect(Math.round(d.x), Math.round(d.y), 1, 1); }
     for (const g of gusts) {
       gfx.fillStyle = 'rgba(255,255,255,0.22)'; gfx.fillRect(Math.round(g.x), Math.round(g.y), Math.round(g.len), 1);
@@ -409,6 +465,6 @@ const Stage = (() => {
     }
   }
 
-  return { get arena() { return arena; }, arenas: Object.keys(ARENAS), setArena, drawBack, drawFront, update, reset, crack, shock, lift, puff, cloud, scorch, wake, farBlast, wallHit, wind };
+  return { get arena() { return arena; }, arenas: Object.keys(ARENAS), setArena, drawBack, drawFront, update, reset, crack, shock, lift, puff, cloud, scorch, wake, farBlast, wallHit, wind, setStorm, strike, get storm() { return storm; } };
 })();
 window.Stage = Stage;

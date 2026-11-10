@@ -307,6 +307,7 @@ const COMBOS = {
   ],
   cell: [
     { name: 'NIGHTMARE STRING', steps: ['p1', 'p2', 'k2'], how: 'J J K' },
+    { name: 'GRAVE DIGGER', steps: ['p3', 'bounce', 'air'], how: 'J J J (slam), W, then J in the air' },
     { name: 'BIO KICKS', steps: ['k1', 'k2'], how: 'K K' },
     { name: 'SKY CHASE', steps: ['launch', 'air'], how: 'J J K, then W, J' },
     { name: 'METEOR SMASH', steps: ['air', 'air2', 'spike'], how: 'in the air: J J J' },
@@ -360,7 +361,7 @@ const MOVES = {
   ],
   cell: [
     ['J  /  K', 'Punch / kick, chain: J J J, J J K or K K'],
-    ['J J J', 'Ends in a slam: they bounce up off the ring'],
+    ['J J J', 'Ends in a slam: they bounce up, W to follow'],
     ['J J K  /  K K', 'Ends in a launcher: W to chase them up'],
     ['TOWARD + J  /  K', 'Rush punch / heavy slash (wall bounce)'],
     ['J + K  /  F', 'Absorb: grab through a block, heals you'],

@@ -70,7 +70,7 @@ function updateBeams(dt) {
     if (inBeam && foe.visible && !clash && (b.tick -= dt) <= 0) {
       b.tick = 0.1;
       const lastHit = b.owner.t2 < 0.15;
-      damage(foe, b.owner, b.dps * 0.1 * b.owner.dmgMul, lastHit, b.dir, b.big ? 'ult' : 'beam');
+      damage(foe, b.owner, b.dps * 0.1 * b.owner.dmgMul, lastHit, b.dir, b.big ? 'ult' : 'beam', { beamTick: true });
       if (!lastHit) game.freeze = 0; // 10 ticks a second: hit-stop on each would stall the whole game
       if (foe.state === 'hurt') { foe.stun = 0.15; foe.vx = b.dir * 40; }
     }
@@ -174,14 +174,14 @@ function startClash(pb, bb) {
   clash = { s: 0.5, pb, bb, pulse: 0 };
   game.banner = { text: 'MASH  SPACE !', t: 0, dur: 99 };
   popups.push({ text: 'BEAM CLASH!', x: (pb.x0 + bb.x0) / 2, y: Math.min(pb.y, bb.y) - 20, t: 0, c: '#9ff' });
-  game.flash = Math.max(game.flash, 0.5); shake(8); sfx.explode();
+  game.flash = Math.max(game.flash, 0.5); shake(8); sfx.explode(); Stage.strike();
 }
 
 // Big blast that throws someone across the ring. In a fight it's a normal heavy hit; inside a
 // cinematic (where damage() is switched off) the damage and the knock are applied directly.
 function blastAway(f, src, dmg) {
   if (game.mode === 'fight') return damage(f, src, dmg, true, src.facing, 'beam');
-  f.hp = Math.max(game.training ? 1 : 0, f.hp - dmg);
+  directDamage(f, dmg);
   f.floating = false; f.play('knock'); f.vy = -260; f.vx = (f.x > src.x ? 1 : -1) * 180; f.y -= 1;
   Stage.crack(f.x, 1.5);
   return true;
@@ -296,8 +296,8 @@ function drawClashBall() {
   }
   gfx.restore();
   FX.kiGlow(gfx, x, y, r * 0.75, game.t);
-  // versus: the seconds left, above the ball (red for the last three)
-  if (game.versus) {
+  // the seconds left, above the ball (red for the last three); the final clash has no clock on it
+  if (!clash.final) {
     const left = Math.max(0, Math.ceil(clashTime() - (clash.t || 0)));
     text(String(left), x, y - r * 2.4 - 14, 12, left <= 3 ? '#ff6a5a' : '#ffe04a', 'center');
   }

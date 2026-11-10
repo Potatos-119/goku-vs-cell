@@ -8,14 +8,21 @@ const JUGGLE_MAX = 5;
 const KI_GAIN = { melee: [4, 3], proj: [2, 2], beam: [0.4, 0.4], ult: [0, 1] }, KI_BLOCKED = 2;
 // combo damage scaling for hits on the player (see the scaling below), and how long a gap still
 // keeps the boss's hits in one combo
-const PLAYER_SCALING = { step: 0.09, min: 0.35, beamMin: 0.6, free: 0 };
-// ...and for hits on the boss: the first two hits of a combo do full damage, then each one does 10%
-// less than the one before, down to 30% (a beam, the combo's finisher, never less than 60%)
-const BOSS_SCALING = { step: 0.1, min: 0.3, beamMin: 0.6, free: 1 };
+// (beamRaw: a beam on a player does this much of its damage even with no combo before it, which is
+// what the boss's beams were tuned to)
+const PLAYER_SCALING = { step: 0.08, min: 0.4, finisherMin: 0.6, free: 0, beamRaw: 0.7 };
+// ...and for hits on the boss: the first two hits of a combo do full damage, then each one does 8%
+// less than the one before, down to 40% (a beam or a finisher ending the combo: never under 60%)
+const BOSS_SCALING = { step: 0.08, min: 0.4, finisherMin: 0.6, free: 1, beamRaw: 1 };
+// The combo a fighter is taking, for scaling, is the one the hit counter shows: hits less than
+// COMBO_KEEP apart. (It used to restart whenever they got their feet back for an instant, even with the
+// counter still running.) A beam is one hit of it, however many times it ticks.
+const COMBO_KEEP = 1.1;
+const hitsTaken = def => game.t - (def.scaleAt ?? -9) > COMBO_KEEP ? 0 : def.scaleHits || 0;
 // how much of its damage the next hit on def will do, this far into the combo
 function comboScale(def, kind = 'melee') {
-  const sc = human(def) ? PLAYER_SCALING : BOSS_SCALING;
-  return Math.max(kind === 'beam' ? sc.beamMin : sc.min, 1 - sc.step * Math.max(0, def.comboTaken - sc.free));
+  const sc = human(def) ? PLAYER_SCALING : BOSS_SCALING, finisher = kind === 'beam' || kind === 'ult';
+  return Math.max(finisher ? sc.finisherMin : sc.min, 1 - sc.step * Math.max(0, hitsTaken(def) - sc.free)) * (kind === 'beam' ? sc.beamRaw : 1);
 }
 const BOSS_COMBO_GAP = 1.5;
 // caught starting their own move: a counter hit, which hurts more and stuns for longer
@@ -86,7 +93,12 @@ function damage(def, src, dmg, heavy, dir, kind = 'melee', opts = {}) {
     // (beams keep more of their damage: they're the combo's finisher)
     // the boss's combos on the player scale down harder (PLAYER_SCALING), so one long combo can't take
     // most of your health
-    dmg *= comboScale(def, kind);
+    // a beam keeps, for all its ticks, the scale it had when it first touched them: fired on its own
+    // that's full damage from start to end, and at the end of a long combo it's cut down by the combo
+    const sameBeam = opts.beamTick && def.beamFrom === src && game.t - (def.scaleAt ?? -9) < 0.3;
+    if (!sameBeam) { def.beamScale = comboScale(def, kind); def.scaleHits = hitsTaken(def) + 1; }
+    dmg *= def.beamScale;
+    def.beamFrom = opts.beamTick ? src : null; def.scaleAt = game.t;
     def.comboTaken++;
     sparks.push({ x: def.x - dir * 6, y: def.y - 30, t: 0, c: '#fff6b8' });
     game.freeze = heavy ? 0.12 : 0.06; shake(heavy ? 6 : 3);
@@ -105,7 +117,10 @@ function damage(def, src, dmg, heavy, dir, kind = 'melee', opts = {}) {
   }
   const hpBefore = def.hp;
   def.hp = Math.max(game.training ? 1 : 0, def.hp - dmg);
-  if (src === player && !blocking) game.combo.dmg += hpBefore - def.hp;
+  // the fight's score sheet (game/results.js)
+  if (src === player) { game.stats.dealt += hpBefore - def.hp; }
+  else if (def === player) game.stats.taken += hpBefore - def.hp;
+  if (src === player && !blocking) { game.combo.dmg += hpBefore - def.hp; game.stats.bestHits = Math.max(game.stats.bestHits, game.combo.n); game.stats.bestDmg = Math.max(game.stats.bestDmg, game.combo.dmg); }
   else if (def === player && !blocking) game.bossCombo.dmg = (game.bossCombo.dmg || 0) + hpBefore - def.hp;
   // a fighter mid-Kamehameha takes the damage but keeps firing, unless it finishes them
   const armored = def.state === 'kameFire' && def.hp > 0;
@@ -118,10 +133,13 @@ function damage(def, src, dmg, heavy, dir, kind = 'melee', opts = {}) {
       def.juggle = juggling ? def.juggle + (kind === 'beam' ? 0 : 1) : 0;
       def.play('knock'); def.y -= 1;
       if (kind === 'proj') sfx.kiHit(); else if (kind === 'beam') sfx.clash(); else sfx.smash();
-      if (opts.spike) { def.vy = 420; def.vx = dir * 40; def.spiked = true; }
+      if (opts.spike) { def.vy = 420; def.vx = dir * 40; def.spiked = true;
+        // slammed from the ground (Cell's third punch): a jump follows them up off the bounce, a lower
+        // hop than the one that chases a launcher, because they don't come up as far
+        if (human(src) && src.y >= FLOOR - 2) { src.chaseT = 0.7; src.chaseLow = true; } }
       else if (opts.launch) { def.vy = -390; def.vx = dir * 45; if (src === player) comboToken('launch'); else if (def === player) comboToken('launch', src);
         // a person who launched gets a moment where a jump chases them up (player 2 in versus too)
-        if (human(src)) src.chaseT = 0.55; }
+        if (human(src)) { src.chaseT = 0.55; src.chaseLow = false; } }
       // a beam holds a flying enemy up and drives them back; its last tick blasts them away
       else if (juggling && kind === 'beam' && !heavy) { def.vy = -125; def.vx = dir * 60; }
       else if (kind === 'beam') { def.vy = -300; def.vx = dir * 210; }
@@ -171,6 +189,7 @@ function raiseGuard(g, anim = 'block') {
 const WINDUP = 0.28; // pause between a vanish and its counterattack
 function perfectBlock(def, src, kind) {
   def.ki = Math.min(100, def.ki + 15); def.stamina = Math.min(100, def.stamina + 15); def.inv = 0.25;
+  if (def === player) game.stats.perfect++;
   popups.push({ text: 'PERFECT!  +KI', x: def.x, y: def.y - 54, t: 0, c: '#8ff' });
   sparks.push({ x: def.x + def.facing * 10, y: def.y - 30, t: 0, c: '#ffffff' });
   game.freeze = 0.15; game.flash = 0.35; sfx.parry();

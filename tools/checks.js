@@ -148,12 +148,84 @@
       expect(top < FLOOR - 20, `they only came ${(FLOOR - top).toFixed(0)} px back up off the ring`);
     },
 
+    // ...and W after the slam follows them up, so the combo carries on in the air
+    "after Cell's slam, a jump and a punch continue the combo in the air": async () => {
+      scene({ side: 'cell', gap: 28 });
+      const press = async a => { hold(P1, a, true); await tick(1); hold(P1, a, false); };
+      player.queue = ['p2', 'p3']; startAttack(player, 'p1');
+      for (let i = 0; i < 200 && !(player.anim === 'p3' && player.hitLanded); i++) await tick(1);
+      expect(player.anim === 'p3' && player.hitLanded, 'setup: the slam did not land');
+      await press('jump');
+      for (let i = 0; i < 20 && player.state !== 'jump'; i++) await tick(1); // the slam's hit-stop passes first
+      expect(player.state === 'jump', 'W after the slam did not jump (' + player.state + ')');
+      const hp = boss.hp;
+      await press('punch'); await tick(20);
+      expect(boss.hp < hp, 'the air punch after the slam missed (player y ' + player.y.toFixed(0) + ', enemy y ' + boss.y.toFixed(0) + ', enemy ' + boss.state + ')');
+    },
+
+    // the result screen's score sheet
+    'a story fight is scored: time, combo, damage taken, and a grade for a win': async () => {
+      const skip = () => { if (game.dlg) { const d = game.dlg; game.dlg = null; d.done(); } };
+      scene({ gap: 28 });
+      game.phase = 2; game.finalDone = true; // straight to the last blow
+      boss.queue = []; startAttack(boss, 'p1'); await tick(30);
+      const taken = game.stats.taken;
+      expect(taken > 0, 'setup: the boss did not hit');
+      player.queue = ['p2']; player.play('idle'); boss.play('idle'); boss.hp = 3; startAttack(player, 'p1');
+      await tick(900, skip);
+      expect(game.mode === 'end' && game.result === 'win', 'setup: the fight was not won (' + game.mode + ', ' + game.result + ')');
+      const r = game.report;
+      expect(r && r.win && /^[SABC]$/.test(r.grade), 'no grade on the report');
+      expect(r.time > 0.4 && r.time < 30, 'time on the report is ' + (r && r.time));
+      expect(Math.abs(r.taken - taken) < 0.01, `took ${taken.toFixed(1)} damage, the report says ${r.taken.toFixed(1)}`);
+      expect(r.bestHits >= 1 && r.dealt > 0, 'the hits that won it are not on the report');
+    },
+
+    // the Senzu Bean used to be thrown while Krillin was still talking, and hung in the air until Enter
+    'the Senzu Bean is thrown after Krillin calls, not during': async () => {
+      scene();
+      senzuBean(goku);
+      await tick(90); // his line is on screen, nobody has pressed Enter
+      expect(game.dlg && game.dlg.who === 'KRILLIN', 'setup: Krillin is not talking');
+      expect(!game.bean, 'the bean is already in the air while he talks');
+      const d = game.dlg; game.dlg = null; d.done(); await tick(10);
+      expect(game.bean && game.bean.t < 0.3, 'the bean was not thrown once the line was read');
+      game.skip = true; timers.forEach(t => t.r()); await tick(5);
+    },
+
     // each hit of a combo is worth less than the one before, after the first two
-    'combo hits on the boss scale down: 100, 100, 90, 80... never under 30%': async () => {
+    'combo hits on the boss scale down: 100, 100, 92, 84... never under 40%': async () => {
       scene({ gap: 28 });
       const got = [];
-      for (let n = 0; n < 10; n++) { boss.comboTaken = n; boss.state = 'hurt'; boss.inv = 0; const hp = boss.hp = boss.maxHp; game.freeze = 0; damage(boss, player, 10, false, 1, 'melee'); got.push(Math.round((hp - boss.hp) * 10)); }
-      expect(got.join(',') === '100,100,90,80,70,60,50,40,30,30', 'ten 10-damage hits did ' + got.join(', ') + ' percent');
+      for (let n = 0; n < 11; n++) { boss.state = 'hurt'; boss.inv = 0; const hp = boss.hp = boss.maxHp; game.freeze = 0; damage(boss, player, 10, false, 1, 'melee'); got.push(Math.round((hp - boss.hp) * 10)); }
+      expect(got.join(',') === '100,100,92,84,76,68,60,52,44,40,40', 'eleven 10-damage hits did ' + got.join(', ') + ' percent');
+    },
+    // the scaling follows the hit counter: it used to start again whenever the enemy recovered for an
+    // instant, with the counter still running
+    'scaling carries on while the hit counter does, and starts again after it': async () => {
+      scene({ gap: 28 });
+      const hit = () => { boss.inv = 0; const hp = boss.hp = boss.maxHp; game.freeze = 0; damage(boss, player, 10, false, 1, 'melee'); return Math.round((hp - boss.hp) * 10); };
+      hit(); hit(); hit();
+      boss.play('idle'); await tick(20); // back on their feet for a third of a second
+      expect(hit() === 84, 'the fourth hit, a third of a second later, was not the 84% one');
+      boss.play('idle'); await tick(80); // well over a second with no hit: the combo is over
+      expect(hit() === 100, 'a hit after the combo ended was still scaled');
+    },
+    // a beam used to weaken itself with every tick, even fired on its own
+    'a beam does full damage on its own, and less at the end of a combo': async () => {
+      const beam = async hitsFirst => {
+        scene({ gap: 90 }); setForm(goku, 'ssj'); goku.ki = 100; boss.maxHp = boss.hp = 1000;
+        for (let i = 0; i < hitsFirst; i++) { boss.inv = 0; game.freeze = 0; damage(boss, player, 1, false, 1, 'melee'); }
+        boss.play('idle'); game.freeze = 0;
+        const ticks = [], real = window.damage;
+        window.damage = function (def, src, dmg, ...rest) { const hp = def.hp, r = real(def, src, dmg, ...rest); if (def === boss && rest[2] === 'beam') ticks.push((hp - def.hp) / dmg); return r; };
+        try { startKame(player); player.t2 = 0.05; await tick(130, () => { game.time = 99; }); } finally { window.damage = real; }
+        return ticks;
+      };
+      const raw = await beam(0), late = await beam(6);
+      expect(raw.length >= 8, 'setup: the beam only ticked ' + raw.length + ' times');
+      expect(raw.every(k => Math.abs(k - 1) < 0.001), 'a beam on its own did ' + raw.map(k => Math.round(k * 100)).join(', ') + ' percent per tick');
+      expect(late.length >= 8 && late.every(k => Math.abs(k - 0.6) < 0.001), 'a beam after six hits did ' + late.map(k => Math.round(k * 100)).join(', ') + ' percent per tick (should be 60 throughout)');
     },
 
     // a long juggle (a launcher, a re-launch, a beam carrying them) could lift a fighter off the top
@@ -175,6 +247,7 @@
   window.runChecks = async function (only = '') {
     realStep = window.step;
     const realRandom = Math.random, noAI = window.noAI, trainWas = { ...TRAIN };
+    let bestsWas = null; try { bestsWas = localStorage.getItem('bests'); } catch (e) { /* storage blocked */ }
     let seed = 11;
     Math.random = () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646;
     window.step = () => 'frozen'; // the page's own loop only draws: the checks move the game
@@ -188,6 +261,7 @@
       }
     } finally {
       Math.random = realRandom; window.step = realStep; window.noAI = noAI; Object.assign(TRAIN, trainWas);
+      try { if (bestsWas == null) localStorage.removeItem('bests'); else localStorage.setItem('bests', bestsWas); } catch (e) { /* storage blocked */ }
       letGo(); reset(); game.mode = 'select';
     }
     console.table(rows);

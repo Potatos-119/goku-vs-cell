@@ -345,6 +345,7 @@ function render() {
   if (game.mode === 'end') {
     text(game.result === 'draw' ? 'DRAW!' : game.versus ? (game.result === 'win' ? 'P1 WINS!' : 'P2 WINS!') : game.result === 'win' ? 'YOU WIN!' : `${boss.who.toUpperCase()} WINS`, W / 2, 46, 28, game.result === 'draw' ? '#ffffff' : game.result === 'win' ? '#ffe04a' : '#ff8a6a', 'center');
     if (Math.floor(game.t * 2) % 2) text(promptKeys('ENTER  FIGHT AGAIN      ESC  CHOOSE FIGHTER'), W / 2, 82, 9, '#fff', 'center');
+    drawResults();
   }
   if (game.cutin) drawCutin();
   if (game.react && human(game.react.def) && !game.react.answer) drawReactPrompt(game.react);

@@ -138,7 +138,7 @@
   window.runFuzz = async function ({ modes = ['goku', 'cell', 'versus', 'training'], seeds = 8, seed0 = 1, seconds = 240, verbose = false } = {}) {
     const realStep = window.step, mute = Audio8.music.muted;
     const trainWas = { ...TRAIN }, saved = {};
-    for (const k of ['training', 'difficulty']) try { saved[k] = localStorage.getItem(k); } catch (e) { /* storage blocked */ }
+    for (const k of ['training', 'difficulty', 'bests']) try { saved[k] = localStorage.getItem(k); } catch (e) { /* storage blocked */ }
     window.step = () => 'frozen'; // the page's own loop only draws: the tester moves the game
     const all = [], summary = [];
     const t0 = performance.now();

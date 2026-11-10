@@ -549,6 +549,10 @@ const Audio8 = (() => {
   // the Spirit Bomb: the gathering hum for as long as it gathers, then the release as it's thrown
   sfx.spiritGather = dur => { init(); if (!sample('spiritGather', { gain: 2.4, dur: Math.max(0.5, dur), pitch: false })) synth.charge(dur); };
   sfx.spiritThrow = () => { init(); if (!sample('spiritThrow', { gain: 1.6, pitch: false })) synth.whoosh(); };
+  // powering up and short charges (the story's opening, phase changes, evolving, finishers): the
+  // recorded ki aura, for as long as the charge lasts, instead of the synthesised whine
+  sfx.charge = (dur = 1.4) => { init(); if (!sample('charge', { gain: 3.2, dur: Math.max(0.4, dur), pitch: false })) synth.charge(dur); };
+  sfx.powerup = () => { init(); if (!sample('charge', { gain: 4, dur: 1.6, pitch: false })) synth.powerup(); };
 
   // a perfect block rings out like struck metal
   sfx.parry = () => {
