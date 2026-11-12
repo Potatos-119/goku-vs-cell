@@ -18,7 +18,7 @@
   window.recSetup = async function () {
     pics = {};
     const atlases = (await (await fetch('assets/frames/frames.json')).json()).atlases.map(a => 'assets/frames/' + a);
-    for (const a of ['assets/img/arena.jpg', 'assets/cutins/goku-ssj-cutins.png', 'assets/cutins/cell-perfect-reveal.png', ...atlases])
+    for (const a of ['assets/img/arena.jpg', 'assets/cutins/goku-ssj-cutins.png', 'assets/cutins/cell-perfect-reveal.png', 'assets/cutins/goku-ssj-hurt.png', ...atlases])
       pics[new URL(a, location.href).href] = await toData(a);
     fonts = `@font-face{font-family:Saiyan;src:url(${await toData('assets/font/Saiyan-Sans.ttf')})}`;
     try {

@@ -481,6 +481,7 @@ function render() {
     drawResults();
   }
   if (game.cutin) drawCutin();
+  if (game.reveal) drawReveal(game.reveal);
   if (game.react && human(game.react.def) && !game.react.answer) drawReactPrompt(game.react);
   if (game.training && game.mode === 'fight') drawChecklist();
   drawDialogue();

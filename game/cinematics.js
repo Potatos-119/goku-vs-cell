@@ -557,6 +557,41 @@ async function gokuLastStand() {
   goku.hp = 0;
 }
 
+// ---------- the reveal ----------
+// After he turns Super Saiyan hurt for the first time, a still of him (battered, the gold flaring) slides
+// in on a slanted band across the screen, holds, and slides out (see updateCine)
+const REVEAL = { img: new Image(), dur: 2.1 };
+REVEAL.img.src = 'assets/cutins/goku-ssj-hurt.png';
+function drawReveal(r) {
+  const img = REVEAL.img;
+  if (!img.naturalWidth) return;
+  const t = r.t, d = REVEAL.dur;
+  const inK = easeOut(t / 0.35), outK = clamp((t - (d - 0.35)) / 0.35, 0, 1);
+  const shown = 1 - outK;
+  // the fight dims behind it
+  gfx.save(); gfx.fillStyle = `rgba(4,3,12,${0.6 * Math.min(1, t / 0.2) * shown})`; gfx.fillRect(0, 0, W, H); gfx.restore();
+  // the band: in from the right, out to the left
+  const bh = 104, by = (H - bh) / 2, lean = 26;
+  const bx = (1 - inK) * (W + lean) - outK * (W + lean);
+  slantClip(bx - lean, by, W + lean * 2, bh, lean, () => {
+    const k = Math.max((W + lean * 2) / img.naturalWidth, bh / img.naturalHeight) * 1.04;
+    const dw = img.naturalWidth * k, dh = img.naturalHeight * k;
+    gfx.save(); gfx.imageSmoothingEnabled = true;
+    // a slow push in while it holds
+    const z = 1 + 0.05 * clamp(t / d, 0, 1);
+    gfx.translate(bx + W / 2, by + bh * 0.45); gfx.scale(z, z);
+    gfx.drawImage(img, -dw / 2, -dh * 0.42, dw, dh);
+    gfx.restore();
+  });
+  // gold edges along the band, glowing
+  for (const [y, s] of [[by, -1], [by + bh, 1]]) {
+    gfx.save(); gfx.globalCompositeOperation = 'lighter';
+    gfx.fillStyle = 'rgba(255,200,60,0.35)'; gfx.fillRect(bx - lean, y - 3 + s, W + lean * 2, 4);
+    gfx.fillStyle = '#ffe48a'; gfx.fillRect(bx - lean, y - 1, W + lean * 2, 2);
+    gfx.restore();
+  }
+}
+
 // ---------- cut-ins ----------
 // Full-screen anime close-ups played inside cinematics. Each is a frame atlas made from a GIF in
 // assets/cutins (the .gif next to it is the original): seq lists [atlas cell, milliseconds] per frame

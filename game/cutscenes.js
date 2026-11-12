@@ -110,7 +110,17 @@ function updateCine(raw) {
     Stage.crack(f.x, 2);
   }
   if (c.stage === 2 && c.t >= SSJ_PEAK + 1.6) {
-    turnedPose(f); f.inv = 0.5; cam.focus = null;
+    turnedPose(f);
+    // hurt (the gi top torn): the still of him, battered and gold, cuts in before the fight goes on
+    if (f.torn && REVEAL.img.naturalWidth) { c.stage = 3; c.revealAt = c.t; game.reveal = { t: 0 }; sfx.whoosh(); game.flash = Math.max(game.flash, 0.7); return; }
+    c.stage = 4;
+  }
+  if (c.stage === 3) {
+    game.reveal.t = c.t - c.revealAt;
+    if (game.reveal.t >= REVEAL.dur) { game.reveal = null; c.stage = 4; }
+  }
+  if (c.stage === 4) {
+    f.inv = 0.5; cam.focus = null;
     game.mode = c.back; game.cine = null; c.done();
   }
 }

@@ -272,7 +272,9 @@ const ssjTable = look => {
   const t = {
     ...Object.fromEntries(moves),
     // (in his full gi: the stance he ends his transformation in, base Goku's own sheet, breathing, as it was)
-    idle: look === 'ssj' ? { fr: [TURN[9]], fps: 1, loop: true, breathe: true } : { fr: stance, fps: 7, loop: true },
+    // (with the top torn too, one stance breathing: cycling the sheet's first frames switched between three
+    // different stances while he stood still)
+    idle: look === 'ssj' ? { fr: [TURN[9]], fps: 1, loop: true, breathe: true } : { fr: fr([SS_IDLE[0]]), fps: 1, loop: true, breathe: true },
     dashStop: { fr: fr([SS_IDLE[2]]), fps: 10, loop: false, then: 'idle' },
     walk: { fr: stance, fps: 10, loop: true },
     back: { fr: [...stance].reverse(), fps: 9, loop: true },
