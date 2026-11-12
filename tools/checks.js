@@ -379,8 +379,8 @@
       player.ki = 100; game.wentSsj = true; goku.torn = true;
       hold(P1, 'transform', true); await tick(2); hold(P1, 'transform', false);
       expect(game.cine && goku.anim === 'ssjBuild', 'it played ' + goku.state + '/' + goku.anim + ', not the full scene');
-      await tick(20, () => { if (game.cine) game.cine.clock = 99; });
-      for (let k = 0; k < 40 && game.mode !== 'fight'; k++) await tick(10, () => { if (game.cine) game.cine.clock = 99; });
+      // (pushed on, not pinned: the reveal after it runs on the same clock)
+      for (let k = 0; k < 60 && game.mode !== 'fight'; k++) await tick(10, () => { if (game.cine) game.cine.clock += 0.5; });
       expect(goku.form === 'ssj', 'he is ' + goku.form + ' after the scene');
       powerDown(goku); await tick(60); player.ki = 100;
       hold(P1, 'transform', true); await tick(2); hold(P1, 'transform', false);
