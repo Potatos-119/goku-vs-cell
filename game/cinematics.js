@@ -374,7 +374,7 @@ async function spiritSaiyan(sb, f, foe) {
   Object.assign(foe, { vx: 0, vy: 0, visible: true, floating: foe.y < FLOOR - 4 }); foe.play('hurt', 'pose'); foe.t2 = 99;
   Object.assign(f, { vx: 0, vy: 0, inv: 99, visible: true, floating: f.y < FLOOR - 4 });
   cam.focus = { f, z: 1.4 };
-  f.play('spiritSsj', 'pose'); f.t2 = 99; sfx.powerup(); shake(5);
+  f.play('spiritSsj', 'pose'); f.t2 = 99; sfx.powerup(); shake(5); Voice.shout('goku', 'Haaaaaaah!');
   // he turns first (white hair, the swirl, the flames), then floats there in gold as it goes off
   { const a = f.A(); await wait(a.fr.length / a.fps); }
   finishTransform(f, false); game.wentSsj = true; // (the music carries on: a change mid-bomb sounded wrong)

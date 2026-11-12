@@ -72,6 +72,9 @@ async function startFight() {
 // clock, so a slow start of the audio can't knock it out of sync; if the audio is blocked or stalls
 // more than a second behind, the game clock takes over so the scene never hangs.
 const SSJ_PEAK = 5.05;
+// when, into the close-up, his mouth opens (its frame 10: the four glaring frames, then six of his eyes)
+// (started a touch early: the recording takes a moment to get loud)
+const SSJ_SCREAM_AT = (4 * 120 + 6 * 90) / 1000 - 0.15;
 function superSaiyan(f) {
   return new Promise(done => {
     projs = []; beams = []; clash = null; game.banner = null;
@@ -81,7 +84,6 @@ function superSaiyan(f) {
     f.play('ssjBuild', 'pose'); f.t2 = 99; f.inv = 99;
     cam.focus = { f, z: 1.5 };
     Audio8.music.switchTo('ssj');
-    Voice.shout('goku', 'Haaaaaaah!');
   });
 }
 
@@ -94,9 +96,11 @@ function updateCine(raw) {
     game.shake = Math.max(game.shake, 1 + 5 * Math.min(1, c.t / SSJ_PEAK));
     if (Math.random() < raw * 30) Stage.lift(f.x);
   }
-  // (a close-up of his face used to cut in here: a tiny picture blown up to the whole screen, with
-  // black wedges in its corners. The transformation plays on its own now; the music still builds to
-  // the gold, right on the beat)
+  // the close-up of his face cuts in on the music's last build, ending as he rises into the
+  // transformation, which hits gold right on the beat; he screams as his mouth opens in it
+  const ci = c.t - (SSJ_PEAK - 1 - CUTINS.gokuSsj.dur);
+  game.cutin = c.stage === 0 && ci >= 0 && ci < CUTINS.gokuSsj.dur ? { id: 'gokuSsj', t: ci } : null;
+  if (!c.screamed && ci >= SSJ_SCREAM_AT) { c.screamed = true; Voice.shout('goku', 'Haaaaaaah!'); }
   if (c.stage === 0 && c.t >= SSJ_PEAK - 1) { c.stage = 1; f.play('ssjRise', 'pose'); sfx.powerup(); }
   if (c.stage === 1 && c.t >= SSJ_PEAK) {
     c.stage = 2; c.hitAt = mt;

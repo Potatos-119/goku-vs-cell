@@ -689,24 +689,28 @@ const Audio8 = (() => {
 window.Audio8 = Audio8;
 
 // Voice clips. The game calls Voice.speak / Voice.shout with every line and shout; a line only makes a
-// sound if it has a recording listed in VOICE_CLIPS (none yet). To add one, drop the file in
+// sound if it has a recording listed in VOICE_CLIPS. To add one, drop the file in
 // assets/audio/voice/ and map "who:exact line" to it, e.g.
 //   'goku:Kamehameha!': 'assets/audio/voice/goku-kamehameha.mp3',
 // The music dips while a clip plays.
 const VOICE_CLIPS = {
+  // turning Super Saiyan (the first time it starts as his mouth opens in the close-up: see updateCine)
+  // (over the music, not under it: the transformation's music hits its peak right then)
+  'goku:Haaaaaaah!': { src: 'assets/audio/voice/goku-scream.mp3', duck: false },
 };
 const Voice = {
   on: true,
   playing: null,
   speak(who, text) {
-    const src = VOICE_CLIPS[who + ':' + text];
-    if (!this.on || !src) return;
+    const clip = VOICE_CLIPS[who + ':' + text];
+    if (!this.on || !clip) return;
+    const { src, duck = true } = typeof clip === 'string' ? { src: clip } : clip;
     if (this.playing) this.playing.pause();
     const a = new Audio(src);
     this.playing = a;
-    Audio8.duck(true);
-    a.onended = a.onerror = () => { if (this.playing === a) Audio8.duck(false); };
-    a.play().catch(() => Audio8.duck(false));
+    if (duck) Audio8.duck(true);
+    a.onended = a.onerror = () => { if (duck && this.playing === a) Audio8.duck(false); };
+    a.play().catch(() => { if (duck) Audio8.duck(false); });
   },
   shout(who, text) { this.speak(who, text); },
 };

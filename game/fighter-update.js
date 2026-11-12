@@ -34,11 +34,11 @@ function updateFighter(f, foe, dt) {
   const flaring = f.state === 'pose' && f.anim === 'ssjFlare';
   const ownFlames = f.who === 'goku' && ((f.form === 'ssj' && (flaring || f.state === 'charge')) || f.state === 'transform');
   const auraOn = !ownFlames && ['power', 'charge', 'transform', 'ult1', 'kameCharge', 'kaioUp'].includes(f.state);
-  // (the Kaioken never quite goes out: a low red glow stays on him while it lasts)
-  const auraTo = auraOn ? 1 : f.form === 'kaioken' ? 0.45 : 0;
+  // (the Kaioken used to keep a low red glow on him the whole time: it read as a pale egg round him.
+  // Its red sparks, rising off him below, are what show it's on now)
+  const auraTo = auraOn ? 1 : 0;
   f.aura = (f.aura || 0) + (auraTo - (f.aura || 0)) * Math.min(1, dt * (auraOn ? 5 : 6));
   if (auraOn) f.auraPeak = flaring || ['transform', 'ult1', 'kaioUp'].includes(f.state) ? 0.9 : f.state === 'kameCharge' ? 0.72 : f.form === 'ssj' ? 0.8 : 0.5;
-  else if (f.form === 'kaioken') f.auraPeak = 0.4;
   // Goku's charge aura sheds motes that spiral inward, then snap upward like sparks in a gale.
   if (f.who === 'goku' && (auraOn || f.form === 'kaioken')) {
     f.auraT = (f.auraT || 0) - dt;
