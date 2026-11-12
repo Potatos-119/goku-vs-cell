@@ -54,7 +54,8 @@ class Fighter {
     const breath = this.A().breathe ? Math.sin(this.at * 2.6) * 0.018 : 0;
     const k = this.scale * (im.k || 1);
     gfx.scale(this.facing * k * (1 + this.sq), k * (1 - this.sq + breath));
-    if (this.inv > 0 && Math.floor(this.inv * 20) % 2) gfx.globalAlpha = 0.5;
+    // (the blink is for a moment of safety after a hit; a cutscene's invulnerability (99) doesn't blink)
+    if (this.inv > 0 && this.inv < 50 && Math.floor(this.inv * 20) % 2) gfx.globalAlpha = 0.5;
     gfx.drawImage(im, -Math.round(im.ax), -im.height);
     if (this.flash > 0) {
       gfx.globalCompositeOperation = 'lighter'; gfx.globalAlpha = settings.calm ? 0.35 : 0.75;

@@ -368,7 +368,9 @@ async function spiritSaiyan(sb, f, foe) {
   const scale = comboScale(foe, 'ult') * (foe === player && !game.versus ? diff().taken : 1), dir = sb.vx >= 0 ? 1 : -1;
   game.mode = 'cut'; projs = []; beams = []; minions = []; clash = null; game.banner = null;
   sb.phase = 'hold'; sb.t = 0;
-  f.torn = true;   // (the bomb was thrown in his undershirt, whatever has happened to him since)
+  // he turns in his full gi unless he's hurt enough for it to be torn (then in his undershirt); a gi
+  // torn earlier (the Kaioken's) comes back with the gold if his health is still up
+  f.torn = f.hp <= f.maxHp * TORN_AT;
   Object.assign(foe, { vx: 0, vy: 0, visible: true, floating: foe.y < FLOOR - 4 }); foe.play('hurt', 'pose'); foe.t2 = 99;
   Object.assign(f, { vx: 0, vy: 0, inv: 99, visible: true, floating: f.y < FLOOR - 4 });
   cam.focus = { f, z: 1.4 };

@@ -81,11 +81,14 @@ const SX = (x, y, w, h) => ({ sheet: 'sx', rect: [x, y, w, h] });
 // crouch, rising, fading out, the streak he leaves; appearing, the squat, up, turning, the dash pose, the dash streak
 const SX_TELE = [SX(6, 15, 43, 53), SX(55, 11, 37, 57), SX(98, 11, 39, 57), SX(143, 13, 30, 55), SX(179, 15, 35, 53), SX(220, 15, 37, 53),
   SX(263, 10, 34, 58), SX(303, 6, 35, 62), SX(344, 6, 34, 62), SX(384, 38, 56, 30)];
+// turning Super Saiyan in his full gi, from base Goku's own sheet (goku.png, row 10: sharper than the
+// full-gi Super Saiyan sheet): the stance, the aura starting, the blue aura twice, the crouch, the white
+// flash, the gold swirl, the gold flames, and the Super Saiyan stance
+const G10 = (x, y, w, h) => ({ sheet: 'goku', rect: [x, y, w, h] });
+const TURN = [null, G10(104, 826, 32, 48), G10(151, 826, 53, 48), G10(214, 799, 65, 75), G10(290, 796, 65, 78), G10(371, 821, 53, 53),
+  G10(441, 816, 50, 58), G10(509, 812, 44, 62), G10(574, 795, 63, 79), G10(656, 818, 27, 56)];
 // powering up as a Super Saiyan in his full gi: the stance twice, then the gold flames
 const SX_CHARGE = [SX(6, 196, 35, 54), SX(47, 195, 36, 55), SX(89, 167, 67, 83), SX(162, 163, 74, 87)];
-// the stance, the blue aura, the white flash, the gold flames, the Super Saiyan stance
-const SX_TURN = [SX(6, 105, 36, 52), SX(48, 105, 49, 52), SX(103, 80, 69, 77), SX(178, 77, 66, 80), SX(250, 98, 57, 59), SX(313, 94, 54, 63),
-  SX(373, 90, 47, 67), SX(426, 74, 66, 83), SX(498, 97, 32, 60)];
 // which Super Saiyan frame each of base Goku's frames is
 const SSJ_TWIN = {};
 const twins = (ids, row) => ids.forEach((id, i) => { if (id != null) SSJ_TWIN[JSON.stringify(id)] = row[i]; });
@@ -146,7 +149,8 @@ const GOKU_MOVES = {
   p2: { fr: ['4.3', '4.4', '4.3'], fps: 16, hit: { at: 1, dmg: 5, reach: 32 } },
   p3: { fr: ['4.5', '4.6', '4.6', '4.7'], fps: 15, hit: { at: 1, dmg: 7, reach: 38 } },
   // launch: pops them straight up so you can jump after them; wallBounce: off the screen edge
-  p4: { fr: ['4.8', '4.9', '4.9', '4.10', '4.11'], fps: 13, hit: { at: 1, dmg: 10, reach: 32, heavy: true, launch: true } },
+  // (the J string's last hit: quick enough that it lands before they recover from the third)
+  p4: { fr: ['4.8', '4.9', '4.9', '4.10', '4.11'], fps: 16, hit: { at: 1, dmg: 10, reach: 32, heavy: true, launch: true } },
   k1: { fr: ['5.4', '5.5', '5.6', '5.6', '5.4'], fps: 16, hit: { at: 2, dmg: 7, reach: 40 } },
   k2: { fr: ['5.0', '5.1', '5.2'], fps: 14, hit: { at: 1, dmg: 8, reach: 34 } },
   k3: { fr: ['5.7', '5.7', '5.8'], fps: 11, hit: { at: 0, dmg: 11, reach: 40, heavy: true, launch: true } },
@@ -220,17 +224,18 @@ const GOKU_MOVES = {
 const GOKU_BASE = formAnims(GOKU_MOVES, 'base');
 // in his full gi he turns Super Saiyan the way the full-gi sheet draws it: the blue aura, the white
 // flash, the gold flames (with the gi top torn, GOKU_BASE_T has the newer sheet's own)
-// it ends on his Super Saiyan stance itself, so there's no jump into it (the sheet's last frame is
-// drawn a little differently)
-const SSJ_STANCE = formFrame(SS_IDLE[0], 'ssj') || SX_TURN[8];
 // (the first time, in the cutscene: the stance and the blue aura while the music builds, then the
 // crouch, the white flash, the gold swirl and the flames)
-GOKU_BASE.ssjBuild = nativeFr([SX_TURN[0], SX_TURN[1], SX_TURN[2], SX_TURN[3]], { fps: 6, loop: true, loopFrom: 2 });
-GOKU_BASE.ssjRise = nativeFr([SX_TURN[4], SX_TURN[5], SX_TURN[6], SX_TURN[7]], { fps: 5, loop: false });
-GOKU_BASE.transform = nativeFr([SX_TURN[0], SX_TURN[0], SX_TURN[1], SX_TURN[1], SX_TURN[2], SX_TURN[3], SX_TURN[2], SX_TURN[3], SX_TURN[2], SX_TURN[3],
-  SX_TURN[4], SX_TURN[5], SX_TURN[6], SX_TURN[7], SX_TURN[7], SSJ_STANCE], { fps: 8, loop: false });
+GOKU_BASE.ssjBuild = nativeFr([TURN[1], TURN[2], TURN[3], TURN[4]], { fps: 6, loop: true, loopFrom: 2 });
+GOKU_BASE.ssjRise = nativeFr([TURN[5], TURN[6], TURN[7], TURN[8]], { fps: 5, loop: false });
+// pressing T: the stance, the aura building, the blue aura three times, then the crouch, the flash, the
+// swirl, and it ends in the gold flames and the Super Saiyan stance
+GOKU_BASE.transform = nativeFr([TURN[1], TURN[1], TURN[2], TURN[2], TURN[3], TURN[4], TURN[3], TURN[4], TURN[3], TURN[4],
+  TURN[5], TURN[6], TURN[7], TURN[8], TURN[8], TURN[9]], { fps: 8, loop: false });
 // in the middle of a combo it's quicker (they're held reeling while it plays: see comboTransform)
-GOKU_BASE.transformQuick = nativeFr([SX_TURN[1], SX_TURN[2], SX_TURN[3], SX_TURN[4], SX_TURN[5], SX_TURN[6], SX_TURN[7], SX_TURN[7], SSJ_STANCE], { fps: 9, loop: false });
+// (and the Spirit Bomb that turns him, in his full gi: the white flash, the swirl, the flames)
+GOKU_BASE.spiritSsj = nativeFr([TURN[6], TURN[6], TURN[7], TURN[7], TURN[8], TURN[8]], { fps: 5, loop: false });
+GOKU_BASE.transformQuick = nativeFr([TURN[2], TURN[3], TURN[4], TURN[5], TURN[6], TURN[7], TURN[8], TURN[9]], { fps: 9, loop: false });
 
 // Gi top torn off. The newer sheet draws some of it itself (the Spirit Bomb)
 // turning Super Saiyan with the gi top torn, as the torn-gi Super Saiyan sheet draws it (its top row):
@@ -299,9 +304,11 @@ const ssjTable = look => {
     superCharge: { fr: fr([SS_SUPER[9], SS_SUPER[10]]), fps: 5, loop: false },
     superFire: { fr: fr([SS_SUPER[11]]), fps: 1, loop: true, emit: 46 },
     // the Spirit Bomb that turns him: floating gold as it lands (the frames after his throw on the base sheet)
-    spiritFloat: nativeFr([GB(538, 1981, 39, 56), GB(581, 1973, 50, 65)], { fps: 7, loop: true }),
+    // (in his full gi: floating there, from his own jump)
+    spiritFloat: look === 'ssj' ? { fr: fr([SS_JUMP[3], SS_JUMP[3]]), fps: 7, loop: true } : nativeFr([GB(538, 1981, 39, 56), GB(581, 1973, 50, 65)], { fps: 7, loop: true }),
     // the moment he turns: the flames held
-    ssjFlare: { fr: look === 'ssj' ? [SX_CHARGE[2], SX_CHARGE[3]] : fr([SS_CHARGE[2], SS_CHARGE[3]]), fps: 10, loop: true },
+    // (in his full gi, the gold flames his transformation ends in: TURN)
+    ssjFlare: { fr: look === 'ssj' ? [TURN[8]] : fr([SS_CHARGE[2], SS_CHARGE[3]]), fps: 10, loop: true },
     // powering back down to base: his hair goes white, then black again
     powerDown: nativeFr(fr([SS_DOWN[1], SS_DOWN[2], SS_DOWN[2], SS_DOWN[3]]), { fps: 8, loop: false }),
     // Dragon Fist: power up to Super Saiyan 3, rush in, dragon

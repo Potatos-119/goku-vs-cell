@@ -94,10 +94,9 @@ function updateCine(raw) {
     game.shake = Math.max(game.shake, 1 + 5 * Math.min(1, c.t / SSJ_PEAK));
     if (Math.random() < raw * 30) Stage.lift(f.x);
   }
-  // the close-up of his eyes (assets/cutins/goku-ssj-eyes.gif) cuts in on the music's last build,
-  // ending as he rises into the transformation, which hits gold right on the beat
-  const ci = c.t - (SSJ_PEAK - 1 - CUTINS.gokuSsj.dur);
-  game.cutin = c.stage === 0 && ci >= 0 && ci < CUTINS.gokuSsj.dur ? { id: 'gokuSsj', t: ci } : null;
+  // (a close-up of his face used to cut in here: a tiny picture blown up to the whole screen, with
+  // black wedges in its corners. The transformation plays on its own now; the music still builds to
+  // the gold, right on the beat)
   if (c.stage === 0 && c.t >= SSJ_PEAK - 1) { c.stage = 1; f.play('ssjRise', 'pose'); sfx.powerup(); }
   if (c.stage === 1 && c.t >= SSJ_PEAK) {
     c.stage = 2; c.hitAt = mt;

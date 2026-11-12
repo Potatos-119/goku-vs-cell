@@ -146,7 +146,9 @@ function damage(def, src, dmg, heavy, dir, kind = 'melee', opts = {}) {
         if (human(src) && src.y >= FLOOR - 2) { src.chaseT = 0.7; src.chaseLow = true; } }
       else if (opts.launch) { def.vy = -390; def.vx = dir * 45; if (src === player) comboToken('launch'); else if (def === player) comboToken('launch', src);
         // a person who launched gets a moment where a jump chases them up (player 2 in versus too)
-        if (human(src)) { src.chaseT = 0.55; src.chaseLow = false; } }
+        if (human(src)) { src.chaseT = 0.55; src.chaseLow = false;
+          // say so: it read as the string just ending, with them up in the air for nothing
+          if (src.y >= FLOOR - 2) popups.push({ text: actionLabel('jump', ctlOf(src)) + '  CHASE!', x: src.x, y: src.y - 60, t: 0, c: '#9ff' }); } }
       // a beam holds a flying enemy up and drives them back; its last tick blasts them away
       else if (juggling && kind === 'beam' && !heavy) { def.vy = -125; def.vx = dir * 60; }
       else if (kind === 'beam') { def.vy = -300; def.vx = dir * 210; }
@@ -166,7 +168,7 @@ function damage(def, src, dmg, heavy, dir, kind = 'melee', opts = {}) {
     else {
       // a boss being spammed with ki blasts shakes them off quicker, so spam can't lock them down
       const spammed = def === boss && kind === 'proj' && ai.spam >= 2 ? 0.55 : 1;
-      def.play('hurt'); def.stun = 0.3 * Math.max(0.55, 1 - 0.06 * def.comboTaken) * (counter ? 1.6 : 1) * spammed;
+      def.play('hurt'); def.stun = 0.34 * Math.max(0.55, 1 - 0.06 * def.comboTaken) * (counter ? 1.6 : 1) * spammed;
       def.vx = dir * 70;
       if (kind === 'proj') sfx.kiHit(); else if (kind === 'beam') sfx.clash(); else if (dmg >= 7) sfx.kick(); else sfx.punch();
     }
@@ -465,7 +467,8 @@ const SPIRIT_PURE = 1.25;
 // so the gi top goes first if it's still on
 function spiritBomb(f, combo = false, pure = false, turn = false) {
   const gather = combo ? SPIRIT_COMBO_GATHER : SPIRIT_GATHER;
-  if (turn && !f.torn) tearGi(f);
+  // (it tears his gi top only once he's hurt enough for that anyway: healthier, he keeps his gi)
+  if (turn && !f.torn && f.hp <= f.maxHp * TORN_AT) tearGi(f);
   // he gathers it up in the sky: from the ring he rises up there as it grows (see the 'spirit' state);
   // started in the air he hangs where he is, unless that's lower
   f.ki = 0; f.vx = 0; f.vy = 0; f.floating = true; f.play('spirit', 'spirit'); f.t2 = gather;

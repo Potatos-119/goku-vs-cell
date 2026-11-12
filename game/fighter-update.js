@@ -291,9 +291,11 @@ function goKaioken(f) {
 function comboTransform(f, foe) {
   if (f.form === 'kaioken') { setForm(f, 'base'); f.kaioCd = KAIO_REST; }
   f.ki = 50; game.wentSsj = true;
+  // (an attack queued in the old form goes: the Kaioken's rush has no Super Saiyan version)
+  f.next = null; f.queue = [];
   f.play('transformQuick', 'transform'); f.vx = 0;
   const a = f.A(), dur = a.fr.length / a.fps;
-  if (foe.state === 'hurt') foe.stun = Math.max(foe.stun, dur + 0.45);
+  if (foe.state === 'hurt') foe.stun = Math.max(foe.stun, dur + 0.3);
   game.comboNames.push({ text: 'SUPER SAIYAN COMBO!', t: 0 });
   Voice.shout('goku', 'Haaaaaaah!'); sfx.powerup(); shake(6);
 }

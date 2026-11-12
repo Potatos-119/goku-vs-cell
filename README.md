@@ -121,7 +121,7 @@ slower and throws shorter combos.
 - `tools/bake-add.py`: bakes only the frames that are new, without a browser
 - `tools/ssj-kame.py`, `tools/ssj-moves.py`: Super Saiyan's Kamehameha, Instant Transmission and full-gi
   transformation, cut from the sheets
-- `tools/record-gifs.js`: records GIFs from the real game (`node tools/record-gifs.js`, needs puppeteer)
+- `tools/record-page.js`: films the game frame by frame from inside the page, for the README GIFs
 
 ## Changing the sprites
 

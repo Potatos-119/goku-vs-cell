@@ -17,7 +17,8 @@
   const HELD = ['left', 'right', 'block', 'charge', 'ki'];
   // how long a fighter may stay in one state during a fight before it counts as stuck (seconds)
   const MAX_IN_STATE = {
-    hurt: 3, knock: 7, tele: 1.5, airAtk: 3, attack: 3, cast: 3, dash: 1.5, windup: 1.5, appear: 2, land: 1.5,
+    // (hurt: a combo with a mid-combo transformation in it runs past 3 s on purpose)
+    hurt: 4, knock: 7, tele: 1.5, airAtk: 3, attack: 3, cast: 3, dash: 1.5, windup: 1.5, appear: 2, land: 1.5,
     barrier: 1.5, kameCharge: 4, kameFire: 24, pose: 3, spirit: 4, spiritThrow: 2, ult1: 3, ult2: 3, ult3: 3,
     transform: 4, evolve: 3, kaioUp: 2, flare: 1.5, superUp: 1.5, superDash: 1.5, powerDown: 3, kiHold: 3, down: 2.5, jump: 4,
   };

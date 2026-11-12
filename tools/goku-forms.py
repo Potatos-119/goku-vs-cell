@@ -179,7 +179,10 @@ def top_mask(rgb, alpha, hair):
         cy, cx = ndi.center_of_mass(m)
         t = ((cx - hx) * ax + (cy - hy) * ay) / L2
         if t < TOP_SPLIT: top |= m
-    return top
+    # never his face: the shadows on it are orange enough to count, and turned blue with the top
+    ys, xs = np.nonzero(hair)
+    face = np.zeros_like(alpha); face[:ys.max() + 6, max(0, xs.min() - 2): xs.max() + 3] = True
+    return top & ~face
 
 
 TOP_SPLIT = 0.86
@@ -350,6 +353,38 @@ def guide_for(so, rect, alpha):
     return np.stack([ndi.median_filter(best[1][..., k], 3) for k in range(3)], -1)
 
 
+def full_gi_cut(so, rect, alpha, m=2):
+    """the same frame cut as drawn from the full-gi sheet (the two sheets are the same drawings in the same
+    places), where its outline agrees best with this one's, on a canvas the size of this one's. None
+    when no placement agrees well enough (then the frame is recoloured instead)"""
+    x, y, w, h = rect; best = None
+    for dy in range(-2, 3):
+        for dx in range(-2, 3):
+            rgb, a = cut_sprite(so, [x + dx - m, y + dy - m, w + 2 * m, h + 2 * m])
+            inner = a[m:m + h + 2, m:m + w + 2]
+            miss = (inner != alpha).sum()
+            if best is None or miss < best[0]: best = (miss, rgb[m:m + h + 2, m:m + w + 2], inner)
+    miss, rgb, a = best
+    return (rgb, a) if miss < 0.22 * alpha.sum() else None
+
+
+def sharp_head(own, rgb, alpha, g, shades):
+    """the full-gi frame with its head (hair and face, above where the undershirt starts) taken from the
+    torn-gi frame: the two draw the head the same, and the full-gi sheet's rebuild left the face a blur
+    with no eyes to speak of. The two canvases line up (full_gi_cut matched them)"""
+    orgb, oa = own
+    shirt = alpha & is_undershirt(rgb)
+    lab, n = ndi.label(shirt, structure=N8)
+    if not n: return own
+    sizes = ndi.sum(shirt, lab, range(1, n + 1))
+    if sizes.max() < 8: return own
+    top = int(np.nonzero(lab == int(np.argmax(sizes)) + 1)[0].min())
+    head = np.zeros_like(alpha); head[:top] = True
+    # (the torn-gi sheet draws his hair a paler cream: it goes the full-gi sheet's gold, as in full_gi)
+    hair = reshade(rgb, alpha & is_pale_hair(rgb) & guide_gold(g), shades['pale'], shades['gold'])
+    return np.where(head[..., None], hair, orgb), np.where(head, alpha, oa)
+
+
 def is_undershirt(a):
     return (a[..., 2] > a[..., 0] + 25) & (a[..., 2] > a[..., 1] + 8)
 
@@ -492,7 +527,7 @@ def main():
     cut = []
     for e in ssj:
         rgb, alpha = cut_sprite(S.img[e['ref']['sheet']], e['ref']['rect'])
-        f = dict(key=e['key'], table='ssj', rgb=rgb, alpha=alpha, ax=anchor(alpha), looks={'ssjT': (rgb, alpha)})
+        f = dict(key=e['key'], ref=e['ref'], table='ssj', rgb=rgb, alpha=alpha, ax=anchor(alpha), looks={'ssjT': (rgb, alpha)})
         f['guide'] = None if e['ref'].get('alone') else guide_for(S.img['so'], e['ref']['rect'], alpha)
         cut.append(f)
     both = [f for f in cut if f['guide'] is not None]
@@ -503,8 +538,14 @@ def main():
         'pale': tones(every(lambda f: f['rgb'][f['alpha'] & is_pale_hair(f['rgb']) & guide_gold(f['guide'])])),
         'gold': tones(every(lambda f: f['guide'][f['alpha'] & is_pale_hair(f['rgb']) & guide_gold(f['guide'])])),
     }
-    for f in cut: f['looks']['ssj'] = (full_gi(f['rgb'], f['alpha'], f['guide'], shades), f['alpha'])
-    print(f'Super Saiyan: {len(cut)} frames, {len(both)} of them coloured from the full-gi sheet')
+    drawn = 0
+    for f in cut:
+        own = None if f['guide'] is None else full_gi_cut(S.img['so'], f['ref']['rect'], f['alpha'])
+        if own: f['looks']['ssj'] = sharp_head(own, f['rgb'], f['alpha'], f['guide'], shades); drawn += 1
+        # (a frame the full-gi sheet doesn't draw at all, his torn-gi big attack, gets no full-gi look:
+        # recoloured with nothing to go by it came out all orange, and that attack is torn-gi only)
+        elif f['guide'] is not None: f['looks']['ssj'] = (full_gi(f['rgb'], f['alpha'], f['guide'], shades), f['alpha'])
+    print(f'Super Saiyan: {len(cut)} frames, {drawn} cut as drawn from the full-gi sheet, the rest recoloured or torn-gi only')
     kp = kaio_palette(S, frames)
     for f in frames:
         if 'torn' in f['looks']: f['looks']['kaio'] = (kaio_frame(f['looks']['torn'][0], f['alpha'], kp), f['alpha'])

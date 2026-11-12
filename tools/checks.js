@@ -354,17 +354,22 @@
       expect(GOKU_INFO.kaioken.kame.size === 1, 'the Kaioken\'s U is still the oversized beam');
     },
 
-    'base Goku, O in the air: the Spirit Bomb tears his gi, and landing it makes him a Super Saiyan': async () => {
-      scene({ gap: 110 });
-      player.ki = 100; goku.y = FLOOR - 50; goku.vy = -120; goku.play('jump', 'jump');
-      await tick(3);
-      hold(P1, 'ult', true); await tick(2); hold(P1, 'ult', false);
-      expect(goku.state === 'spirit' && goku.torn, 'O in the air gave ' + goku.state + (goku.torn ? '' : ', gi still on'));
-      const hp = boss.hp;
-      await tick(480);
-      expect(goku.form === 'ssj' && goku.torn, 'after it landed he is ' + goku.form);
-      expect(hp - boss.hp > 40, `it did ${(hp - boss.hp).toFixed(0)} damage`);
-      expect(game.mode === 'fight', 'the fight did not carry on (' + game.mode + ')');
+    // (healthy, he keeps his gi through it; hurt enough for it to be torn, it tears)
+    'base Goku, O in the air: landing the Spirit Bomb makes him a Super Saiyan, gi torn only if he is hurt': async () => {
+      for (const hurt of [false, true]) {
+        scene({ gap: 110 });
+        if (hurt) player.hp = player.maxHp * 0.3;
+        player.ki = 100; goku.y = FLOOR - 50; goku.vy = -120; goku.play('jump', 'jump');
+        await tick(3);
+        hold(P1, 'ult', true); await tick(2); hold(P1, 'ult', false);
+        expect(goku.state === 'spirit', 'O in the air gave ' + goku.state);
+        expect(goku.torn === hurt, hurt ? 'hurt, his gi did not tear' : 'at full health his gi tore');
+        const hp = boss.hp;
+        await tick(480);
+        expect(goku.form === 'ssj' && goku.torn === hurt, 'after it landed he is ' + goku.form + (goku.torn ? ' (torn)' : ''));
+        expect(hp - boss.hp > 40, `it did ${(hp - boss.hp).toFixed(0)} damage`);
+        expect(game.mode === 'fight', 'the fight did not carry on (' + game.mode + ')');
+      }
     },
 
     // the Kaioken burns ki every second, so its ki was never quite full and T did nothing in it
