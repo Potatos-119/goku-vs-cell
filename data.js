@@ -75,12 +75,11 @@ const SS_SUPER = ssRow([[65, 1087, 31, 51], [112, 1059, 70, 79], [197, 1098, 46,
 // the swirl gathering in his hands, the lean back, then the thrust as it fires
 const SK = (x, y, w, h) => ({ sheet: 'sk', rect: [x, y, w, h] });
 const SK_KAME = [SK(6, 57, 38, 52), SK(50, 57, 34, 52), SK(90, 57, 31, 52), SK(127, 45, 68, 64), SK(201, 58, 34, 51), SK(241, 58, 39, 51), SK(286, 60, 39, 49)];
-// Instant Transmission and turning Super Saiyan in his full gi, cleaned up from the full-gi sheet
+// Instant Transmission in the air, in his full gi, cut from the full-gi sheet
 // (assets/sheets/goku-ssj-moves.png, made by tools/ssj-moves.py)
 const SX = (x, y, w, h) => ({ sheet: 'sx', rect: [x, y, w, h] });
-// crouch, rising, fading out, the streak he leaves; appearing, the squat, up, turning, the dash pose, the dash streak
-const SX_TELE = [SX(6, 15, 43, 53), SX(55, 11, 37, 57), SX(98, 11, 39, 57), SX(143, 13, 30, 55), SX(179, 15, 35, 53), SX(220, 15, 37, 53),
-  SX(263, 10, 34, 58), SX(303, 6, 35, 62), SX(344, 6, 34, 62), SX(384, 38, 56, 30)];
+// Instant Transmission from the air: turning, the dash pose, the streak as he zips away
+const SX_TELE = [SX(6, 10, 34, 58), SX(46, 6, 35, 62), SX(87, 6, 34, 62), SX(127, 38, 56, 30)];
 // turning Super Saiyan in his full gi, from base Goku's own sheet (goku.png, row 10: sharper than the
 // full-gi Super Saiyan sheet): the stance, the aura starting, the blue aura twice, the crouch, the white
 // flash, the gold swirl, the gold flames, and the Super Saiyan stance
@@ -297,7 +296,7 @@ const ssjTable = look => {
     // only his last stand uses it, see gokuLastStand)
     itCrouch: { fr: fr([SS_JUMP[0]]), fps: 1, loop: true },
     itLeap: { fr: fr([SS_JUMP[1], SS_JUMP[4]]), fps: 7, loop: false },
-    itAir: look === 'ssj' ? { fr: SX_TELE.slice(6, 10), fps: 7, loop: false } : { fr: [...fr([SS_JUMP[4], SS_JUMP[4], SS_JUMP[2]]), SX_TELE[9]], fps: 7, loop: false },
+    itAir: look === 'ssj' ? { fr: SX_TELE, fps: 7, loop: false } : { fr: [...fr([SS_JUMP[4], SS_JUMP[4], SS_JUMP[2]]), SX_TELE[3]], fps: 7, loop: false },
     itHold: { fr: [SK_KAME[4]], fps: 1, loop: true },
     // the big attack (O on the ground with the gi top torn, full ki): see superRush in game/cinematics.js
     superUp: { fr: fr([SS_SUPER[0], SS_SUPER[1], SS_SUPER[1]]), fps: 8, loop: false },
