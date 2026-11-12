@@ -203,7 +203,10 @@ function playerInput(dt, g = player, foe = boss) {
     if (g.ki >= 15 && act('vanish')) { g.ki -= 15; return teleport(g, foe); }
     const airBeam = canKame(g);
     if (!isGoku && g.form === 'perfect' && g.ki >= 100 && act('ult')) return solarKame(g);
+    // Cell's Death Beam (toward + U, or U short of ki for a Kamehameha) works in the air too, as on the ring
+    if (deathBeamFirst(g) && act('beam')) { g.ki -= 20; return cast(g, 'death'); }
     if (airBeam && g.ki >= 50 && act('beam')) { g.ki -= 50; return startKame(g); }
+    if (!isGoku && g.ki >= 20 && act('beam')) { g.ki -= 20; return cast(g, 'death'); }
     if (g.ki >= 8 && act('ki')) { g.ki -= 8; return cast(g, isGoku ? 'kiCast' : 'finger'); }
     // base Goku in the air: the Spirit Bomb that turns him Super Saiyan if it lands
     if (isGoku && g.form === 'base' && g.ki >= 100 && act('ult')) return spiritBomb(g, false, false, true);
