@@ -372,6 +372,21 @@
       }
     },
 
+    // turned once in his full gi and powered down, then hurt (gi torn): his first time turning hurt is the
+    // full scene again, not the quick one; the next time it's quick
+    'the first time he turns Super Saiyan hurt is the full scene, even after turning in his full gi': async () => {
+      scene({ gap: 140 });
+      player.ki = 100; game.wentSsj = true; goku.torn = true;
+      hold(P1, 'transform', true); await tick(2); hold(P1, 'transform', false);
+      expect(game.cine && goku.anim === 'ssjBuild', 'it played ' + goku.state + '/' + goku.anim + ', not the full scene');
+      await tick(20, () => { if (game.cine) game.cine.clock = 99; });
+      for (let k = 0; k < 40 && game.mode !== 'fight'; k++) await tick(10, () => { if (game.cine) game.cine.clock = 99; });
+      expect(goku.form === 'ssj', 'he is ' + goku.form + ' after the scene');
+      powerDown(goku); await tick(60); player.ki = 100;
+      hold(P1, 'transform', true); await tick(2); hold(P1, 'transform', false);
+      expect(goku.state === 'transform', 'the second time hurt it played ' + goku.state + ', not the quick one');
+    },
+
     // the Kaioken burns ki every second, so its ki was never quite full and T did nothing in it
     'T turns the Kaioken Super Saiyan, even with its ki draining': async () => {
       scene({ gap: 140 });
@@ -390,7 +405,7 @@
         if (hurt) player.hp = player.maxHp * 0.3;
         player.ki = 100; goKaioken(goku); await tick(100);
         expect(goku.form === 'kaioken' && goku.torn, 'setup: the Kaioken did not start with the gi torn');
-        player.ki = 100; game.wentSsj = true;
+        player.ki = 100; game.wentSsj = game.wentSsjTorn = true; // (the quick one: this is about the gi)
         hold(P1, 'transform', true); await tick(2); hold(P1, 'transform', false);
         await tick(200);
         expect(goku.form === 'ssj', 'he is ' + goku.form);

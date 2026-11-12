@@ -291,7 +291,7 @@ function goKaioken(f) {
 function comboTransform(f, foe) {
   // (the gi top the Kaioken tore comes back with the gold, unless he's hurt enough for it torn anyway)
   if (f.form === 'kaioken') { setForm(f, 'base'); f.kaioCd = KAIO_REST; f.torn = f.hp <= f.maxHp * TORN_AT; }
-  f.ki = 50; game.wentSsj = true;
+  f.ki = 50; game.wentSsj = true; if (f.torn) game.wentSsjTorn = true;
   // (an attack queued in the old form goes: the Kaioken's rush has no Super Saiyan version)
   f.next = null; f.queue = [];
   f.play('transformQuick', 'transform'); f.vx = 0;

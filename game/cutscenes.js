@@ -158,7 +158,7 @@ async function bossPhase() {
     // his last: Super Saiyan, in what's left of his gi
     await say('GOKU', "I can't hold back anymore. This is everything I've got!");
     setForm(goku, 'base'); goku.kaioT = 0;
-    game.wentSsj = true; await superSaiyan(goku);
+    game.wentSsj = true; if (goku.torn) game.wentSsjTorn = true; await superSaiyan(goku);
     await say('CELL', 'The legendary Super Saiyan... Excellent. Your power will make me perfect!');
   }
   cam.focus = null;

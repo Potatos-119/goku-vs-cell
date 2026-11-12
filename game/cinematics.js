@@ -377,7 +377,7 @@ async function spiritSaiyan(sb, f, foe) {
   f.play('spiritSsj', 'pose'); f.t2 = 99; sfx.powerup(); shake(5); Voice.shout('goku', 'Haaaaaaah!');
   // he turns first (white hair, the swirl, the flames), then floats there in gold as it goes off
   { const a = f.A(); await wait(a.fr.length / a.fps); }
-  finishTransform(f, false); game.wentSsj = true; // (the music carries on: a change mid-bomb sounded wrong)
+  finishTransform(f, false); game.wentSsj = true; if (f.torn) game.wentSsjTorn = true; // (the music carries on: a change mid-bomb sounded wrong)
   f.play('spiritFloat', 'pose'); f.t2 = 99;
   // (under him: above, with the camera in close, it ran into the timer)
   popups.push({ text: 'SUPER SAIYAN!', x: f.x, y: Math.min(FLOOR - 4, f.y + 16), t: 0, c: '#ffe04a' });

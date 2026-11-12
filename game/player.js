@@ -167,8 +167,9 @@ function playerInput(dt, g = player, foe = boss) {
         if (g.form === 'kaioken') { setForm(g, 'base'); g.kaioCd = KAIO_REST; g.torn = g.hp <= g.maxHp * TORN_AT; }
         // the first time is the full cinematic; going back up after powering down is quick
         g.ki = 50;
-        if (game.wentSsj) { g.play('transform', 'transform'); g.vx = 0; sfx.powerup(); shake(5); Voice.shout('goku', 'Haaaaaaah!'); return; }
-        game.wentSsj = true; superSaiyan(g); return;
+        // (and the first time he turns hurt, with his gi top torn, is a first time too: the full scene again)
+        if (g.torn ? game.wentSsjTorn : game.wentSsj) { g.play('transform', 'transform'); g.vx = 0; sfx.powerup(); shake(5); Voice.shout('goku', 'Haaaaaaah!'); return; }
+        game.wentSsj = true; if (g.torn) game.wentSsjTorn = true; superSaiyan(g); return;
       }
       if (!isGoku && g.form === 'semi') { g.ki = 50; return cellPerfectScene(g); }
       if (!isGoku && g.form !== 'perfect') {
