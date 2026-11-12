@@ -262,15 +262,28 @@ function trainingRefill(dt) {
 }
 
 // Training checklist: every named combo, ticked once you've landed it; the next one to try is lit.
+// It shows a window of CHECK_ROWS of them round the next one (the whole list ran off the screen), and
+// H hides it.
+const CHECK_ROWS = 12;
 function drawChecklist() {
-  small('DUMMY: ' + DUMMY_LABEL[TRAIN.dummy] + '    ' + promptKeys('P') + ': TRAINING SETTINGS' + (TRAIN.checklist ? '' : ' (COMBO LIST IS HIDDEN)'), 4, H - 7, '#9ff', 'left', 4);
+  fitSmall('DUMMY: ' + DUMMY_LABEL[TRAIN.dummy] + '    ' + promptKeys('P') + ': SETTINGS    ' + promptKeys('H') + ': ' + (TRAIN.checklist ? 'HIDE' : 'SHOW') + ' COMBO LIST', 4, H - 7, W - 8, '#9ff', 'left', 4);
   if (!TRAIN.checklist) return;
   const list = COMBOS[player.who], next = list.find(c => !game.learned.has(c.name));
-  gfx.fillStyle = 'rgba(6,5,16,0.55)'; gfx.fillRect(W - 98, 30, 94, 11 + list.length * 6 + (next ? 9 : 0));
-  small('COMBO CHECKLIST', W - 51, 32, '#9ff', 'center', 4);
-  list.forEach((c, k) => {
+  const done = list.filter(c => game.learned.has(c.name)).length;
+  const at = next ? list.indexOf(next) : list.length - 1;
+  const from = clamp(at - 3, 0, Math.max(0, list.length - CHECK_ROWS)), rows = list.slice(from, from + CHECK_ROWS);
+  const x = W - 98, w = 94, top = 30, lineH = 6;
+  const above = from, below = list.length - from - rows.length;
+  const tall = 11 + (above ? 6 : 0) + rows.length * lineH + (below ? 6 : 0) + (next ? 10 : 0);
+  gfx.fillStyle = 'rgba(6,5,16,0.55)'; gfx.fillRect(x, top, w, tall);
+  small(`COMBO CHECKLIST  ${done}/${list.length}`, x + w / 2, top + 2, '#9ff', 'center', 4);
+  let y = top + 9;
+  if (above) { small(`+${above} ABOVE`, x + w / 2, y, '#777', 'center', 4); y += 6; }
+  for (const c of rows) {
     const got = game.learned.has(c.name);
-    small((got ? 'X ' : '- ') + c.name, W - 95, 39 + k * 6, got ? '#8f8' : c === next ? '#ffe04a' : '#aaa', 'left', 4);
-  });
-  if (next) small('TRY: ' + promptKeys(next.how), W - 95, 41 + list.length * 6, '#ffe04a', 'left', 4);
+    fitSmall((got ? 'X ' : '- ') + c.name, x + 3, y, w - 6, got ? '#8f8' : c === next ? '#ffe04a' : '#aaa', 'left', 4);
+    y += lineH;
+  }
+  if (below) { small(`+${below} MORE`, x + w / 2, y, '#777', 'center', 4); y += 6; }
+  if (next) fitSmall('TRY: ' + promptKeys(next.how), x + 3, y + 2, w - 6, '#ffe04a', 'left', 4);
 }

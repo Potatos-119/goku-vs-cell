@@ -68,6 +68,8 @@ function loop(now) {
 function step(raw) {
   game.t += raw;
   if (tapOnce('fps')) toggleFps();
+  // H in training: the combo checklist on and off
+  if (game.training && tapOnce('list')) toggleTrain('checklist');
   if (tapOnce('calm')) { toggleCalm(); popups.push({ text: settings.calm ? 'CALM MODE: LESS SHAKE + FLASH' : 'CALM MODE OFF', x: W / 2, y: 60, t: 0, c: '#fff' }); }
   // the heartbeat layer comes in when you're close to defeat
   Audio8.heartbeat(game.mode === 'fight' && !game.training && player.hp > 0 && player.hp < player.maxHp * 0.25);

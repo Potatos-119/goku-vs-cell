@@ -8,7 +8,7 @@ const BINDINGS = {
   // menus move with their own up / down, so the button that picks an item (A / Cross, also jump)
   // never moves the cursor first
   up: ['KeyW', 'ArrowUp'], down: ['KeyS', 'ArrowDown'],
-  pause: ['KeyP'], confirm: ['Enter', 'NumpadEnter'], back: ['Escape'], music: ['KeyM'], calm: ['KeyR'], fps: ['F2'],
+  pause: ['KeyP'], confirm: ['Enter', 'NumpadEnter'], back: ['Escape'], music: ['KeyM'], calm: ['KeyR'], fps: ['F2'], list: ['KeyH'],
 };
 // standard-mapping gamepad buttons (A B X Y = 0 1 2 3, LB RB = 4 5, LT RT = 6 7, Back Start = 8 9,
 // stick clicks = 10 11, d-pad = 12-15)

@@ -711,6 +711,7 @@ const keysOf = (table, acts) => acts.map(a => table[a] && table[a].length ? keyN
 const controlRows = () => [
   ...CONTROL_GROUPS.map(([name, acts]) => [name, keysOf(BINDINGS, acts), acts[0] === 'left' ? 'STICK / D-PAD' : acts.map(a => padActionName(a)).join(' / ')]),
   ['MUSIC / CALM / FPS', 'M / R / F2', ''],
+  ['COMBO LIST (TRAINING)', 'H', ''],
 ];
 const versusRows = () => CONTROL_GROUPS.filter(([n]) => n !== 'PAUSE').map(([name, acts]) => [name, keysOf(BINDINGS, acts), keysOf(P2_BINDINGS, acts)]);
 const ACTION_NAMES = {
