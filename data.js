@@ -87,8 +87,9 @@ const SX_TELE = [SX(6, 15, 43, 53), SX(55, 11, 37, 57), SX(98, 11, 39, 57), SX(1
 const G10 = (x, y, w, h) => ({ sheet: 'goku', rect: [x, y, w, h] });
 const TURN = [null, G10(104, 826, 32, 48), G10(151, 826, 53, 48), G10(214, 799, 65, 75), G10(290, 796, 65, 78), G10(371, 821, 53, 53),
   G10(441, 816, 50, 58), G10(509, 812, 44, 62), G10(574, 795, 63, 79), G10(656, 818, 27, 56)];
-// powering up as a Super Saiyan in his full gi: the stance twice, then the gold flames
-const SX_CHARGE = [SX(6, 196, 35, 54), SX(47, 195, 36, 55), SX(89, 167, 67, 83), SX(162, 163, 74, 87)];
+// powering up as a Super Saiyan in his full gi, from the second Super Saiyan sheet (goku-ssj2.png)
+const SJ = (x, y, w, h) => ({ sheet: 'ssj2', rect: [x, y, w, h], k: 1.25 });
+const SJ_CHARGE = [SJ(12, 585, 42, 43), SJ(65, 577, 47, 50), SJ(125, 574, 47, 53), SJ(189, 574, 48, 53), SJ(247, 577, 46, 50), SJ(307, 574, 46, 53), SJ(371, 574, 48, 53)];
 // which Super Saiyan frame each of base Goku's frames is
 const SSJ_TWIN = {};
 const twins = (ids, row) => ids.forEach((id, i) => { if (id != null) SSJ_TWIN[JSON.stringify(id)] = row[i]; });
@@ -270,14 +271,16 @@ const ssjTable = look => {
     .filter(([, a]) => !a.fr.includes(null)).map(([k, a]) => [k, { ...a, fr: fr(a.fr) }]);
   const t = {
     ...Object.fromEntries(moves),
-    idle: { fr: stance, fps: 7, loop: true },
+    // (in his full gi: the stance he ends his transformation in, base Goku's own sheet, breathing, as it was)
+    idle: look === 'ssj' ? { fr: [TURN[9]], fps: 1, loop: true, breathe: true } : { fr: stance, fps: 7, loop: true },
     dashStop: { fr: fr([SS_IDLE[2]]), fps: 10, loop: false, then: 'idle' },
     walk: { fr: stance, fps: 10, loop: true },
     back: { fr: [...stance].reverse(), fps: 9, loop: true },
     // powering up, as the sheet draws it: the stance twice, then the gold flames looping
-    // (in his full gi, the full-gi sheet's own frames: SX_CHARGE)
-    charge: look === 'ssj' ? { fr: SX_CHARGE, fps: 10, loop: true, loopFrom: 2 } : { fr: fr(SS_CHARGE), fps: 10, loop: true, loopFrom: 2 },
-    chargeEnd: { fr: look === 'ssj' ? [SX_CHARGE[1]] : fr([SS_CHARGE[1]]), fps: 9, loop: false, then: 'idle' },
+    // (in his full gi, as it was: the second Super Saiyan sheet's charge, a small aura at his feet, then
+    // the gold flame flickering round him, drawn 1.25x to match his size)
+    charge: look === 'ssj' ? { fr: SJ_CHARGE, fps: 12, loop: true, loopFrom: 1 } : { fr: fr(SS_CHARGE), fps: 10, loop: true, loopFrom: 2 },
+    chargeEnd: { fr: look === 'ssj' ? [SJ_CHARGE[0]] : fr([SS_CHARGE[1]]), fps: 9, loop: false, then: 'idle' },
     // his Kamehameha: the turn, the swirl gathering in his hands, then the thrust
     // (in his full gi, the sheet's own Kamehameha: see SK_KAME)
     // (with the top torn too: the torn sheet's own looked wrong, so he fires it the full-gi way)
