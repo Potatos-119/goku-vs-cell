@@ -499,25 +499,6 @@ const FX_ART = {
   cellFace: k => ({ sheet: 'cellFaces', ref: { id: '0.0', x: 42 * k, w: 41 } }),
 };
 const BEAMS = {
-  goku: {
-    // (cropped past his hand, so no piece of it rides along at the start of the beam)
-    start: { sheet: 'goku', ref: { id: '11.6', x: 40, w: 131, seed: 'tb' } },
-    body: { sheet: 'goku', ref: { id: '11.6', x: 250, w: 2, seed: 'tb' } },
-    // the ball only: the sheet's head starts with a stretch of thin edge lines whose white core the
-    // background removal leaks into, which showed as a see-through gap behind a short beam's head
-    head: { sheet: 'cell', ref: { id: '16.4', x: 124, seed: 'tb' } },
-    scale: 0.5,
-  },
-  // Cell's Kamehameha uses the same beam art as Goku's (his own sheet draws it as a flat banded slab
-  // that read as a blue box on screen), a little thicker to suit his size
-  cell: {
-    start: { sheet: 'goku', ref: { id: '11.6', x: 40, w: 131, seed: 'tb' } },
-    body: { sheet: 'goku', ref: { id: '11.6', x: 250, w: 2, seed: 'tb' } },
-    // the ball only: the sheet's head starts with a stretch of thin edge lines whose white core the
-    // background removal leaks into, which showed as a see-through gap behind a short beam's head
-    head: { sheet: 'cell', ref: { id: '16.4', x: 124, seed: 'tb' } },
-    scale: 0.6,
-  },
   // Super Saiyan Goku's in his full gi, as the sheet draws it with his Kamehameha: a spiky burst out of
   // his hands, a thinner stream, and a big round head (drawn at its own size, not squeezed to the stream)
   gokuSsj: {
@@ -534,6 +515,12 @@ const BEAMS = {
     scale: 0.5, tile: true, ownHead: true,
   },
 };
+// Base Goku's and Cell's: the same one-piece beam as the Kaioken's, Goku's a little thinner and Cell's a
+// little thicker to suit his size. (They used to be pieced together from three sheets: a burst that
+// ended in a hard step down to a flat band, and a small ball, which read as a second Kamehameha
+// stuck in the middle of the beam.)
+BEAMS.goku = { ...BEAMS.gokuKaio, scale: 0.44 };
+BEAMS.cell = { ...BEAMS.gokuKaio, scale: 0.56 };
 
 // Named combos: recognised while you play (name pops up, +8 ki) and listed in the pause menu and
 // training mode. steps must land in this order within one combo; 'melee' matches any punch or kick.
