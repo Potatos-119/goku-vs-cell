@@ -10,11 +10,11 @@ the same frames in his other looks and packs them onto one generated sheet:
   torn   the orange gi top recoloured to the blue undershirt (the sheet draws him like this in a few
          rows; this gives every move that look)
   ssjT   Super Saiyan, cut whole from the Super Saiyan sheet (goku-ssj-first.png, mrruben7's "first
-         time" sheet, which draws him with the gi top torn). Both Super Saiyan sheets here started as
-         shrunken JPEG previews; tools/sheet-rebuild.py rebuilds their original pixels first.
-  ssj    Super Saiyan in his full gi: the same frames, each colour swapped for the colour the full-gi
-         sheet (goku-super-saiyan.png) has in the same place. That sheet's preview was too small to
-         rebuild sharply, so it only decides colours; the pixels are the other sheet's.
+         time" sheet, which draws him with the gi top torn; tools/sheet-rebuild.py rebuilt it from a
+         shrunken preview).
+  ssj    Super Saiyan in his full gi: each frame cut as drawn from the full-gi sheet (goku-super-saiyan.png,
+         PeculiarDoc's, full size), where the same pose sits, lined up with the torn-gi frame. A pose
+         it doesn't line up with is the torn-gi frame recoloured.
   kaio   Kaioken: the torn look in the sheet's red Kaioken colours
 
     python3 tools/goku-forms.py                 # writes assets/sheets/goku-forms.png and goku-forms.js
@@ -368,23 +368,6 @@ def full_gi_cut(so, rect, alpha, m=2):
     return (rgb, a) if miss < 0.22 * alpha.sum() else None
 
 
-def sharp_head(own, rgb, alpha, g, shades):
-    """the full-gi frame with its head (hair and face, above where the undershirt starts) taken from the
-    torn-gi frame: the two draw the head the same, and the full-gi sheet's rebuild left the face a blur
-    with no eyes to speak of. The two canvases line up (full_gi_cut matched them)"""
-    orgb, oa = own
-    shirt = alpha & is_undershirt(rgb)
-    lab, n = ndi.label(shirt, structure=N8)
-    if not n: return own
-    sizes = ndi.sum(shirt, lab, range(1, n + 1))
-    if sizes.max() < 8: return own
-    top = int(np.nonzero(lab == int(np.argmax(sizes)) + 1)[0].min())
-    head = np.zeros_like(alpha); head[:top] = True
-    # (the torn-gi sheet draws his hair a paler cream: it goes the full-gi sheet's gold, as in full_gi)
-    hair = reshade(rgb, alpha & is_pale_hair(rgb) & guide_gold(g), shades['pale'], shades['gold'])
-    return np.where(head[..., None], hair, orgb), np.where(head, alpha, oa)
-
-
 def is_undershirt(a):
     return (a[..., 2] > a[..., 0] + 25) & (a[..., 2] > a[..., 1] + 8)
 
@@ -541,7 +524,7 @@ def main():
     drawn = 0
     for f in cut:
         own = None if f['guide'] is None else full_gi_cut(S.img['so'], f['ref']['rect'], f['alpha'])
-        if own: f['looks']['ssj'] = sharp_head(own, f['rgb'], f['alpha'], f['guide'], shades); drawn += 1
+        if own: f['looks']['ssj'] = own; drawn += 1
         # (a frame the full-gi sheet doesn't draw at all, his torn-gi big attack, gets no full-gi look:
         # recoloured with nothing to go by it came out all orange, and that attack is torn-gi only)
         elif f['guide'] is not None: f['looks']['ssj'] = (full_gi(f['rgb'], f['alpha'], f['guide'], shades), f['alpha'])

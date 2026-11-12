@@ -1,11 +1,8 @@
 #!/usr/bin/env python3
 """Super Saiyan Goku's Instant Transmission, full-gi transformation and powering up, cut from the full-gi sheet.
 
-assets/sheets/goku-super-saiyan.png was rebuilt from a shrunken preview (tools/sheet-rebuild.py), so its
-sprites are soft. The transformation's frames are sharpened a little and then every pixel is snapped to
-the nearest colour that the sharp sheets really use (goku-ssj-kame.png, goku-ssj-first.png,
-goku-base.png), which gives back flat colours and solid outlines; the Instant Transmission's came out
-speckled that way, so they are cut as drawn. Writes assets/sheets/goku-ssj-moves.png, one row
+Every frame is cut as drawn from assets/sheets/goku-super-saiyan.png (the full-size full-gi sheet). The
+colour snapping below (CLEAN) was for when that sheet was a soft rebuild of a preview, and is off. Writes assets/sheets/goku-ssj-moves.png, one row
 per move, and prints where each frame is (SX in data.js).
 
     python3 tools/ssj-moves.py      # then python3 tools/bake-add.py

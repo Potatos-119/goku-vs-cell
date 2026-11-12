@@ -129,15 +129,14 @@ slower and throws shorter combos.
 2. Open `tools/bake.html`, press Bake, then run `node tools/write-frames.js ~/Downloads/frames-bake.json`.
    To add only new frames cut by exact rectangles, without a browser: `python3 tools/bake-add.py`.
 
-The two Super Saiyan sheets I could get were shrunken previews; `tools/sheet-rebuild.py` worked out
-the sharp sheets (`goku-ssj-first.png`, `goku-super-saiyan.png`) from them. It worked well on the
-torn-gi sheet (94% of full size) and badly on the full-gi one (76%). So Super Saiyan's frames all come
-from the torn-gi sheet, and for his full gi the tool recolours them, using the other sheet only to tell
-where the gi is orange. His full-gi Kamehameha (the poses and the beam) comes from a sharp strip of the
-sheet: `python3 tools/ssj-kame.py STRIP.png` scales its smaller poses up 1.25x (Scale2x, so the edges
-stay sharp) into `assets/sheets/goku-ssj-kame.png`. His Instant Transmission and full-gi transformation come from the soft
-full-gi sheet: `python3 tools/ssj-moves.py` sharpens them and snaps every pixel to the colours the sharp
-sheets use, into `assets/sheets/goku-ssj-moves.png`.
+Super Saiyan comes from two sheets. `goku-super-saiyan.png` is PeculiarDoc's full-gi sheet at full size,
+and every full-gi frame is cut from it as drawn (the tool lines each one up with the same pose on the
+torn-gi sheet). `goku-ssj-first.png`, the torn-gi sheet, was a shrunken preview (94% of full size) that
+`tools/sheet-rebuild.py` turned back into sharp pixels. His full-gi Kamehameha (the poses and the beam)
+comes from a sharp strip of the sheet: `python3 tools/ssj-kame.py STRIP.png` scales its smaller poses
+up 1.25x (Scale2x, so the edges stay sharp) into `assets/sheets/goku-ssj-kame.png`. His Instant
+Transmission is cut from the full-gi sheet by `python3 tools/ssj-moves.py` into
+`assets/sheets/goku-ssj-moves.png`.
 
 ## Credits
 
