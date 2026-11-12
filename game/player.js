@@ -95,9 +95,10 @@ function playerInput(dt, g = player, foe = boss) {
   if (act('dash')) dashDir = dir || g.facing;
   // Cell's Barrier works out of most states, even while he's being hit
   if (!isGoku && g.ki >= 30 && ['idle', 'walk', 'block', 'hurt', 'jump', 'land'].includes(g.state) && act('barrier')) return barrier(g);
-  // Instant Kamehameha (SSJ Goku, full ki), in either order: vanish (Q) and press U while he's gone,
-  // or start a Kamehameha (U) and vanish (Q) while it charges. U on its own is always the regular one.
-  if (isGoku && g.form === 'ssj') {
+  // Instant Kamehameha (SSJ Goku in his full gi, full ki), in either order: vanish (Q) and press U while
+  // he's gone, or start a Kamehameha (U) and vanish (Q) while it charges. U on its own is always the
+  // regular one. With the gi top torn he doesn't have it.
+  if (isGoku && g.form === 'ssj' && !g.torn) {
     if (g.state === 'tele' && g.ki >= 100 - 15 && act('beam')) return instantKame(g);
     if (g.state === 'kameCharge' && !g.big && g.ki >= 100 - 50 && act('vanish')) return instantKame(g);
   }

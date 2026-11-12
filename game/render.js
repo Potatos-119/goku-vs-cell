@@ -66,7 +66,7 @@ function hintFor(g) {
     if (g.form === 'kaioken' && g.ki >= 100) return 'T  SUPER SAIYAN     U  KAMEHAMEHA';
     if (g.form === 'kaioken') return g.ki >= SUPER_KI.kaioken ? 'O  KAIOKEN FINISH     U  KAMEHAMEHA' : 'E  POWER DOWN';
     if (g.form === 'ssj' && g.ki >= 100 && g.y < FLOOR - 1) return 'O  POWER DOWN + SPIRIT BOMB';
-    if (g.form === 'ssj' && g.ki >= 100) return 'U KAMEHAMEHA   Q + U  INSTANT KAMEHAMEHA   O DRAGON FIST';
+    if (g.form === 'ssj' && g.ki >= 100) return g.torn ? 'U  KAMEHAMEHA     O  SUPER KAMEHAMEHA RUSH' : 'U KAMEHAMEHA   Q + U  INSTANT KAMEHAMEHA   O DRAGON FIST';
     if (g.form === 'ssj' && g.ki >= 50) return 'U  KAMEHAMEHA  (WORKS IN THE AIR TOO)';
   } else {
     if (g.form !== 'perfect' && g.ki >= 100) return 'PRESS T  -  EVOLVE!';

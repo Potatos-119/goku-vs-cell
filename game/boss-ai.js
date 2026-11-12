@@ -251,8 +251,8 @@ function bossAI(dt) {
     ai.cannonCd = rand(6, 10); return specialBeamCannon(c);
   }
 
-  // Goku's finishers once he's all out: Instant Kamehameha on a weakened enemy, or the Dragon Fist
-  if (!isCell && ph >= 1 && ai.ultCd <= 0 && g.hp < g.maxHp * (ph >= 2 ? 0.35 : 0.25) && r < (ph >= 2 ? 0.35 : 0.2)) { ai.ultCd = rand(16, 20); return instantKame(c); }
+  // Goku's finishers once he's all out (in his full gi): Instant Kamehameha on a weakened enemy, or the Dragon Fist
+  if (!isCell && ph >= 1 && !c.torn && ai.ultCd <= 0 && g.hp < g.maxHp * (ph >= 2 ? 0.35 : 0.25) && r < (ph >= 2 ? 0.35 : 0.2)) { ai.ultCd = rand(16, 20); return instantKame(c); }
   if (!isCell && ph >= 2 && !c.torn && ai.ultCd <= 0 && dist < 170 && r < 0.3) { ai.ultCd = rand(12, 16); return startUlt(c); }
   // Perfect Cell calls in a Cell Junior from range
   if (isCell && c.form === 'perfect' && ai.assistCd <= 0 && dist > 50 && r < 0.3) { ai.assistCd = rand(7, 11); return callJunior(c); }

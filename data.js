@@ -589,7 +589,7 @@ const MOVES = {
     ['KAIOKEN: DOUBLE-TAP', 'Two air dashes a jump instead of one'],
     ['KAIOKEN: O (50 KI)', 'Dash in: if it lands, a flurry into his biggest Kamehameha'],
     ['T', 'Super Saiyan (full ki): hits hardest'],
-    ['Q THEN U  /  U THEN Q', 'Instant Kamehameha (SSJ, full ki)'],
+    ['Q THEN U  /  U THEN Q', 'Instant Kamehameha (SSJ, full gi, full ki)'],
     ['O', 'Spirit Bomb (base, full ki) / Dragon Fist (SSJ)'],
     ['O IN THE AIR (BASE)', 'Spirit Bomb that turns him Super Saiyan if it lands'],
     ['O (SSJ, GI TORN)', 'Dash in: if it lands, kicks into a Kamehameha'],

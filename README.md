@@ -31,7 +31,7 @@ All recorded from the game.
 |---|---|
 | Base | Runs on foot. Kamehameha (U), Spirit Bomb (O at full ki). Throw it from the air and it turns him Super Saiyan if it lands |
 | Kaioken (E, 25 ki) | The fastest form. Burns ki while it's on, two air dashes, O (50 ki) is its finisher: a rush, a kick that sends them up, and a Kamehameha aimed up at them |
-| Super Saiyan (T at full ki, or T right after a hit lands to turn mid-combo) | Hits hardest. Instant Kamehameha (Instant Transmission from the ground or the air), and O is the Dragon Fist in his full gi or a rush into a Kamehameha once it's torn |
+| Super Saiyan (T at full ki, or T right after a hit lands to turn mid-combo) | Hits hardest. Instant Kamehameha in his full gi (Instant Transmission from the ground or the air), and O is the Dragon Fist in his full gi or a rush into a Kamehameha once it's torn |
 
 | Cell | |
 |---|---|
