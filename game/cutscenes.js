@@ -135,7 +135,7 @@ async function bossPhase() {
     cell.play('idle');
     if (next === 2) {
       // Perfect Cell regenerates completely, and has more to give than before: a fresh, bigger bar
-      Object.assign(cell, { maxHp: PERFECT_HP, hp: PERFECT_HP });
+      Object.assign(cell, { maxHp: Math.round(PERFECT_HP * diff().hp), hp: Math.round(PERFECT_HP * diff().hp) });
       popups.push({ text: 'FULLY REGENERATED!', x: cell.x, y: cell.y - 70, t: 0, c: '#c27aff' });
       await say('CELL', 'Perfection! Go on, Goku. Entertain me.');
       if (player === goku) await senzuBean(goku);
@@ -143,16 +143,20 @@ async function bossPhase() {
     }
     if (goku.form === 'base') await say('GOKU', '(He keeps getting stronger... charge ki with I, then press T!)');
   } else if (next === 1) {
-    await say('GOKU', "You're stronger than I thought, Cell... Time to get serious!");
-    game.wentSsj = true; await superSaiyan(goku);
-    await say('CELL', 'The legendary Super Saiyan... Excellent. Your power will make me perfect!');
+    // boss Goku's second stage: the Kaioken, and it stays on until he goes further
+    await say('GOKU', "You're stronger than I thought, Cell... Time to get serious. Kaioken!");
+    cam.focus = { f: goku, z: 1.4 };
+    goKaioken(goku);
+    await wait(1.6);
+    setForm(goku, 'kaioken'); goku.kaioT = Infinity; goku.play('idle');
+    await say('CELL', 'More power? Good. All of it will be mine.');
     if (cell.form === 'imperfect') await say('CELL', '(I must evolve... charge ki with I, then press T!)');
   } else {
-    goku.play('charge'); sfx.powerup(); shake(8);
+    // his last: Super Saiyan, in what's left of his gi
     await say('GOKU', "I can't hold back anymore. This is everything I've got!");
-    game.flash = 1; sfx.explode();
-    await wait(0.8);
-    goku.play('idle');
+    setForm(goku, 'base'); goku.kaioT = 0;
+    game.wentSsj = true; await superSaiyan(goku);
+    await say('CELL', 'The legendary Super Saiyan... Excellent. Your power will make me perfect!');
   }
   cam.focus = null;
   if (boss === goku) Object.assign(goku, GOKU_BOSS[next]);
@@ -232,7 +236,8 @@ async function juniorsStart() {
 function juniorIn() {
   setForm(cell, 'junior');
   const x = clamp(goku.x + (goku.x < W / 2 ? 90 : -90), 24, W - 24);
-  Object.assign(cell, { hp: JUNIOR_HP, maxHp: JUNIOR_HP, x, y: FLOOR, vx: 0, vy: 0, visible: true, juggle: 0,
+  const jrHp = Math.round(JUNIOR_HP * diff().hp);
+  Object.assign(cell, { hp: jrHp, maxHp: jrHp, x, y: FLOOR, vx: 0, vy: 0, visible: true, juggle: 0,
     comboTaken: 0, inv: 0.6, ki: 40, queue: [], next: null, floating: false, facing: goku.x > x ? 1 : -1 });
   cell.play('idle');
   ghosts.push({ img: teleArt(cell), x, y: FLOOR, t: 0 }); sfx.teleport();
@@ -291,6 +296,7 @@ async function finish(result) {
   if (draw) { Audio8.music.stop(); await wait(1.2); game.mode = 'end'; return; }
   const winner = win ? player : boss;
   // Goku powers down before his victory (it's played in his normal form, in his undershirt)
+  if (winner === goku && goku.form === 'kaioken') { setForm(goku, 'base'); Stage.cloud(goku.x, 0.6); }
   if (winner === goku && goku.form === 'ssj') {
     goku.play('powerDown', 'pose'); goku.t2 = 99; sfx.whoosh(); Stage.puff(goku.x, 1); Stage.puff(goku.x, -1);
     await wait(0.7);

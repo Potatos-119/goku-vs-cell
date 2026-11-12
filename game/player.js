@@ -21,11 +21,15 @@ function cancel(g, foe, dashDir) {
     g.play('jump'); g.sq = -0.14; g.vy = g.A('jump') && g.chaseLow ? CHASE_LOW_V : JUMP_V - 70; g.vx = g.facing * 90; g.chaseT = 0; sfx.whoosh(); return true;
   }
   if (dashDir) { dash(g, dashDir); return true; }
+  // base Goku (or the Kaioken) at full ki: T after a hit lands turns him Super Saiyan right there,
+  // while they're still reeling
+  if (isGoku && g.form !== 'ssj' && g.ki >= 100 && act('transform')) { comboTransform(g, foe); return true; }
   if (!isGoku && g.form === 'perfect' && g.ki >= 100 && act('ult')) { solarKame(g); return true; }
   if (isGoku && g.form === 'base' && g.ki >= 100 && act('ult')) { spiritBomb(g, true); return true; }
   if (!isGoku && g.form === 'perfect' && g.ki >= 35 && g.assistCd <= 0 && act('junior')) { g.ki -= 35; g.assistCd = 3; callJunior(g); return true; }
   if (g.ki >= 15 && act('vanish')) { g.ki -= 15; teleport(g, foe); return true; }
   if (!isGoku && g.ki >= CANNON_KI && act('cannon')) { g.ki -= CANNON_KI; specialBeamCannon(g); return true; }
+  if (isGoku && g.form !== 'ssj' && g.ki >= DISC_KI && act('cannon')) { g.ki -= DISC_KI; destructoDisc(g); return true; }
   if (act('ki')) {
     if (isGoku && g.ki >= 8) { g.ki -= 8; cast(g, 'kiCast'); return true; }
     if (!isGoku && g.ki >= 8) { g.ki -= 8; cast(g, 'finger'); return true; }
@@ -43,10 +47,10 @@ function cancel(g, foe, dashDir) {
 function airCancel(g, foe, dashDir) {
   const isGoku = g.who === 'goku';
   if (g.ki >= 15 && act('vanish')) { g.ki -= 15; teleport(g, foe); return true; }
-  if (dashDir && !g.airDashed) { dash(g, dashDir); return true; }
+  if (dashDir && canAirDash(g)) { dash(g, dashDir); return true; }
   if (!isGoku && g.form === 'perfect' && g.ki >= 100 && act('ult')) { solarKame(g); return true; }
   if (isGoku && g.form === 'base' && g.ki >= 100 && act('ult')) { spiritBomb(g, true); return true; }
-  if (isGoku && g.form === 'ssj' && g.ki >= 100 && act('ult')) { if (keys.block) spiritBomb(g, true); else airSpirit(g, true); return true; }
+  if (isGoku && g.form === 'ssj' && g.ki >= 100 && act('ult')) { airSpirit(g, true); return true; }
   if (act('beam')) {
     if (deathBeamFirst(g)) { g.ki -= 20; cast(g, 'death'); return true; }
     if (g.ki >= 50 && canKame(g)) { g.ki -= 50; startKame(g, false, false, true); return true; }
@@ -134,10 +138,18 @@ function playerInput(dt, g = player, foe = boss) {
     if (g.ki >= 15 && act('vanish')) { g.ki -= 15; return teleport(g, foe); }
     if (!isGoku && g.form === 'perfect' && g.ki >= 35 && g.assistCd <= 0 && act('junior')) { g.ki -= 35; g.assistCd = 3; return callJunior(g); }
     if (!isGoku && g.ki >= CANNON_KI && act('cannon')) { g.ki -= CANNON_KI; return specialBeamCannon(g); }
+    // G and Y are base Goku's (and the Kaioken's) Solar Flare and Destructo Disc
+    if (isGoku && g.form !== 'ssj' && g.ki >= FLARE_KI && !(g.flareCd > 0) && act('barrier')) { g.ki -= FLARE_KI; return solarFlare(g); }
+    if (isGoku && g.form !== 'ssj' && g.ki >= DISC_KI && act('cannon')) { g.ki -= DISC_KI; return destructoDisc(g); }
+    // E is Goku's Kaioken: on from base (KAIO_COST ki), and off again
+    if (isGoku && g.form === 'kaioken' && act('junior')) return endKaioken(g);
+    if (isGoku && g.form === 'base' && g.ki >= KAIO_COST && g.kaioCd <= 0 && act('junior')) { g.ki -= KAIO_COST; return goKaioken(g); }
     // T as a Super Saiyan powers back down to base (keeping his ki, e.g. for a Spirit Bomb)
     if (isGoku && g.form === 'ssj' && act('transform')) return powerDown(g);
     if (g.ki >= 100 && act('transform')) {
-      if (isGoku && g.form === 'base') {
+      if (isGoku && g.form !== 'ssj') {
+        // (straight from the Kaioken: it ends as the gold comes up)
+        if (g.form === 'kaioken') { setForm(g, 'base'); g.kaioCd = KAIO_REST; }
         // the first time is the full cinematic; going back up after powering down is quick
         g.ki = 50;
         if (game.wentSsj) { g.play('transform', 'transform'); g.vx = 0; sfx.powerup(); shake(5); return; }
@@ -154,8 +166,11 @@ function playerInput(dt, g = player, foe = boss) {
       if (canKame(g) && g.ki >= 50) { g.ki -= 50; return startKame(g); }
       if (!isGoku && g.ki >= 20) { g.ki -= 20; return cast(g, 'death'); }
     }
+    // the Kaioken's big attack: a dash that has to land, then it plays itself out
+    if (isGoku && g.form === 'kaioken' && g.ki >= SUPER_KI.kaioken && act('ult')) return superRush(g);
     if (g.ki >= 100 && act('ult')) {
-      if (isGoku && g.form === 'ssj') return startUlt(g);
+      // Super Saiyan: the Dragon Fist in his full gi, the rush into a Kamehameha with the top torn off
+      if (isGoku && g.form === 'ssj') return g.torn ? superRush(g) : startUlt(g);
       if (isGoku && g.form === 'base') return spiritBomb(g);
       if (!isGoku && g.form === 'perfect') return solarKame(g);
     }
@@ -166,15 +181,16 @@ function playerInput(dt, g = player, foe = boss) {
     } else if (g.state !== 'idle') g.play('idle');
   } else if (g.state === 'jump') {
     g.vx += clamp(dir * 130 - g.vx, -600 * dt, 600 * dt);
-    if (dashDir && !g.airDashed) return dash(g, dashDir);
+    if (dashDir && canAirDash(g)) return dash(g, dashDir);
     if (g.ki >= 15 && act('vanish')) { g.ki -= 15; return teleport(g, foe); }
     const airBeam = canKame(g);
     if (!isGoku && g.form === 'perfect' && g.ki >= 100 && act('ult')) return solarKame(g);
     if (airBeam && g.ki >= 50 && act('beam')) { g.ki -= 50; return startKame(g); }
     if (g.ki >= 8 && act('ki')) { g.ki -= 8; return cast(g, isGoku ? 'kiCast' : 'finger'); }
-    if (isGoku && g.form === 'base' && g.ki >= 100 && act('ult')) return spiritBomb(g);
-    // Super Saiyan: O powers down mid-air into the Spirit Bomb; S + O keeps the gold hair
-    if (isGoku && g.form === 'ssj' && g.ki >= 100 && act('ult')) return keys.block ? spiritBomb(g) : airSpirit(g);
+    // base Goku in the air: the Spirit Bomb that turns him Super Saiyan if it lands
+    if (isGoku && g.form === 'base' && g.ki >= 100 && act('ult')) return spiritBomb(g, false, false, true);
+    // Super Saiyan: O powers down mid-air into the Spirit Bomb
+    if (isGoku && g.form === 'ssj' && g.ki >= 100 && act('ult')) return airSpirit(g);
     // the dunk: S + J (or K) in the air slams straight down at them
     if (keys.block && (act('punch') || act('kick'))) { g.facing = foe.x > g.x ? 1 : -1; return g.play('spike', 'airAtk'); }
     // F (or punch + kick together) in the air: the re-launch (it only finds them once they're up)
@@ -207,6 +223,8 @@ function playerInput(dt, g = player, foe = boss) {
     // a landed hit can be cancelled into a special, a dash or (after a launcher) a chasing jump
   } else if (g.state === 'attack') {
     const chain = CHAINS[g.who];
+    // (the Kaioken's rush plays its three hits out on its own)
+    if (g.form === 'kaioken' && g.queue.length) return;
     if (chain.j[g.anim] && act('punch')) g.next = chain.j[g.anim];
     if (chain.k[g.anim] && act('kick')) g.next = chain.k[g.anim];
   } else if (g.state === 'block') {
@@ -215,9 +233,8 @@ function playerInput(dt, g = player, foe = boss) {
     // those are guard + kick and guard + beam)
     if (!inAir && !isGoku && g.form === 'perfect' && g.ki >= 35 && g.assistCd <= 0 && act('junior')) { g.ki -= 35; g.assistCd = 3; return callJunior(g); }
     if (!inAir && !isGoku && g.ki >= CANNON_KI && act('cannon')) { g.ki -= CANNON_KI; return specialBeamCannon(g); }
-    // from an air guard: S + J dunks, and S + O is still the Super Saiyan Spirit Bomb
+    // from an air guard: S + J dunks
     if (inAir && (act('punch') || act('kick'))) { g.facing = foe.x > g.x ? 1 : -1; return g.play('spike', 'airAtk'); }
-    if (inAir && isGoku && g.form === 'ssj' && g.ki >= 100 && act('ult')) return spiritBomb(g);
     // the guard turns to face the enemy, even when they reappear behind you
     if (!keys.block) g.play(inAir ? 'fall' : 'idle', inAir ? 'jump' : 'idle'); else if (foe.visible) g.facing = foe.x > g.x ? 1 : -1;
   }

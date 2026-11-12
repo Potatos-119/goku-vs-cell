@@ -8,11 +8,17 @@ class Fighter {
       stamina: 100, staminaDelay: 0, guardBroken: false, trailT: 0, counter: false, hover: 0, big: false,
       flash: 0, sq: 0, // hit flash timer; squash (+) / stretch (-) that springs back to 0
       juggle: 0, comboTaken: 0, hitLanded: false, wallBounce: false, spiked: false, assistCd: 0,
+      torn: false, kaioCd: 0, // Goku: his gi top torn off (once hurt, or once he's used the Kaioken); seconds until he can use it again
       // Cell's sheet is drawn smaller than Goku's; 1.25 keeps pixels whole at 4x
       scale: who === 'cell' ? 1.25 : 1,
     });
   }
-  A(name = this.anim) { return ANIMS[this.who][this.form][name] || ANIMS[this.who].base[name]; }
+  // the move in this form's table; Goku's forms have a second table for when his gi top is torn (a T
+  // on the end), and anything a form doesn't draw falls back to base Goku's
+  A(name = this.anim) {
+    const T = ANIMS[this.who], torn = this.torn && T[this.form + 'T'];
+    return (torn && torn[name]) || T[this.form][name] || (this.torn && T.baseT && T.baseT[name]) || T.base[name];
+  }
   play(anim, state = anim) {
     if (this.state !== state && ['charge', 'kameFire', 'kiHold'].includes(this.state)) sfx.stopSustain(this);
     if (this.state !== state && ['kameCharge', 'kameFire'].includes(this.state)) sfx.stopKame(this);
@@ -73,13 +79,22 @@ function toggleCalm() {
   settings.calm = !settings.calm;
   try { localStorage.setItem('calmMode', settings.calm ? '1' : '0'); } catch (e) { /* not saved, still works */ }
 }
-// difficulty (remembered between visits): how hard the boss hits you, how often it decides what to do
-// next (think) and how likely it is to answer your ki blasts (react). Normal is the game as tuned.
+// difficulty (remembered between visits). Normal is the game as tuned; each number is that, scaled:
+//   taken   how hard the boss hits you          hp      how much health the boss has
+//   think   how long it takes to decide what to do next
+//   react   how likely it is to answer your ki blasts, and to guard your attacks
+//   flow    how likely it is to chase a launcher, cancel a string into something, punish a block
+//   evade   how likely it is to vanish out of a hit    strings  hits added to (or taken off) its strings
+//   tempo   how fast its punches and kicks play ('form': its form's own speed, like a player's)
+//   clash   how hard it pushes in a beam clash   ultRest  how long between its finishers
+//   window  how long you get to answer a finisher        kaio    seconds boss Goku's Kaioken lasts
+// Easy is a boss that hits for half, has less health, thinks slowly, throws short strings and mostly
+// lets them end there.
 const DIFFICULTY = {
-  easy: { label: 'EASY', taken: 0.65, think: 1.5, react: 0.55 },
-  normal: { label: 'NORMAL', taken: 1, think: 1, react: 1 },
+  easy: { label: 'EASY', taken: 0.5, hp: 0.8, think: 1.9, react: 0.4, flow: 0.4, evade: 0.3, strings: -1, tempo: 0.88, clash: 0.75, ultRest: 1.7, window: 1.35, kaio: 0 },
+  normal: { label: 'NORMAL', taken: 1, hp: 1, think: 1, react: 1, flow: 1, evade: 1, strings: 0, tempo: 1, clash: 1, ultRest: 1, window: 1, kaio: 7 },
   // airExt: on Hard the boss stretches its air combos this many times per phase before finishing
-  hard: { label: 'HARD', taken: 1.3, think: 0.7, react: 1.25, airExt: [1, 2, 3] },
+  hard: { label: 'HARD', taken: 1.3, hp: 1, think: 0.7, react: 1.25, flow: 1, evade: 1, strings: 0, tempo: 'form', clash: 1.08, ultRest: 1, window: 1, kaio: 9, airExt: [1, 2, 3] },
 };
 const DIFF_LEVELS = Object.keys(DIFFICULTY);
 settings.difficulty = 'normal';
@@ -98,7 +113,7 @@ const foeOf = f => f === goku ? cell : goku;
 const human = f => f === player || (game.versus && f === boss);
 const ctlOf = f => f === player ? P1 : P2;
 const NAME = f => f.who === 'goku'
-  ? (f.state.startsWith('ult') ? 'GOKU  SSJ3' : f.form === 'ssj' ? 'GOKU  SSJ' : 'GOKU')
+  ? (f.state.startsWith('ult') ? 'GOKU  SSJ3' : GOKU_INFO[f.form].name)
   : f.form === 'junior' ? `CELL JR.  x${game.juniors ? game.juniors.left : 1}` : CELL_INFO[f.form].name;
 
 // Goku as the boss gets stronger in each phase instead of changing body
@@ -106,8 +121,9 @@ const GOKU_BOSS = [{ speed: 1.05, dmgMul: 1 }, { speed: 1.2, dmgMul: 1.2 }, { sp
 
 function reset(side = (game && game.side) || 'goku') {
   for (const f of [goku, cell]) if (f) { sfx.stopSustain(f); sfx.stopKame(f); }
-  goku = new Fighter('goku', side === 'goku' ? PLAYER_HP : BOSS_HP);
-  cell = new Fighter('cell', side === 'cell' ? PLAYER_HP : BOSS_HP);
+  const bossHp = Math.round(BOSS_HP * diff().hp);
+  goku = new Fighter('goku', side === 'goku' ? PLAYER_HP : bossHp);
+  cell = new Fighter('cell', side === 'cell' ? PLAYER_HP : bossHp);
   player = side === 'goku' ? goku : cell;
   boss = foeOf(player);
   setForm(goku, 'base'); setForm(cell, 'imperfect');
@@ -117,14 +133,22 @@ function reset(side = (game && game.side) || 'goku') {
   // the game clock restarts with each fight, so forget presses timed on the old clock
   for (const c of [P1, P2]) withController(c, () => { for (const a in lastPress) delete lastPress[a]; dashReq = null; lastTap.dir = 0; });
   Object.assign(cam, { x: W / 2, y: H / 2, z: 1, focus: null });
-  Stage.reset(); Object.assign(ai, { think: 0.8, vanishCd: 3, ultCd: 6, spam: 0, barrierCd: 5, assistCd: 6, cannonCd: 6, rolled: 0, chase: null, airBeam: false, punishAt: -9 });
+  Stage.reset(); Object.assign(ai, { think: 0.8, vanishCd: 3, ultCd: 6, spam: 0, barrierCd: 5, assistCd: 6, cannonCd: 6, kaioCd: 10, rolled: 0, chase: null, airBeam: false, punishAt: -9 });
   game = { mode: 'title', comboNames: [], menu: [], training: false, ct: 0, cine: null, combo: { n: 0, t: 0, dmg: 0, moves: [], done: new Set() }, bossCombo: { moves: [], done: new Set(), names: [] }, learned: (game && game.learned) || new Set(), side, pick: side === 'cell' ? 1 : 0, time: ROUND_TIME, juniors: null, freeze: 0, shake: 0, flash: 0, phase: 0, slow: 1, banner: null, dlg: null, skip: false, result: null, t: 0, kameCd: 4, stats: newStats(), report: null };
 }
 
 function setForm(f, form) {
   f.form = form;
   if (f.who === 'cell') Object.assign(f, { speed: CELL_INFO[form].speed, dmgMul: CELL_INFO[form].dmgMul, scale: CELL_INFO[form].scale || 1.25 });
-  else Object.assign(f, form === 'ssj' ? { speed: 1.15, dmgMul: 1.35 } : { speed: 1, dmgMul: 1 });
+  else {
+    Object.assign(f, { speed: GOKU_INFO[form].speed, dmgMul: GOKU_INFO[form].dmgMul });
+    // as the boss he has his own numbers for each phase; a Kaioken burst goes on top of them
+    if (game && f === boss && !game.versus && !game.training) {
+      Object.assign(f, GOKU_BOSS[game.phase || 0]);
+      // (his second stage is the Kaioken itself, so only the short bursts of his first stage add to it)
+      if (form === 'kaioken' && !game.phase) { f.speed *= 1.2; f.dmgMul *= 1.15; }
+    }
+  }
   versusHeal(f, form);
 }
 // versus: the first time a fighter reaches a stronger form in a round, it heals a little and its guard

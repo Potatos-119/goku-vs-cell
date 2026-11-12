@@ -1,4 +1,6 @@
 // ---------- projectiles & beams ----------
+// the Special Beam Cannon and the Destructo Disc go through a guard, and through other ki blasts
+const drills = kind => kind === 'cannon' || kind === 'disc';
 // where a projectile's front is: a long beam (with an origin) is drawn from p.x forward
 const tipX = p => p.ox != null ? p.x + p.dir * art(FX_ART[p.kind]).width * p.owner.scale : p.x;
 function updateProjectiles(dt) {
@@ -11,7 +13,7 @@ function updateProjectiles(dt) {
     const len = p.ox != null ? 24 : full, base = p.ox != null ? p.x + p.dir * (full - len) : p.x;
     const x0 = p.dir > 0 ? base : base - len, x1 = p.dir > 0 ? base + len : base;
     if (x1 > b.x0 && x0 < b.x1 && p.y > b.y0 && p.y < b.y1 && foe.visible) {
-      const hit = damage(foe, p.owner, p.dmg, p.heavy, p.dir, 'proj', { token: p.kind, pierce: p.kind === 'cannon' });
+      const hit = damage(foe, p.owner, p.dmg, p.heavy, p.dir, 'proj', { token: p.kind, pierce: drills(p.kind) });
       if (hit) p.dead = true;
       // the boss's ki blast from a cancelled string hit: it rushes in after it (see bossFlow)
       if (hit && p.owner === boss && game.t - (ai.rushNext ?? -9) < 1.2) { ai.rushAt = game.t; ai.rushNext = null; }
@@ -20,8 +22,8 @@ function updateProjectiles(dt) {
     }
     if (!p.dead) for (const q of projs) if (q !== p && !q.dead && q.owner !== p.owner && Math.abs(tipX(q) - tipX(p)) < 14 && Math.abs(q.y - p.y) < 14) {
       // the Special Beam Cannon drills straight through ki blasts
-      if (q.kind !== 'cannon') q.dead = true;
-      if (p.kind !== 'cannon') p.dead = true;
+      if (!drills(q.kind)) q.dead = true;
+      if (!drills(p.kind)) p.dead = true;
       sparks.push({ x: p.x, y: p.y, t: 0, c: '#ffffff' }); sfx.kiHit();
     }
     // gone once it has left the screen; a long beam starts behind the hand, so only count the side it flies to
@@ -35,8 +37,12 @@ function updateProjectiles(dt) {
 }
 
 function beamParts(b) {
-  const B = BEAMS[b.owner.who];
-  return { start: art(B.start), body: art(B.body), head: art(B.head), s: B.scale * (b.big ? 1.7 : 1) };
+  // Super Saiyan Goku in his full gi fires the sheet's own beam (his Kamehameha frames come from it too)
+  // (and the Kaioken's own, from its sheet)
+  if (!b.art) b.art = b.owner.who !== 'goku' ? BEAMS[b.owner.who] : b.owner.form === 'kaioken' ? BEAMS.gokuKaio
+    : b.owner.form === 'ssj' ? BEAMS.gokuSsj : BEAMS.goku;
+  const B = b.art;
+  return { start: art(B.start), body: art(B.body), head: art(B.head), s: B.scale * (b.big ? 1.7 : 1) * (b.size || 1), tile: B.tile, ownHead: B.ownHead };
 }
 
 function updateBeams(dt) {
@@ -102,7 +108,7 @@ function updateBeams(dt) {
     const tire = Math.max(0.75, 1 - clash.t * 0.04);
     // the AI pushes harder each phase, harder still with a giant beam, and hardest in the final clash
     // (the final clash is a fixed, fair push: about 6 presses a second hold it, a little more wins)
-    const push = clash.final ? 0.19 : 0.155 + 0.015 * game.phase + (B.big ? 0.03 : 0);
+    const push = (clash.final ? 0.19 : 0.155 + 0.015 * game.phase + (B.big ? 0.03 : 0)) * diff().clash;
     // in versus there's no AI push: player 2 mashes back (Up, comma or semicolon), press for press
     if (game.versus) { if (['jump', 'punch', 'beam'].some(a => P2.pressed.has(a))) { clash.s -= 0.03; clash.pulse = 1; } }
     else clash.s -= push * surge * tire * dt;
@@ -201,7 +207,7 @@ function drawBeam(b) {
   const P = beamParts(b), s = P.s;
   const sw = P.start.width * s, sh = P.start.height * s;
   const bh = P.body.height * s;
-  const hs = (bh * 1.2) / P.head.height, hw = P.head.width * hs, hh = P.head.height * hs;
+  const hs = P.ownHead ? s : (bh * 1.2) / P.head.height, hw = P.head.width * hs, hh = P.head.height * hs;
   gfx.save();
   gfx.translate(Math.round(b.x0), Math.round(b.y));
   gfx.scale(b.dir, 1);
@@ -214,7 +220,15 @@ function drawBeam(b) {
   // edge, and the head overlaps its end so there's no seam between them
   const grown = L >= sw;
   const headX = clashing ? L : grown ? Math.max(sw - hw * 0.3, L - hw * 0.7) : L - hw * 0.45;
-  if (headX > sw) gfx.drawImage(P.body, 0, 0, P.body.width, P.body.height, sw - 2, -bh / 2 - wob, headX - sw + 6, bh + wob * 2);
+  if (headX > sw && P.tile) {
+    // a stretch of the stream drawn again and again (its ragged edges stay ragged instead of being
+    // smeared into straight lines), the last piece cut to fit
+    const tw = P.body.width * s, end = headX + 6;
+    for (let x = sw - 2; x < end; x += tw - 1) {
+      const w = Math.min(tw, end - x);
+      gfx.drawImage(P.body, 0, 0, P.body.width * (w / tw), P.body.height, x, -bh / 2 - wob, w, bh + wob * 2);
+    }
+  } else if (headX > sw) gfx.drawImage(P.body, 0, 0, P.body.width, P.body.height, sw - 2, -bh / 2 - wob, headX - sw + 6, bh + wob * 2);
   gfx.drawImage(P.start, 0, -sh / 2, Math.max(1, Math.min(sw, L)), sh);
   // energy on top: a soft glow pulsing round it, a white-hot core, and streaks rushing along it, so
   // it reads as a stream of ki pouring out rather than a flat band

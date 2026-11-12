@@ -55,13 +55,17 @@ function iconOf(f) {
     return { im: art(FX_ART.cellFace(angry ? 3 : CELL_INFO[f.form].face)), crop: false };
   }
   const ult = f.state.startsWith('ult');
-  return { im: art(ult ? FX_ART.ssj3Portrait : f.form === 'ssj' ? FX_ART.gokuPortrait : FX_ART.gokuHead), crop: false };
+  return { im: art(ult ? FX_ART.ssj3Portrait : f.form === 'ssj' ? FX_ART.gokuPortrait : f.form === 'kaioken' ? FX_ART.kaioPortrait : FX_ART.gokuHead), crop: false };
 }
 
 function hintFor(g) {
   if (g.who === 'goku') {
-    if (g.form === 'base' && g.ki >= 100) return 'T  SUPER SAIYAN     O  SPIRIT BOMB';
-    if (g.form === 'ssj' && g.ki >= 100 && g.y < FLOOR - 1) return 'O  POWER DOWN + SPIRIT BOMB     S + O  SSJ SPIRIT BOMB';
+    if (g.form === 'base' && g.ki >= 100) return 'T  SUPER SAIYAN     O  SPIRIT BOMB     E  KAIOKEN';
+    if (g.form === 'base' && g.ki >= 50) return g.kaioCd > 0 ? 'U  KAMEHAMEHA' : 'U  KAMEHAMEHA     E  KAIOKEN';
+    if (g.form === 'base' && g.ki >= KAIO_COST && g.kaioCd <= 0) return 'E  KAIOKEN';
+    if (g.form === 'kaioken' && g.ki >= 100) return 'T  SUPER SAIYAN     U  KAMEHAMEHA';
+    if (g.form === 'kaioken') return g.ki >= SUPER_KI.kaioken ? 'O  KAIOKEN FINISH     U  KAMEHAMEHA' : 'E  POWER DOWN';
+    if (g.form === 'ssj' && g.ki >= 100 && g.y < FLOOR - 1) return 'O  POWER DOWN + SPIRIT BOMB';
     if (g.form === 'ssj' && g.ki >= 100) return 'U KAMEHAMEHA   Q + U  INSTANT KAMEHAMEHA   O DRAGON FIST';
     if (g.form === 'ssj' && g.ki >= 50) return 'U  KAMEHAMEHA  (WORKS IN THE AIR TOO)';
   } else {
@@ -171,63 +175,169 @@ function drawDialogue() {
   if (d.shown >= d.text.length && Math.floor(game.t * 3) % 2) text(promptKeys('ENTER'), W - 16, top + 38, 8, '#ffe04a', 'right');
 }
 
-function drawTitle() {
-  drawBackground(0.45);
-  const p = art(FX_ART.gokuPortrait);
-  gfx.drawImage(p, 22, 26, p.width * 1.3, p.height * 1.3);
-  const c = Sheets.frame('cell', '12.0');
-  gfx.save(); gfx.translate(W - 44, 110); gfx.scale(-1.6, 1.6); gfx.drawImage(c, -c.ax, -c.height); gfx.restore();
-  text('GOKU', W / 2 - 4, 30, 32, '#ffb070', 'right');
-  text('VS', W / 2, 58, 22, '#fff', 'center');
-  text('CELL', W / 2 + 4, 30, 32, '#a8e27c', 'left');
-  if (Math.floor(game.t * 2) % 2) text(promptKeys('PRESS ENTER'), W / 2, 96, 14, '#ffe04a', 'center');
-  small('P PAUSE / MENU   M MUSIC   R CALM MODE (LESS SHAKE)   ESC SKIP', W / 2, 156, '#ddd');
-  small('GAMEPAD WORKS TOO: ALL ITS BUTTONS ARE IN PAUSE > CONTROLS', W / 2, 165, '#aaa');
+// ---------- title and fighter select ----------
+// a filled shape from its corners
+function poly(pts, fill) {
+  gfx.beginPath(); pts.forEach(([x, y], i) => i ? gfx.lineTo(x, y) : gfx.moveTo(x, y)); gfx.closePath();
+  gfx.fillStyle = fill; gfx.fill();
+}
+// a bar leaning to the right (its top edge is lean further right than its bottom): the shape the menus,
+// name plates and panels are cut from
+const slantBar = (x, y, w, h, lean, fill) => poly([[x + lean, y], [x + w + lean, y], [x + w, y + h], [x, y + h]], fill);
+// draw() clipped to a leaning panel
+function slantClip(x, y, w, h, lean, draw) {
+  gfx.save();
+  const m = gfx.st.m.slice();
+  gfx.transform(1, 0, -lean / h, 1, x + lean, y); gfx.beginPath(); gfx.rect(0, 0, w, h); gfx.clip();
+  gfx.st.m = m; draw(); gfx.restore();
+}
+const easeOut = k => 1 - Math.pow(1 - clamp(k, 0, 1), 3);
+// one frame of a cut-in's strip, as a picture for a panel (null until the image has loaded)
+// crop: the part of the frame to keep, as shares of it [x, y, width, height]
+function cutinFrame(id, i, crop = [0, 0, 1, 1]) {
+  const C = CUTINS[id];
+  if (!C.img.complete || !C.img.naturalWidth) return null;
+  const [sx, sy] = C.cells ? C.cells[i] : [(i % C.cols) * C.w, Math.floor(i / C.cols) * C.h];
+  return { img: C.img, sx: sx + crop[0] * C.w, sy: sy + crop[1] * C.h, w: C.w * crop[2], h: C.h * crop[3] };
+}
+// the close-up each fighter's panel shows: Goku's glare, Perfect Cell's smirk (his face is on the right
+// of that frame, past the hand he's lowering)
+const FACE_ART = { goku: ['gokuSsj', 2], cell: ['cellPerfect', 33, [0.5, 0, 0.5, 0.8]] };
+const SIDE_COLOR = { goku: ['#ff9a3a', '#ffcf7a', 'rgba(255,120,20,'], cell: ['#62d04c', '#b8f29a', 'rgba(60,200,90,'] };
+// a fighter's panel: the close-up filling it, tinted in their colour, darker towards the bottom, with a
+// bright edge. on: 0..1, how lit it is (the fighter not picked is dimmed)
+function facePanel(who, x, y, w, h, lean, on = 1, drift = 0) {
+  const f = cutinFrame(...FACE_ART[who]), [edge, , tint] = SIDE_COLOR[who];
+  slantClip(x, y, w, h, lean, () => {
+    gfx.fillStyle = '#0c0a18'; gfx.fillRect(x - 2, y, w + lean + 4, h);
+    if (f) {
+      // fill the panel's width (it's wider than it is tall), drifting slowly so it isn't a still
+      const k = Math.max((w + lean + 10) / f.w, h / f.h) * 1.06, dw = f.w * k, dh = f.h * k;
+      gfx.globalAlpha = 0.35 + 0.65 * on; gfx.imageSmoothingEnabled = true;
+      gfx.drawImage(f.img, f.sx, f.sy, f.w, f.h, x + (w + lean - dw) / 2 + drift, y + (h - dh) / 2, dw, dh);
+      gfx.globalAlpha = 1; gfx.imageSmoothingEnabled = false;
+    }
+    gfx.fillStyle = tint + (0.1 + 0.12 * on) + ')'; gfx.fillRect(x - 2, y, w + lean + 4, h);
+    const g = gfx.createLinearGradient(0, y + h * 0.35, 0, y + h);
+    g.addColorStop(0, 'rgba(8,6,20,0)'); g.addColorStop(1, 'rgba(8,6,20,0.92)');
+    gfx.fillStyle = g; gfx.fillRect(x - 2, y, w + lean + 4, h);
+    // speed lines racing across it
+    gfx.fillStyle = 'rgba(255,255,255,0.13)';
+    for (let i = 0; i < 6; i++) {
+      const ly = y + 6 + ((i * 37) % (h - 12)), lx = x - 40 + ((game.t * (90 + i * 23) + i * 71) % (w + lean + 80));
+      gfx.fillRect(lx, ly, 14 + (i % 3) * 9, 1);
+    }
+  });
+  // its edge, lit in the fighter's colour
+  gfx.strokeStyle = edge; gfx.lineWidth = 1; gfx.globalAlpha = 0.35 + 0.65 * on;
+  gfx.beginPath(); gfx.moveTo(x + lean, y); gfx.lineTo(x + w + lean, y); gfx.lineTo(x + w, y + h); gfx.lineTo(x, y + h); gfx.closePath(); gfx.stroke();
+  gfx.globalAlpha = 1;
+}
+// a fighter standing in their stance, k times life size, feet at (x, y)
+function standing(who, form, x, y, k, facing = 1, alpha = 1) {
+  const A = ANIMS[who][form].idle, im = Sheets.frame(who, A.fr[Math.floor(game.t * A.fps) % A.fr.length]);
+  const s = k * (who === 'cell' ? 1.25 : 1), breath = A.breathe ? Math.sin(game.t * 2.6) * 0.018 : 0;
+  gfx.fillStyle = 'rgba(0,0,20,0.4)'; gfx.beginPath(); gfx.ellipse(x, y + 1, 12 * k, 2.5 * k, 0, 0, Math.PI * 2); gfx.fill();
+  gfx.save(); gfx.globalAlpha = alpha; gfx.translate(Math.round(x), Math.round(y)); gfx.scale(facing * s, s * (1 + breath));
+  gfx.drawImage(im, -Math.round(im.ax), -im.height); gfx.restore();
 }
 
-const CONTROLS = {
-  goku: [
-    'J PUNCH  K KICK  (CHAIN THEM)  L KI BLAST',
-    'TOWARD + J RUSH   TOWARD + K SLASH',
-    'T SUPER SAIYAN   U KAMEHAMEHA   O DRAGON FIST',
-    'FULL KI (SSJ): Q THEN U, OR U THEN Q = INSTANT KAMEHAMEHA',
-  ],
-  cell: [
-    'J PUNCH  K KICK  (CHAIN THEM)  L FINGER BEAM',
-    'TOWARD + L BARRAGE   G BARRIER   E JUNIOR   J+K ABSORB',
-    'T EVOLVE   U DEATH BEAM / KAMEHAMEHA   IN THE AIR: Q VANISH',
-    'O SOLAR KAMEHAMEHA (PERFECT, FULL KI)',
-  ],
-};
-const STORY = {
-  goku: ['Stop Cell before he', 'absorbs the androids', 'and becomes PERFECT.'],
-  cell: ['Absorb the power of', 'a Saiyan, evolve and', 'become PERFECT.'],
+function drawTitle() {
+  const t = game.t, inK = easeOut(t / 0.55), off = (1 - inK) * 170;
+  drawBackground(0.7);
+  gfx.fillStyle = 'rgba(6,5,16,0.55)'; gfx.fillRect(0, 0, W, H);
+  // the two of them, face to face across a slash of light
+  facePanel('goku', -22 - off, 16, 168, 104, 26, 1, Math.sin(t * 0.5) * 2);
+  facePanel('cell', 174 + off, 16, 168, 104, 26, 1, -Math.sin(t * 0.5) * 2);
+  const slash = 0.55 + 0.45 * Math.sin(t * 5);
+  poly([[172, 16], [176, 16], [150, 120], [146, 120]], `rgba(255,236,150,${0.5 + 0.4 * slash})`);
+  poly([[166, 16], [168, 16], [142, 120], [140, 120]], 'rgba(255,255,255,0.35)');
+  poly([[180, 16], [182, 16], [156, 120], [154, 120]], 'rgba(255,255,255,0.35)');
+  // the ring they stand on, and the fighters themselves
+  const g = gfx.createLinearGradient(0, 118, 0, H);
+  g.addColorStop(0, 'rgba(6,5,16,0)'); g.addColorStop(0.35, 'rgba(6,5,16,0.9)'); g.addColorStop(1, '#06050f');
+  gfx.fillStyle = g; gfx.fillRect(0, 108, W, H - 108);
+  standing('goku', 'base', 40 - off * 0.6, 156, 1.6, 1, inK);
+  standing('cell', 'perfect', W - 40 + off * 0.6, 156, 1.6, -1, inK);
+  // the names, slamming in
+  const pop = 1 + (1 - easeOut((t - 0.25) / 0.3)) * 0.8, show = t > 0.25;
+  if (show) {
+    slantBar(84, 96, 152, 30, 8, 'rgba(6,5,16,0.82)');
+    slantBar(84, 96, 152, 1, 8, '#ffd23a'); slantBar(76.5, 125, 152, 1, 0, '#ffd23a');
+    text('GOKU', 144, 97, 26 * pop, '#ffb070', 'right', '#5a1a00');
+    text('CELL', 180, 97, 26 * pop, '#a8e27c', 'left', '#0c3a10');
+    text('VS', 162, 94 - (pop - 1) * 6, 32 * pop, '#ffffff', 'center', '#c8102e');
+    small('THE  CELL  GAMES', W / 2, 129, '#ffe9a8', 'center', 5);
+  }
+  if (t > 0.8) {
+    // the prompt, on a bar that breathes
+    const beat = 0.5 + 0.5 * Math.sin(t * 4.2);
+    slantBar(108, 142, 100, 13, 4, `rgba(255,210,58,${0.72 + 0.28 * beat})`);
+    text(promptKeys('PRESS ENTER'), W / 2 + 2, 143, 11, '#1b1030', 'center', 'none');
+    small(promptKeys('P PAUSE    M MUSIC    R CALM MODE    ESC SKIP A SCENE'), W / 2, 162, '#b9b4d8', 'center', 4);
+    small('KEYBOARD OR GAMEPAD   -   STORY, TRAINING, VERSUS AND ONLINE', W / 2, 170, '#77739a', 'center', 4);
+  }
+  // top strip
+  slantBar(-4, 3, 118, 9, 3, 'rgba(6,5,16,0.8)'); small('A DRAGON BALL FAN GAME', 6, 5, '#ffd23a', 'left', 4);
+  if (t < 0.25) { gfx.fillStyle = `rgba(255,250,220,${(0.25 - t) * 3})`; gfx.fillRect(0, 0, W, H); }
+}
+
+// What each fighter is about, for the select screen: their forms left to right, and what they play like
+const ROSTER = {
+  goku: { forms: [['BASE', () => FX_ART.gokuHead], ['KAIOKEN', () => FX_ART.kaioPortrait], ['SUPER SAIYAN', () => FX_ART.gokuPortrait]],
+    line: 'KAIOKEN FOR SPEED, SUPER SAIYAN FOR POWER', story: 'STOP CELL BEFORE HE BECOMES PERFECT',
+    stats: [['POWER', 4], ['SPEED', 5], ['RANGE', 3]], show: 'base' },
+  cell: { forms: [['IMPERFECT', () => FX_ART.cellFace(0)], ['SEMI-PERFECT', () => FX_ART.cellFace(1)], ['PERFECT', () => FX_ART.cellFace(2)]],
+    line: 'ABSORB, EVOLVE, CALL THE CELL JUNIORS', story: 'TAKE A SAIYAN\'S POWER AND BECOME PERFECT',
+    stats: [['POWER', 5], ['SPEED', 3], ['RANGE', 4]], show: 'imperfect' },
 };
 
 function drawSelect() {
-  drawBackground(0.55);
-  text('CHOOSE YOUR FIGHTER', W / 2, 3, 16, '#ffe04a', 'center');
-  [['goku', 80], ['cell', 240]].forEach(([who, cx], i) => {
-    const on = game.pick === i, pulse = on ? Math.floor(game.t * 4) % 2 : 0;
-    gfx.fillStyle = on ? 'rgba(40,30,70,0.9)' : 'rgba(10,8,20,0.75)'; gfx.fillRect(cx - 52, 30, 104, 100);
-    gfx.strokeStyle = on ? (pulse ? '#fff6b0' : '#ffd23a') : '#444'; gfx.lineWidth = on ? 2 : 1; gfx.strokeRect(cx - 52, 30, 104, 100);
-    if (who === 'goku') {
-      const im = art(on ? FX_ART.gokuPortrait : FX_ART.gokuHead);
-      icon(im, cx - 48, 34, !on, false, 44);
-      const body = Sheets.frame('goku', on ? '11.0' : '0.2');
-      gfx.drawImage(body, cx + 26 - body.ax, 80 - body.height, body.width, body.height);
-    } else {
-      icon(art(FX_ART.cellFace(on ? 2 : 0)), cx - 48, 34, false, false, 44);
-      const body = Sheets.frame('cell', on ? '12.0' : '0.0');
-      gfx.save(); gfx.translate(cx + 26, 80); gfx.scale(-1.1, 1.1); gfx.drawImage(body, -body.ax, -body.height); gfx.restore();
-    }
-    text(who.toUpperCase(), cx - 48, 82, 16, who === 'goku' ? '#ffb070' : '#a8e27c');
-    STORY[who].forEach((l, k) => small(l, cx - 48, 102 + k * 8, '#ddd', 'left'));
+  const t = game.t;
+  drawBackground(0.72);
+  gfx.fillStyle = 'rgba(6,5,16,0.6)'; gfx.fillRect(0, 0, W, H);
+  // header (a menu opened over this screen brings its own)
+  const bare = game.menu.length > 0;
+  if (!bare) {
+    slantBar(-6, 5, 150, 15, 5, '#ffd23a'); slantBar(146, 5, 6, 15, 5, 'rgba(255,210,58,0.45)'); slantBar(155, 5, 3, 15, 5, 'rgba(255,210,58,0.25)');
+    text('CHOOSE YOUR FIGHTER', 8, 6, 12, '#1b1030', 'left', 'none');
+    small(promptKeys('A / D  CHOOSE      ENTER  SELECT'), W - 6, 10, '#d8d4f0', 'right', 4);
+  }
+  [['goku', 12], ['cell', 166]].forEach(([who, x], i) => {
+    const on = game.pick === i, R = ROSTER[who], [edge, pale] = SIDE_COLOR[who];
+    const lit = on ? 1 : 0.25, y = on ? 26 : 30, h = on ? 122 : 114, w = 130;
+    // the card: their close-up up top, fading into the dark their details sit on
+    facePanel(who, x, y, w, h, 12, lit, on ? Math.sin(t * 0.6) * 2 : 0);
+    if (on) { gfx.strokeStyle = Math.floor(t * 4) % 2 ? '#ffffff' : edge; gfx.lineWidth = 1.5; gfx.beginPath(); gfx.moveTo(x + 12, y); gfx.lineTo(x + w + 12, y); gfx.lineTo(x + w, y + h); gfx.lineTo(x, y + h); gfx.closePath(); gfx.stroke(); }
+    // the fighter, in the form they start in (the one picked flexes through their forms)
+    const forms = who === 'goku' ? ['base', 'kaioken', 'ssj'] : ['imperfect', 'semi', 'perfect'];
+    const fi = on ? Math.floor(t / 1.6) % 3 : 0;
+    standing(who, forms[fi], x + (who === 'goku' ? 100 : 104), y + h - 44, on ? 1.5 : 1.2, who === 'goku' ? -1 : 1, on ? 1 : 0.55);
+    gfx.globalAlpha = on ? 1 : 0.5;
+    text(who.toUpperCase(), x + 8, y + h - 76, 20, on ? pale : '#999', 'left');
+    // their forms, the one on show lit
+    R.forms.forEach(([name, artOf], k) => {
+      const ix = x + 8 + k * 19, iy = y + h - 54;
+      icon(art(artOf()), ix, iy, false, false, 16);
+      if (on && k === fi) { gfx.strokeStyle = '#ffd23a'; gfx.lineWidth = 1; gfx.strokeRect(ix - 0.5, iy - 0.5, 17, 17); }
+    });
+    small(on ? R.forms[fi][0] : R.forms[0][0], x + 8, y + h - 34, on ? '#ffd23a' : '#888', 'left', 4);
+    // what they're like
+    R.stats.forEach(([name, n], k) => {
+      const sy = y + h - 26 + k * 6;
+      small(name, x + 5, sy, '#b9b4d8', 'left', 4);
+      for (let b = 0; b < 5; b++) slantBar(x + 34 + b * 8, sy, 6, 3.5, 1, b < n ? edge : 'rgba(255,255,255,0.14)');
+    });
+    gfx.globalAlpha = 1;
+    if (on) { slantBar(x + 78, y + h - 9, 44, 9, 2, edge); small('PLAYER 1', x + 101, y + h - 7, '#1b1030', 'center', 4); }
   });
-  gfx.fillStyle = 'rgba(0,0,0,0.65)'; gfx.fillRect(0, 136, W, 44);
-  CONTROLS[game.pick ? 'cell' : 'goku'].forEach((l, i) => fitSmall(promptKeys(l), W / 2, 140 + i * 8, W - 8, '#fff', 'center'));
-  fitSmall(promptKeys('A/D MOVE  DOUBLE-TAP A/D DASH (AIR TOO)  W JUMP  S BLOCK  I CHARGE  Q VANISH'), W / 2, 172, W - 8, '#aaa', 'center');
-  if (Math.floor(game.t * 2) % 2) small(promptKeys('A / D  CHOOSE     ENTER  STORY / TRAINING / GUIDE'), W / 2, 22, '#fff');
+  if (bare) return;
+  // footer: what the picked fighter is about
+  const R = ROSTER[sideOfPick()];
+  gfx.fillStyle = 'rgba(6,5,16,0.86)'; gfx.fillRect(0, 153, W, 27); slantBar(-4, 152, W + 8, 1, 0, '#ffd23a');
+  text(R.story, W / 2, 155, 9, '#fff', 'center');
+  fitSmall(R.line + '     ' + promptKeys(sideOfPick() === 'goku' ? 'E KAIOKEN   T SUPER SAIYAN   U KAMEHAMEHA   G SOLAR FLARE   Y DISC' : 'T EVOLVE   U KAMEHAMEHA   G BARRIER   E JUNIOR'), W / 2, 167, W - 10, '#ffd9a0', 'center', 4);
+  fitSmall(promptKeys('J PUNCH  K KICK  L KI BLAST  S BLOCK  I CHARGE  Q VANISH  -  THE FULL MOVE LIST IS ONE ENTER AWAY'), W / 2, 174, W - 10, '#8f8bb0', 'center', 4);
 }
 
 function render() {
@@ -282,11 +392,11 @@ function render() {
   }
   // Goku's signature pressure aura; keep it behind the sprite so the pose stays readable.
   if (goku.visible && goku.aura > 0.02) {
-    FX.kiAura(gfx, goku.x, goku.y - goku.hover, goku.scale, game.t, (goku.auraPeak || 0.5) * (0.6 + 0.4 * goku.aura), goku.form === 'ssj' || goku.state === 'transform' || goku.state === 'ult1', settings.calm, goku.aura);
+    FX.kiAura(gfx, goku.x, goku.y - goku.hover, goku.scale, game.t, (goku.auraPeak || 0.5) * (0.6 + 0.4 * goku.aura), auraOf(goku), settings.calm, goku.aura);
   }
   for (const m of kiMotes) {
     gfx.save(); gfx.globalAlpha = Math.max(0, 1 - m.t / m.life); gfx.fillStyle = m.c;
-    const r = m.t < 0.12 ? 1.4 : 0.8; gfx.fillRect(Math.round(m.x), Math.round(m.y), r, r); gfx.restore();
+    const r = m.big ? 2 : m.t < 0.12 ? 1.4 : 0.8; gfx.fillRect(Math.round(m.x), Math.round(m.y), r, r); gfx.restore();
   }
   for (const z of zips) {
     gfx.save(); gfx.globalAlpha = 0.85 * (1 - z.t / 0.3);
@@ -310,6 +420,14 @@ function render() {
   gfx.section('fx', true);
   // Barrier bursts: a bright sphere that swells and fades
   for (const b of bursts) {
+    if (b.flare) {
+      // a Solar Flare going off: the streak of light across his forehead, and the ring spreading from it
+      const k = b.t / 0.35, ring = art(FX_ART.flareRing), fl = art(FX_ART.flareFlash), s = 0.5 + k * 2.2;
+      gfx.save(); gfx.globalCompositeOperation = 'lighter'; gfx.globalAlpha = (1 - k) * (settings.calm ? 0.4 : 1);
+      gfx.drawImage(fl, b.x - fl.width * (0.5 + k * 0.5), b.y - fl.height / 2, fl.width * (1 + k), fl.height);
+      gfx.drawImage(ring, b.x - ring.width * s / 2, b.y - ring.height * s / 2, ring.width * s, ring.height * s);
+      gfx.restore(); continue;
+    }
     const k = b.t / 0.35, r = 10 + k * 52;
     gfx.save(); gfx.globalCompositeOperation = 'lighter'; gfx.globalAlpha = (1 - k) * (settings.calm ? 0.4 : 0.8);
     const g = gfx.createRadialGradient(b.x, b.y, r * 0.5, b.x, b.y, r);
@@ -324,7 +442,8 @@ function render() {
   drawSpirit();
   if (game.bean) drawBean(game.bean);
   for (const p of projs) {
-    const im = art(FX_ART[p.kind]);
+    // (the disc spins: its two frames in turn)
+    const im = art(p.kind === 'disc' && Math.floor(game.t * 16) % 2 ? FX_ART.disc2 : FX_ART[p.kind]);
     const ps = p.owner.scale;
     const pz = ps * (p.size || 1);
     gfx.save(); gfx.translate(Math.round(p.x), Math.round(p.y)); gfx.scale(p.dir * pz, pz);
@@ -353,8 +472,12 @@ function render() {
     text(b.text, W / 2, 62 - (1 - pop) * 10, 28, '#ffe04a', 'center', '#7a1a00');
   }
   if (game.mode === 'end') {
-    text(game.result === 'draw' ? 'DRAW!' : game.versus ? (game.result === 'win' ? 'P1 WINS!' : 'P2 WINS!') : game.result === 'win' ? 'YOU WIN!' : `${boss.who.toUpperCase()} WINS`, W / 2, 46, 28, game.result === 'draw' ? '#ffffff' : game.result === 'win' ? '#ffe04a' : '#ff8a6a', 'center');
-    if (Math.floor(game.t * 2) % 2) text(promptKeys('ENTER  FIGHT AGAIN      ESC  CHOOSE FIGHTER'), W / 2, 82, 9, '#fff', 'center');
+    // the verdict up top, the score sheet under it, and the prompt along the bottom: everything clear of
+    // the ring, where the winner is playing out their victory (the sheet used to sit right on top of them)
+    const verdict = game.result === 'draw' ? 'DRAW!' : game.versus ? (game.result === 'win' ? 'P1 WINS!' : 'P2 WINS!') : game.result === 'win' ? 'YOU WIN!' : `${boss.who.toUpperCase()} WINS`;
+    text(verdict, W / 2, game.report ? 2 : 40, 26, game.result === 'draw' ? '#ffffff' : game.result === 'win' ? '#ffe04a' : '#ff8a6a', 'center');
+    slantBar(60, 167, 200, 11, 3, 'rgba(6,5,16,0.8)');
+    if (Math.floor(game.t * 2) % 2) text(promptKeys('ENTER  RETRY      ESC  CHOOSE FIGHTER'), W / 2 + 1, 168, 8, '#fff', 'center');
     drawResults();
   }
   if (game.cutin) drawCutin();

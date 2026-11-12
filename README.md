@@ -5,30 +5,45 @@ fight the other one.
 
 **[Play it in your browser](https://potatos-119.github.io/goku-vs-cell/)** (keyboard or gamepad, nothing to install).
 
+![Title screen](assets/gifs/title.gif)
+
 Play Goku and you're trying to stop Cell before he gets perfect. He goes Semi-Perfect at 2/3 health,
 sends in three Cell Juniors at 1/3, then comes back as Perfect Cell for the last stretch. Play Cell and
-it flips: you evolve yourself (T at full ki) and Goku is the boss, going Super Saiyan at 2/3 and all out
-at 1/3.
-
-The boss gets meaner every phase. It punishes whiffs, charging and broken guards, vanishes behind you
-from phase two, answers beams with its own, and Super Dashes through ki blast spam. Both bosses use the
-same named combos you can (Sky Chase, Meteor Smash, Wall Splat, Vanish Strike and the rest), and the
-name pops up on their side of the screen when they land one on you.
+it flips: you evolve yourself (T at full ki) and Goku is the boss, going Kaioken at 2/3 and Super Saiyan
+at 1/3. Beat the last phase and it ends in one final beam clash.
 
 ## In action
 
 | | |
 |---|---|
-| ![Final clash](assets/gifs/final-clash.gif) | ![Super Saiyan](assets/gifs/ssj-transform.gif) |
-| The final clash: mash Space to win it | Super Saiyan, trasformation |
+| ![Kaioken](assets/gifs/kaioken.gif) | ![Super Saiyan](assets/gifs/ssj-transform.gif) |
+| Kaioken, then its finisher | Super Saiyan's rush into a Kamehameha |
+| ![Spirit Bomb](assets/gifs/spirit-bomb.gif) | ![Final clash](assets/gifs/final-clash.gif) |
+| Spirit Bomb from the air: land it and he turns Super Saiyan | The final clash: mash Space to win it |
 | ![Perfect Cell](assets/gifs/perfect-cell.gif) | ![Re-launch and dunk](assets/gifs/relaunch-dunk.gif) |
 | Perfect Cell's reveal | Air combo: launcher, re-launch, dunk |
-| ![Beam clash](assets/gifs/beam-clash.gif) | ![Spirit Bomb](assets/gifs/spirit-bomb.gif) |
-| Beam clash | Spirit Bomb |
-| ![Instant Kamehameha](assets/gifs/instant-kamehameha.gif) | ![Special Beam Cannon](assets/gifs/special-beam-cannon.gif) |
-| Instant Kamehameha | Special Beam Cannon |
 
 All recorded from the game.
+
+## Forms
+
+| Goku | |
+|---|---|
+| Base | Runs on foot. Kamehameha (U), Spirit Bomb (O at full ki). Throw it from the air and it turns him Super Saiyan if it lands |
+| Kaioken (E, 25 ki) | The fastest form. Burns ki while it's on, two air dashes, O (50 ki) is its finisher: a rush, a kick that sends them up, and a Kamehameha aimed up at them |
+| Super Saiyan (T at full ki, or T right after a hit lands to turn mid-combo) | Hits hardest. Instant Kamehameha (Instant Transmission from the ground or the air), and O is the Dragon Fist in his full gi or a rush into a Kamehameha once it's torn |
+
+| Cell | |
+|---|---|
+| Imperfect | His grab heals him the most |
+| Semi-Perfect | His hits break a guard faster |
+| Perfect | The quick one: two air dashes, Cell Juniors, Solar Kamehameha |
+
+When Goku is down to 45% health his gi top gets torn off and he fights on in the blue undershirt.
+Going Kaioken tears it too.
+
+The two O attacks above (Kaioken's, and Super Saiyan's with the gi torn) start with a dash. Block it,
+jump it or vanish and nothing happens. If it lands, the rest plays out by itself.
 
 ## Running it
 
@@ -52,56 +67,82 @@ Open http://localhost:8766 and press Enter.
 | J + K or F | Grab (goes through a block) |
 | L | Ki blast, hold it to charge |
 | I | Charge ki |
+| U | Kamehameha |
+| E | Kaioken (Goku) / Cell Junior (Perfect Cell) |
 | T | Super Saiyan / evolve |
 | Q | Vanish behind them |
-| U | Kamehameha |
 | O | Finisher at full ki |
-| P | Pause: move list, combo list, controls, options |
+| G / Y | Cell's Barrier / Special Beam Cannon |
+| P | Pause: retry, move list, combo list, controls, options |
 | M / R | Music / calm mode (less shake and flashing) |
 | F2 | FPS counter (also in Options) |
 
-A gamepad works too (Xbox or PlayStation): plug it in and the tips switch to its buttons. On a pad,
-Cell's Barrier, Cell Junior and Special Beam Cannon are guard + ki, guard + kick and guard + beam.
-Every key and button can be changed in OPTIONS > KEYS & BUTTONS (player 1, player 2 and gamepad), and
-it's saved. The full move list and every combo are in the pause menu, and training mode (pick it after
-choosing a fighter) has a dummy you can set up and a checklist of combos to try.
+A gamepad works too (Xbox or PlayStation): plug it in and the tips switch to its buttons. Every key and
+button can be changed in OPTIONS > KEYS & BUTTONS, and it's saved. The full move list and every combo
+are in the pause menu.
 
-Options cover difficulty, volume, calm mode and the arena, and they're saved between visits.
+## Modes
 
-There's a versus mode too, for two people on one keyboard or gamepads: pick VERSUS after choosing a
-fighter. On the versus screen you choose who plays Goku and who plays Cell, and which player each
-gamepad is. Player 2's keys are the arrows and the keys around Enter (KEYS FOR EACH PLAYER shows them
-all). Both start with 200 health, and transforming heals a little the first time each round (Super Saiyan +40,
-each of Cell's evolutions +20), so powering up is a way back into a fight you're losing.
+Story is the boss fight. You get a score sheet and a grade when you win.
 
-To play a friend on another computer, pick ONLINE instead: one of you creates a room and reads out the
-4-letter code, the other types it in. The one who made the room runs the fight; the other's screen
-shows it and sends their keys back (they play with the normal keys). The two browsers connect
-directly (WebRTC, through the free PeerJS service, which only introduces them), so it's free and
-needs no server of ours. Some school or office networks block direct connections; then it won't
-connect.
+Training gives you a dummy you can set up and a checklist of combos to try. If the checklist is in
+your way, hide it in TRAINING SETTINGS.
+
+Versus is two people on one keyboard or on gamepads.
+
+For Online, one of you creates a room and reads out the 4-letter code, and the other types it in. The
+two browsers connect directly (WebRTC, through the free PeerJS service), so there's no server of mine
+in the middle. Some school and office networks block that, and then it just won't connect.
+
+There are three difficulties in Options. On Easy the boss hits for half, has less health, thinks
+slower and throws shorter combos.
 
 ## Files
 
 - `game/`: the game, one file per system (input, combat, boss AI, cutscenes, menus, rendering), loaded
   in order as plain scripts
-- `data.js`: the frames for each move, the move list and the combo list
+- `data.js`: the frames for each move, what each form is like, the move list and the combo list
 - `gfx.js`: the renderer. There's no canvas: the game is drawn as SVG, one element per shape, sprite or
-  line of text, and elements are reused from frame to frame so only what changed gets touched
+  line of text
 - `frames.js`: loads the sprite frames, already cut out and packed into one atlas in `assets/frames/`
-- `sheets.js`: cuts those frames out of the original sheets. Only the bake tool uses it
+- `sheets.js`: cuts those frames out of the sheets. Only the bake tool uses it
+- `goku-forms.js` and `assets/sheets/goku-forms.png`: Goku's looks (base, torn gi, Kaioken, Super
+  Saiyan), made by `tools/goku-forms.py`
+- `tools/sheet-rebuild.py`: turns the small preview of a sprite sheet back into sharp pixels
 - `audio.js`: music, sound effects and the sound slice table
-- `net.js`: online play (rooms, sending the host's screen and sounds to the guest, the guest's keys back)
+- `net.js`: online play
 - `stage.js`: the arena and the damage the fight does to it
-- `tools/balance.js`: plays the boss at high speed and measures how hard it hits per phase
-- `tools/bake.html`: re-bakes the frames after a sheet changes (`tools/atlas.html` shows the result)
-- `tools/scene.js`: freezes the game on a fixed scene, for comparing screenshots between versions
-- `tools/frames.html`, `tools/sounds.html`: browse sheet frames and sound slices
+- `tools/checks.js`: a check for each bug that was fixed. Paste it in the console and run `await runChecks()`
+- `tools/fuzz.js`: plays random fights fast and looks for crashes and stuck states
+- `tools/balance.js`: measures how hard the boss hits on each difficulty
+- `tools/bake.html`: re-bakes the frames after a sheet changes
+- `tools/bake-add.py`: bakes only the frames that are new, without a browser
+- `tools/ssj-kame.py`, `tools/ssj-moves.py`: Super Saiyan's Kamehameha, Instant Transmission and full-gi
+  transformation, cut from the sheets
+- `tools/record-gifs.js`: records GIFs from the real game (`node tools/record-gifs.js`, needs puppeteer)
 
-The boss tuning lives in `BOSS_FLOW` and `BOSS_COMBO_BUDGET` in `game/boss-ai.js`.
+## Changing the sprites
+
+1. `python3 tools/goku-forms.py` rebuilds Goku's looks (needs pillow, numpy and scipy).
+2. Open `tools/bake.html`, press Bake, then run `node tools/write-frames.js ~/Downloads/frames-bake.json`.
+   To add only new frames cut by exact rectangles, without a browser: `python3 tools/bake-add.py`.
+
+The two Super Saiyan sheets I could get were shrunken previews; `tools/sheet-rebuild.py` worked out
+the sharp sheets (`goku-ssj-first.png`, `goku-super-saiyan.png`) from them. It worked well on the
+torn-gi sheet (94% of full size) and badly on the full-gi one (76%). So Super Saiyan's frames all come
+from the torn-gi sheet, and for his full gi the tool recolours them, using the other sheet only to tell
+where the gi is orange. His full-gi Kamehameha (the poses and the beam) comes from a sharp strip of the
+sheet: `python3 tools/ssj-kame.py STRIP.png` scales its smaller poses up 1.25x (Scale2x, so the edges
+stay sharp) into `assets/sheets/goku-ssj-kame.png`. His Instant Transmission and full-gi transformation come from the soft
+full-gi sheet: `python3 tools/ssj-moves.py` sharpens them and snaps every pixel to the colours the sharp
+sheets use, into `assets/sheets/goku-ssj-moves.png`.
 
 ## Credits
 
-Dragon Ball and its characters belong to Akira Toriyama, Bird Studio and Toei Animation. The sprites,
-music, sound effects and cut-ins come from fan sprite sheets and recordings. This is a fan project made
-for learning, not for sale.
+Dragon Ball and its characters belong to Akira Toriyama, Bird Studio and Toei Animation.
+
+The Goku sprites are Ultimate LSW fan sheets: Goku by qsab101, omegasuper, xbae12 and tougarashi635,
+Kaioken by kaval2003, Super Saiyan by mrruben7 and Que, sheets put together by 2ruffles and PeculiarDoc.
+The music, sound effects and cut-ins come from fan recordings and edits.
+
+This is a fan project made for learning, not for sale.

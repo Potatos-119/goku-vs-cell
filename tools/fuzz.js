@@ -19,7 +19,7 @@
   const MAX_IN_STATE = {
     hurt: 3, knock: 7, tele: 1.5, airAtk: 3, attack: 3, cast: 3, dash: 1.5, windup: 1.5, appear: 2, land: 1.5,
     barrier: 1.5, kameCharge: 4, kameFire: 24, pose: 3, spirit: 4, spiritThrow: 2, ult1: 3, ult2: 3, ult3: 3,
-    transform: 4, evolve: 3, powerDown: 3, kiHold: 3, down: 2.5, jump: 4,
+    transform: 4, evolve: 3, kaioUp: 2, flare: 1.5, superUp: 1.5, superDash: 1.5, powerDown: 3, kiHold: 3, down: 2.5, jump: 4,
   };
   const MAX_IN_MODE = { cut: 60, ko: 40, ready: 6, intro: 90 };
 
@@ -100,7 +100,7 @@
           if (f.y > FLOOR + 0.5 || f.y < -120) report('out of the ring', `${f.who}.y = ${f.y.toFixed(1)} in ${f.state}`);
           if (f.hp < 0 || f.hp > f.maxHp + 0.01) report('health out of range', `${f.who}.hp = ${f.hp.toFixed(2)} / ${f.maxHp}`);
           if (f.ki < -0.01 || f.ki > 100.01) report('ki out of range', `${f.who}.ki = ${f.ki.toFixed(2)} in ${f.state} (${f.anim})`);
-          if (!ANIMS[f.who][f.form][f.anim] && !ANIMS[f.who].base[f.anim]) report('missing animation', `${f.who} ${f.form} has no "${f.anim}" (state ${f.state})`);
+          if (!f.A()) report('missing animation', `${f.who} ${f.form} has no "${f.anim}" (state ${f.state})`);
           if (game.mode === 'fight') {
             const w = watch.get(f) || { state: null, t: 0 };
             if (w.state === f.state) w.t += 1 / 60; else { w.state = f.state; w.t = 0; }

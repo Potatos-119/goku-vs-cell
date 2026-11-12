@@ -22,6 +22,14 @@ function closeAllMenus() {
   game.menu = [];
   if (game.mode === 'paused') { game.mode = 'fight'; Audio8.music.play(); resumeCombatAudio(); }
 }
+// Start the same fight over (the pause menu's RETRY, and ENTER on the result screen): story from the
+// first stage without the intro, versus from full health, training as it was set up
+function retryFight() {
+  game.menu = [];
+  if (game.training) return startTraining(game.side);
+  if (game.versus) return startVersus(game.side);
+  reset(); Audio8.music.play('bg', true); startFight();
+}
 function quitToSelect() {
   if (window.Net && Net.role === 'host') Net.drop(); // leaving an online match ends it
   const pick = game.side === 'cell' ? 1 : 0;
@@ -53,7 +61,8 @@ function startTraining(side) {
 //   stand  - stands still          block - guards everything        jump - hops up and down
 //   single - walks up and throws one attack every so often (to practise blocking, perfect blocks
 //            and counter hits)     fight - the full boss AI
-const TRAIN = { dummy: 'stand', dummyHp: true, hp: true, ki: 'refill' };
+//   checklist - the list of combos down the side of the screen (off: a clear view of the fight)
+const TRAIN = { dummy: 'stand', dummyHp: true, hp: true, ki: 'refill', checklist: true };
 try { Object.assign(TRAIN, JSON.parse(localStorage.getItem('training') || '{}')); } catch (e) { /* defaults */ }
 const DUMMY_MODES = ['stand', 'block', 'jump', 'single', 'fight'];
 const DUMMY_LABEL = { stand: 'STANDS STILL', block: 'BLOCKS', jump: 'JUMPS', single: 'SINGLE HITS', fight: 'FIGHTS BACK' };
@@ -87,6 +96,8 @@ function dummyAI(dt) {
 const MENUS = {
   pause: () => ({ title: game.training ? 'TRAINING' : 'PAUSED', items: [
     { label: 'RESUME', go: closeAllMenus },
+    // (not online: the other player hasn't asked for it)
+    ...(window.Net && Net.role ? [] : [{ label: 'RETRY', go: retryFight }]),
     { label: 'MOVE LIST', go: () => openMenu('moves') },
     { label: 'COMBO LIST', go: () => openMenu('combos') },
     { label: 'CONTROLS', go: () => openMenu('controls') },
@@ -140,6 +151,7 @@ const MENUS = {
     { label: 'DUMMY HEALTH REFILL  ' + onOff(TRAIN.dummyHp), go: () => toggleTrain('dummyHp'), adjust: () => toggleTrain('dummyHp') },
     { label: 'YOUR HEALTH REFILL  ' + onOff(TRAIN.hp), go: () => toggleTrain('hp'), adjust: () => toggleTrain('hp') },
     { label: 'YOUR KI  ' + KI_LABEL[TRAIN.ki], go: () => cycleTrain('ki', KI_MODES), adjust: d => cycleTrain('ki', KI_MODES, d) },
+    { label: 'COMBO CHECKLIST  ' + (TRAIN.checklist ? 'SHOWN' : 'HIDDEN'), go: () => toggleTrain('checklist'), adjust: () => toggleTrain('checklist') },
     { label: 'BACK', go: closeMenu },
   ] }),
   moves: () => ({ title: guideWho().toUpperCase() + '  MOVE LIST', page: 'moves', pages: Math.ceil(MOVES[guideWho()].length / LIST_ROWS), items: [{ label: 'BACK', go: closeMenu }] }),
@@ -188,7 +200,10 @@ function drawMenu() {
   const top = game.menu[game.menu.length - 1], m = MENUS[top.id](), who = guideWho();
   gfx.setTransform(S, 0, 0, S, 0, 0);
   gfx.fillStyle = m.page || m.compact ? 'rgba(6,5,16,0.96)' : 'rgba(6,5,16,0.86)'; gfx.fillRect(0, 0, W, H);
-  text(m.title, W / 2, 6, 15, '#ffe04a', 'center');
+  // the screen's name on a leaning gold plate, with two fading echoes of it
+  const tw = Math.max(70, (gfx.font = '13px Saiyan, Impact, sans-serif', gfx.measureText(m.title).width) + 22);
+  slantBar(-6, 5, tw + 6, 16, 5, '#ffd23a'); slantBar(tw + 2, 5, 6, 16, 5, 'rgba(255,210,58,0.45)'); slantBar(tw + 11, 5, 3, 16, 5, 'rgba(255,210,58,0.25)');
+  text(m.title, 8, 6, 13, '#1b1030', 'left', 'none');
   let y = 28;
   if (m.page === 'moves' || m.page === 'combos') {
     // a page of LIST_ROWS rows (left / right turns the page); each column in one size
@@ -218,16 +233,22 @@ function drawMenu() {
     for (const [a, k, p] of controlRows()) { fitSmall(a, 14, y, 102, '#ffd23a'); fitSmall(k, 120, y, 106, '#fff'); fitSmall(p, 230, y, W - 234, '#fff'); y += 9; }
   }
   // items (focused one highlighted); info pages show just BACK at the bottom
-  const iy = m.page ? H - 18 : 44, gap = Math.min(15, 112 / Math.max(1, m.items.length - 1));
+  const iy = m.page ? H - 21 : 40, gap = Math.min(15, 112 / Math.max(1, m.items.length - 1));
   if (m.compact) {
     // a long list (KEYS & BUTTONS): small rows, the one being changed in yellow
     m.items.forEach((it, k) => { const on = k === top.i; small((on ? '> ' : '') + it.label, W / 2, 26 + k * 7.4, on ? '#ffe04a' : '#ccc', 'center', 5); });
     small(binding ? (binding.who === 'pad' ? 'PRESS THE NEW BUTTON     ESC CANCELS' : 'PRESS THE NEW KEY     ESC CANCELS') : promptKeys('W / S  MOVE     ENTER  CHANGE     ESC  BACK'), W / 2, H - 6, binding ? '#ffe04a' : '#888');
     return;
   }
+  // each item on a leaning bar: the focused one gold with dark lettering, sliding out a little
+  const bw = m.page ? 70 : 196, bx = W / 2 - bw / 2, bh = Math.min(12, gap - 2);
   m.items.forEach((it, k) => {
-    const on = k === top.i;
-    text((on ? '> ' : '') + it.label, W / 2, iy + k * gap, on ? 12 : 10, on ? '#ffe04a' : '#ccc', 'center');
+    const on = k === top.i, y = iy + k * gap;
+    slantBar(bx - 4 + (on ? 3 : 0), y - 1, bw, bh, 4, on ? '#ffd23a' : 'rgba(255,255,255,0.07)');
+    if (on) slantBar(bx - 12, y - 1, 5, bh, 4, 'rgba(255,210,58,0.5)');
+    gfx.font = '10px Saiyan, Impact, sans-serif';
+    const size = Math.min(10, 10 * (bw - 14) / Math.max(1, gfx.measureText(it.label).width));
+    text(it.label, W / 2 + (on ? 3 : 0), y + (10 - size) / 2, size, on ? '#1b1030' : '#d6d2ec', 'center', on ? 'none' : '#000');
   });
   small(promptKeys(m.items.some(i => i.adjust) ? 'W / S  MOVE     A / D  CHANGE     ESC  BACK' : 'W / S  MOVE     ENTER  SELECT     ESC  BACK'), W / 2, H - 6, '#888');
 }
@@ -242,6 +263,8 @@ function trainingRefill(dt) {
 
 // Training checklist: every named combo, ticked once you've landed it; the next one to try is lit.
 function drawChecklist() {
+  small('DUMMY: ' + DUMMY_LABEL[TRAIN.dummy] + '    ' + promptKeys('P') + ': TRAINING SETTINGS' + (TRAIN.checklist ? '' : ' (COMBO LIST IS HIDDEN)'), 4, H - 7, '#9ff', 'left', 4);
+  if (!TRAIN.checklist) return;
   const list = COMBOS[player.who], next = list.find(c => !game.learned.has(c.name));
   gfx.fillStyle = 'rgba(6,5,16,0.55)'; gfx.fillRect(W - 98, 30, 94, 11 + list.length * 6 + (next ? 9 : 0));
   small('COMBO CHECKLIST', W - 51, 32, '#9ff', 'center', 4);
@@ -250,5 +273,4 @@ function drawChecklist() {
     small((got ? 'X ' : '- ') + c.name, W - 95, 39 + k * 6, got ? '#8f8' : c === next ? '#ffe04a' : '#aaa', 'left', 4);
   });
   if (next) small('TRY: ' + promptKeys(next.how), W - 95, 41 + list.length * 6, '#ffe04a', 'left', 4);
-  small('DUMMY: ' + DUMMY_LABEL[TRAIN.dummy] + '    P: TRAINING SETTINGS', 4, H - 7, '#9ff', 'left', 4);
 }

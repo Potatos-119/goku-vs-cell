@@ -3,18 +3,118 @@
 // hit: { at: frame index that lands, dmg, reach, ki, heavy (knockdown) }
 // emit: height above the floor where a projectile/beam leaves the hand.
 
-// a frame cut by exact rectangle from the bigger Goku sheet (see goku2 in sheets.js)
+// a frame cut by exact rectangle from the older big Goku sheet (see goku2 in sheets.js)
 const G2 = (x, y, w, h) => ({ sheet: 'goku2', rect: [x, y, w, h] });
-// a frame from the second Super Saiyan sheet (goku-ssj2.png), drawn 1.25x to match his size
-const SJ = (x, y, w, h) => ({ sheet: 'ssj2', rect: [x, y, w, h], k: 1.25 });
+// a frame cut by exact rectangle from the newer base sheet (goku-base.png): his walk and run, the
+// Kamehameha, the Kaioken, and everything he does with his gi top torn off
+const GB = (x, y, w, h) => ({ sheet: 'gb', rect: [x, y, w, h] });
+// ---- Goku's looks ----
+// Every move below is drawn once, for base Goku in his full gi. His other looks are the same moves:
+//   base   as drawn, in the older sheet's bright colours (frames only the newer sheet has are matched to it)
+//   torn   the orange gi top torn off, down to the blue undershirt (once he's hurt)
+//   kaio   the Kaioken: the torn look, in the sheet's red Kaioken colours
+// Super Saiyan is drawn on a sheet of its own, pose for pose (see SS below), in two looks:
+//   ssjT   as that sheet draws him, the gi top torn off (the way he first turned)
+//   ssj    the same frames in his full gi, coloured from the other Super Saiyan sheet
+// tools/goku-forms.py makes each look of each frame and packs them onto one generated sheet
+// (assets/sheets/goku-forms.png); goku-forms.js says where each one is: GOKU_FORMS[look][frame].
+const GOKU_LOOKS = typeof GOKU_FORMS === 'undefined' ? {} : GOKU_FORMS;
+const tornLook = look => look === 'torn' || look === 'ssjT' || look === 'kaio';
+function formFrame(r, look) {
+  // AS_SSJ(frame): a Super Saiyan frame inside one of base Goku's moves, in the gi the move is played in
+  if (r.ssjOf) return formFrame(r.ssjOf, tornLook(look) ? 'ssjT' : 'ssj');
+  const made = GOKU_LOOKS[look] && GOKU_LOOKS[look][JSON.stringify(r)];
+  return made ? { sheet: 'gf', rect: made.slice(0, 4), ax: made[4] } : null;
+}
+const AS_SSJ = r => ({ ssjOf: r });
+// a table of moves in one look. A move the look has no frames for is left out, and Fighter.A falls
+// back to base Goku's (tools/goku-forms.py lists what it couldn't make)
+const formAnims = (anims, look) => Object.fromEntries(Object.entries(anims).map(([k, a]) => {
+  if (a.native) return [k, a];
+  const fr = a.fr.map(r => formFrame(r, look));
+  return fr.includes(null) ? null : [k, { ...a, fr }];
+}).filter(Boolean));
+const nativeFr = (fr, o) => ({ fr, native: true, ...o });
+// A frame the newer sheet draws in an outfit of its own (the torn gi, the Kaioken starting): shown as
+// drawn, with its colours matched to the rest (the tool does that; until it has run, as it is)
+const GB_NATIVES = [];
+const GBN = (x, y, w, h) => { const r = GB(x, y, w, h); GB_NATIVES.push(r); return formFrame(r, 'base') || r; };
+
 const GOKU_WIN = [G2(68, 2782, 37, 46), G2(113, 2777, 31, 51), G2(156, 2775, 31, 53), G2(156, 2775, 31, 53),
   G2(221, 2776, 37, 52), G2(275, 2779, 37, 47), G2(325, 2791, 35, 37)];
+// ---- the Super Saiyan sheet ----
+// assets/sheets/goku-ssj-first.png (tools/sheet-rebuild.py makes it from the preview of the sheet).
+// It has the same rows as base Goku's sheet, pose for pose, so each of his moves has its Super Saiyan
+// frames. SS(x, y, w, h) is one frame of it; alone: the full-gi sheet has no frame like it to take colours from
+const SS_FRAMES = [];
+const SS = (x, y, w, h, o) => { const r = { sheet: 'ss', rect: [x, y, w, h], ...o }; SS_FRAMES.push(r); return r; };
+const ssRow = (boxes, o) => boxes.map(b => SS(...b, o));
+const SS_IDLE = ssRow([[64, 207, 28, 56], [108, 209, 32, 54], [156, 211, 30, 52], [227, 205, 28, 58], [268, 210, 31, 53], [353, 205, 28, 58], [400, 205, 28, 58]]);
+const SS_DASH = ssRow([[67, 277, 33, 53], [109, 278, 60, 52], [184, 286, 36, 44], [223, 292, 69, 38], [307, 294, 52, 29], [364, 298, 51, 22],
+  [445, 281, 41, 49], [497, 278, 36, 52], [578, 275, 29, 55], [616, 275, 30, 55], [657, 279, 28, 51]]);
+const SS_JUMP = ssRow([[68, 358, 35, 47], [111, 350, 35, 55], [159, 346, 31, 49], [203, 348, 31, 55], [245, 347, 28, 58], [285, 358, 35, 47], [356, 357, 32, 48], [401, 358, 36, 47]]);
+const SS_PUNCH = ssRow([[67, 425, 34, 55], [115, 429, 35, 51], [164, 432, 49, 48], [216, 429, 38, 51], [264, 429, 44, 51], [317, 425, 36, 55],
+  [360, 428, 45, 52], [419, 428, 36, 52], [466, 425, 30, 55], [509, 424, 37, 52], [552, 430, 44, 44], [609, 430, 42, 43]]);
+const SS_KICK = ssRow([[68, 506, 30, 53], [108, 507, 36, 53], [158, 507, 33, 53], [208, 509, 44, 46], [258, 511, 51, 44], [316, 507, 36, 53],
+  [366, 506, 32, 55], [402, 506, 50, 55], [461, 507, 46, 48], [517, 503, 32, 54]]);
+const SS_GRAB = ssRow([[69, 591, 33, 52], [117, 590, 30, 53], [164, 588, 29, 55], [205, 590, 34, 53], [250, 592, 37, 51], [294, 591, 40, 52]]);
+const SS_GUARD = ssRow([[67, 684, 31, 53], [111, 684, 32, 53], [154, 683, 28, 54], [198, 689, 28, 48], [274, 680, 36, 57], [319, 681, 36, 55], [360, 682, 44, 55], [416, 682, 36, 55]]);
+const SS_HURT = ssRow([[67, 781, 32, 53], [109, 791, 41, 43], [161, 783, 45, 51], [211, 784, 35, 48], [257, 803, 44, 31], [310, 789, 33, 41], [350, 806, 57, 31]]);
+const SS_KI = ssRow([[67, 875, 34, 53], [115, 875, 54, 53], [185, 876, 43, 53], [236, 876, 38, 53], [332, 876, 43, 52], [383, 876, 38, 52]]);
+// powering up: stance, stance, and the two frames of gold flames
+const SS_CHARGE = ssRow([[67, 971, 31, 51], [125, 971, 32, 51], [178, 943, 63, 81], [250, 942, 70, 81]]);
+// powering down: two of the stance, his hair going white, black-haired again; then worn out on one knee
+const SS_DOWN = ssRow([[66, 1201, 28, 56], [107, 1201, 28, 56], [147, 1199, 26, 58], [187, 1204, 32, 54], [260, 1203, 36, 55], [311, 1208, 39, 49], [362, 1219, 36, 41], [413, 1219, 36, 39], [463, 1220, 36, 38]]);
+// the sheet's big attack, in order: stance, the aura flaring, the dash in, a knee, a kick, a breath, another
+// kick, the flip kick that sends them up, landing, turning, the Kamehameha swirling in his hands, and
+// the Kamehameha fired up at them (cut down to him: the game draws the beam)
+const SS_SUPER = ssRow([[65, 1087, 31, 51], [112, 1059, 70, 79], [197, 1098, 46, 42], [262, 1084, 42, 54], [310, 1089, 45, 49], [366, 1088, 36, 50],
+  [414, 1085, 43, 53], [469, 1083, 35, 53], [518, 1083, 31, 53], [561, 1083, 33, 55], [610, 1083, 59, 57], [706, 1066, 62, 74]], { alone: true });
+// his Kamehameha in his full gi, from a sharp strip of the sheet (assets/sheets/goku-ssj-kame.png, made by
+// tools/ssj-kame.py, which scales the strip's smaller poses up to match his other frames): the swing back,
+// the swirl gathering in his hands, the lean back, then the thrust as it fires
+const SK = (x, y, w, h) => ({ sheet: 'sk', rect: [x, y, w, h] });
+const SK_KAME = [SK(6, 57, 38, 52), SK(50, 57, 34, 52), SK(90, 57, 31, 52), SK(127, 45, 68, 64), SK(201, 58, 34, 51), SK(241, 58, 39, 51), SK(286, 60, 39, 49)];
+// Instant Transmission and turning Super Saiyan in his full gi, cleaned up from the full-gi sheet
+// (assets/sheets/goku-ssj-moves.png, made by tools/ssj-moves.py)
+const SX = (x, y, w, h) => ({ sheet: 'sx', rect: [x, y, w, h] });
+// crouch, rising, fading out, the streak he leaves; appearing, the squat, up, turning, the dash pose, the dash streak
+const SX_TELE = [SX(6, 15, 43, 53), SX(55, 11, 37, 57), SX(98, 11, 39, 57), SX(143, 13, 30, 55), SX(179, 15, 35, 53), SX(220, 15, 37, 53),
+  SX(263, 10, 34, 58), SX(303, 6, 35, 62), SX(344, 6, 34, 62), SX(384, 38, 56, 30)];
+// the stance, the blue aura, the white flash, the gold flames, the Super Saiyan stance
+const SX_TURN = [SX(6, 105, 36, 52), SX(48, 105, 49, 52), SX(103, 80, 69, 77), SX(178, 77, 66, 80), SX(250, 98, 57, 59), SX(313, 94, 54, 63),
+  SX(373, 90, 47, 67), SX(426, 74, 66, 83), SX(498, 97, 32, 60)];
+// which Super Saiyan frame each of base Goku's frames is
+const SSJ_TWIN = {};
+const twins = (ids, row) => ids.forEach((id, i) => { if (id != null) SSJ_TWIN[JSON.stringify(id)] = row[i]; });
+twins(['0.2', '0.4', '0.5', null, null, '0.10', '0.8'], SS_IDLE);
+twins(['0.3', null, '0.1'], SS_IDLE); twins([null, null, '0.0'], SS_IDLE);
+twins(['1.0', '1.1', '1.2', '1.3', null, null, '1.6', '1.7', { id: '1.9', w: 31 }, { id: '1.9', x: 37 }, '1.10'], SS_DASH);
+twins(['2.0', '2.1', '2.2', '2.3', '2.4', '2.5', '2.7', '2.8'], SS_JUMP);
+twins(['4.0', '4.1', '4.2', '4.3', '4.4', '4.5', '4.6', '4.7', '4.8', '4.9', '4.10', '4.11'], SS_PUNCH);
+twins(['5.0', '5.1', '5.2', { id: '5.3', w: 43 }, { id: '5.3', x: 49 }, '5.4', '5.5', '5.6', '5.7', '5.8'], SS_KICK);
+twins(['6.0', '6.1', '6.2', '6.3', { id: '6.4', w: 37 }, { id: '6.4', x: 45 }], SS_GRAB);
+twins(['3.0', '3.1', '3.2', '3.3', '3.5', null, { id: '3.6', x: 41 }, '3.7'], SS_GUARD);
+twins(['8.0', null, { id: '8.1', x: 49 }, '8.2', '8.3', '8.4', '8.5'], SS_HURT);
+twins(['9.0', '9.1', '9.2', { id: '9.3', w: 31 }, '9.4', { id: '9.5', w: 31 }], SS_KI);
 
-const GOKU_BASE = {
+// the Kaioken's red flames (two frames), and the frames around them
+// (hollow: the white inside the flames is see-through, as it is on the sheet)
+const KAIO_AURA = [{ ...GB(288, 1281, 70, 78), hollow: true }, { ...GB(361, 1278, 70, 82), hollow: true }];
+const KAIO_STANCE = GB(441, 1310, 31, 48);
+// the moment the Kaioken bursts out: a white flash of him in a red outline (the sheet's frame, its white
+// middle kept: cut see-through, only broken scraps of the outline were left)
+const KAIO_FLASH = GB(225, 1310, 55, 50);
+const KAIO_RIP = 5;   // frames of the Kaioken starting that show him tearing the gi top off
+
+// native: these frames are already drawn in the outfit they're for, so no other version is made of
+// them (see formAnims below)
+const GOKU_MOVES = {
   idle: { fr: ['0.2', '0.3', '0.4', '0.5', '0.4', '0.3'], fps: 8, loop: true },
-  // the sheet has no walk cycle, so fighters float in their stance (see hover in game.js)
-  walk: { fr: ['0.2', '0.3', '0.4', '0.5', '0.4', '0.3'], fps: 11, loop: true },
-  back: { fr: ['0.2', '0.3', '0.4', '0.5', '0.4', '0.3'], fps: 9, loop: true },
+  // moving in: the sheet's run cycle; backing off: its walk, played backwards so he steps away
+  // without turning his back
+  walk: { fr: [GB(239, 278, 38, 48), GB(289, 276, 33, 50), GB(331, 275, 41, 51), GB(382, 276, 33, 50)], fps: 12, loop: true },
+  back: { fr: [GB(176, 273, 30, 53), GB(140, 272, 30, 52), GB(105, 272, 30, 52), GB(68, 272, 30, 52)], fps: 9, loop: true },
   // dashes (double-tap a direction): the sheet's own dash run, a back-flip hop, and flying in the air
   dash: { fr: ['1.0', '1.1', '1.2', '1.3'], fps: 16, loop: false },
   // skidding out of a ground dash: the streaks he arrives in, then the low ready crouch (cosmetic:
@@ -52,13 +152,13 @@ const GOKU_BASE = {
   // the sheet's grab: step in, lunge, catch and toss (frame 6.4 holds the lunge and the catch side by side)
   grab: { fr: ['6.0', '6.1', { id: '6.4', w: 37 }, { id: '6.4', x: 45 }, { id: '6.4', x: 45 }, '6.3'], fps: 13, hit: { at: 3, dmg: 6, reach: 34, grab: true, launch: true } },
   // 3.6, 5.3 and 8.1 are two sprites the slicer merged into one box: x / w keep the right one
-  slash: { fr: ['3.5', { id: '3.6', x: 41, plain: true }, { id: '3.6', x: 41, plain: true }, '3.7'], fps: 11, hit: { at: 1, dmg: 10, reach: 46, heavy: true, wallBounce: true } },
+  slash: { fr: ['3.5', { id: '3.6', x: 41 }, { id: '3.6', x: 41 }, '3.7'], fps: 11, hit: { at: 1, dmg: 10, reach: 46, heavy: true, wallBounce: true } },
   // air string: J J J in the air, ending in a spike that slams them into the ring
   // air attacks get a wind-up frame now, so a flying kick reads as a kick (they hit a frame later, a
   // little faster)
   air: { fr: ['5.0', { id: '5.3', w: 43 }, { id: '5.3', w: 43 }], fps: 16, loop: false, hit: { at: 1, dmg: 8, reach: 42 } },
   air2: { fr: ['4.5', '4.6', '4.6'], fps: 16, loop: false, hit: { at: 1, dmg: 7, reach: 42 } },
-  spike: { fr: ['5.0', { id: '5.3', x: 49, plain: true }, { id: '5.3', x: 49, plain: true }, { id: '5.3', x: 49, plain: true }], fps: 11, loop: false, hit: { at: 1, dmg: 10, reach: 40, spike: true } },
+  spike: { fr: ['5.0', { id: '5.3', x: 49 }, { id: '5.3', x: 49 }, { id: '5.3', x: 49 }], fps: 11, loop: false, hit: { at: 1, dmg: 10, reach: 40, spike: true } },
   // the sheet's whole ki blast: stance, both hands flaring, draw back, thrust (the ball it throws is
   // the projectile itself, cut from the same frame, so it carries on from exactly where it was drawn)
   kiCast: { fr: ['9.0', '9.1', '9.2', { id: '9.3', w: 31 }, '9.4'], fps: 18, emitAt: 3, emit: 33 },
@@ -79,68 +179,155 @@ const GOKU_BASE = {
   // flickering out), so each is cropped on its own; drawn together they showed a double.
   teleIn: { fr: ['1.10', { id: '1.9', x: 37 }, { id: '1.9', w: 31 }], fps: 12, loop: false },
   teleOut: { fr: [{ id: '1.9', w: 31 }, { id: '1.9', x: 37 }, '1.10'], fps: 14, loop: false },
-  transform: { fr: ['10.1', '10.2', '10.3', '10.4', '10.3', '10.4', '10.5', '10.6', '10.7', '10.8', '10.8'], fps: 7, loop: false },
+  // "Ka... me... ha... me...": the sheet's whole sequence, hands out, drawn back to the hip, the
+  // light growing between them, the swirl as it peaks; "HA!": his hair whips back, the thrust, and
+  // the frame the beam leaves on. The charge is timed so it always reaches its last frame as the beam
+  // fires (see startKame)
+  kameCharge: { fr: [GB(61, 956, 38, 52), GB(108, 956, 40, 52), GB(156, 956, 38, 51), GB(204, 956, 37, 50), GB(247, 945, 64, 62)], fps: 6, loop: false },
+  kameFire: { fr: [GB(320, 956, 39, 52), GB(370, 956, 42, 49), GB(472, 956, 40, 50)], fps: 16, loop: false, emitAt: 2, emit: 27 },
+  // Super Saiyan, the quick way (after the first time): the small aura, the big flames, the flash
+  transform: { fr: ['10.1', '10.2', '10.3', '10.4', '10.3', '10.4', '10.5', '10.6', '10.7', AS_SSJ(SS_CHARGE[0]), AS_SSJ(SS_CHARGE[0])], fps: 7, loop: false },
   // the Super Saiyan cinematic follows the sheet's row in order: standing, the small aura, the big
   // flames looping while the music builds (ssjBuild), the rise to the flash in its last second
   // (ssjRise), then the gold flare held (ssjFlare, below) and the Super Saiyan stance
   ssjBuild: { fr: ['10.1', '10.2', '10.3', '10.4'], fps: 8, loop: true, loopFrom: 2 },
   ssjRise: { fr: ['10.4', '10.5', '10.6', '10.7'], fps: 4, loop: false },
-  // Spirit Bomb (base Goku's full-ki finisher), from the bigger sheet: stance, one hand up, both
-  // arms raised while the bomb gathers above them, then the throw
-  // the first frame is the red swirl of energy he gathers in his hands
-  spirit: { fr: [G2(68, 2143, 36, 49), G2(118, 2139, 31, 53), G2(165, 2137, 31, 55), G2(226, 2132, 44, 60)], fps: 6, loop: false },
+  // the Kaioken: he gathers himself, crouches, the red outline bursts off him and the flames go up.
+  // The sheet draws it with his gi top already gone, which is why going Kaioken tears it off
+  // The first frame is him with the gi top torn off in his hand: it's held long enough to see (and
+  // skipped if the top is already gone, see goKaioken)
+  kaioUp: { fr: [...Array(KAIO_RIP).fill(GBN(136, 1305, 40, 55)), GBN(185, 1310, 31, 50), GBN(185, 1310, 31, 50), KAIO_FLASH,
+    KAIO_FLASH, ...KAIO_AURA, ...KAIO_AURA], fps: 10, loop: false, native: true },
+  // Solar Flare: hands to his forehead, and a flash that blinds whoever is looking at him
+  flare: { fr: [GB(69, 1121, 36, 54), GB(118, 1124, 33, 51), GB(118, 1124, 33, 51), GB(118, 1124, 33, 51), GB(69, 1121, 36, 54)], fps: 11, loop: false },
+  // Destructo Disc: the disc spinning up over his head, the swing that throws it, the follow-through
+  disc: { fr: [GB(59, 1025, 52, 62), GB(116, 1025, 59, 62), GB(59, 1025, 52, 62), GB(116, 1025, 59, 62), GB(192, 1041, 45, 47), GB(250, 1038, 37, 50), GB(250, 1038, 37, 50)], fps: 10, emitAt: 4, emit: 34 },
+  // Spirit Bomb (base Goku's full-ki finisher): stance, an arm going up, both arms raised while the
+  // bomb gathers above them, then the throw
+  spirit: { fr: [GB(88, 1768, 31, 53), GB(129, 1768, 32, 56), GB(174, 1766, 33, 56), GB(220, 1761, 35, 61)], fps: 6, loop: false },
   // the throw, then hunched over, spent, as it flies
-  spiritThrow: { fr: [G2(295, 2141, 36, 51), G2(353, 2145, 33, 47)], fps: 5, loop: false },
+  spiritThrow: { fr: [GB(267, 1769, 37, 54), GB(321, 1773, 33, 50)], fps: 5, loop: false },
   // facing the camera (boss Goku's taunt, and between lines in the story scenes)
   taunt: { fr: ['0.10'], fps: 1, loop: true, breathe: true },
   // the fight is won: he walks it off, gives a thumbs up, and sits down to rest (in his undershirt,
   // which is fine here: the fight is over, so it never has to come back)
-  win: { fr: GOKU_WIN, fps: 5, loop: false },
+  win: { fr: GOKU_WIN, fps: 5, loop: false, native: true },
 };
 
-// Super Saiyan: the sheet only has idle/kamehameha frames, so every other move reuses
-// the base frames with the hair recoloured gold.
-const GOKU_SSJ = Object.fromEntries(Object.entries(GOKU_BASE).map(([k, a]) => [k, {
-  ...a, fr: a.fr.map(r => ({ ...(typeof r === 'string' ? { id: r } : r), ssj: true })),
-}]));
-Object.assign(GOKU_SSJ, {
-  // standing: the sheet's Super Saiyan pose, arms down, breathing
-  idle: { fr: ['10.9'], fps: 1, loop: true, breathe: true },
-  // moving: the second Super Saiyan sheet's own movement (goku-ssj2.png, drawn 1.25x): its fighting
-  // stance shuffle for stepping either way (the upright frames next to it on the sheet are him turning
-  // round on the spot, not a walk), its dash (leaning lower and lower into a lunge), and its jump
-  // (crouch, spring, arms up at the top, falling, landing)
-  walk: { fr: [SJ(94, 299, 25, 39), SJ(127, 299, 25, 39), SJ(161, 300, 23, 38), SJ(193, 299, 25, 39)], fps: 11, loop: true },
-  back: { fr: [SJ(94, 299, 25, 39), SJ(127, 299, 25, 39), SJ(161, 300, 23, 38), SJ(193, 299, 25, 39)], fps: 9, loop: true },
-  dash: { fr: [SJ(492, 299, 26, 39), SJ(525, 303, 28, 35), SJ(560, 308, 32, 29)], fps: 16, loop: false },
-  dashStop: { fr: [SJ(753, 305, 24, 33)], fps: 10, loop: false, then: 'idle' },
-  jump: { fr: [SJ(620, 305, 23, 33), SJ(652, 287, 23, 44), SJ(702, 271, 21, 42)], fps: 12, loop: false },
-  fall: { fr: [SJ(730, 286, 21, 44)], fps: 1, loop: true },
-  land: { fr: [SJ(753, 305, 24, 33)], fps: 12, loop: false },
-  // powering up: the second Super Saiyan sheet's own charge (goku-ssj2.png), a small aura at his
-  // feet, then six frames of the gold flame flickering round him (drawn 1.25x to match his size)
-  charge: { fr: [SJ(12, 585, 42, 43), SJ(65, 577, 47, 50), SJ(125, 574, 47, 53), SJ(189, 574, 48, 53), SJ(247, 577, 46, 50), SJ(307, 574, 46, 53), SJ(371, 574, 48, 53)], fps: 12, loop: true, loopFrom: 1 },
-  chargeEnd: { fr: [SJ(12, 585, 42, 43)], fps: 9, loop: false, then: 'idle' },
-  // "Ka... me... ha... me...": the sheet's whole sequence, hands sweeping round to the hip, the
-  // ball of light swirling between them, pulled back; "HA!": the thrust, then the beam. The charge
-  // is timed so it always reaches the last frame as the beam fires (see startKame)
-  kameCharge: { fr: ['11.0', '11.1', '11.2', '11.3', '11.4'], fps: 6, loop: false },
-  kameFire: { fr: ['11.5', { id: '11.6', w: 31 }], fps: 14, loop: false, emitAt: 1, emit: 23 },
-  // powering back down to base: the gold aura, the flash, black hair again (the transformation backwards)
-  powerDown: { fr: ['10.8', '10.7', '10.6', '10.5', '10.1'], fps: 8, loop: false },
-  // the moment he turns: the full gold flare, held and breathing, before he settles into his stance
-  ssjFlare: { fr: ['10.8'], fps: 1, loop: true, breathe: true },
-  // up in the air (before the bigger Spirit Bomb) he powers down in the bigger sheet's mid-air frames:
-  // floating gold, the burst of light, the white outline, and then he's normal Goku again
-  powerDownAir: { fr: [G2(578, 2128, 50, 64), G2(454, 2114, 74, 78), G2(406, 2135, 35, 57)], fps: 7, loop: false },
+const GOKU_BASE = formAnims(GOKU_MOVES, 'base');
+// in his full gi he turns Super Saiyan the way the full-gi sheet draws it: the blue aura, the white
+// flash, the gold flames (with the gi top torn, GOKU_BASE_T has the newer sheet's own)
+GOKU_BASE.transform = nativeFr([SX_TURN[0], SX_TURN[1], SX_TURN[2], SX_TURN[3], SX_TURN[2], SX_TURN[3], SX_TURN[4], SX_TURN[5], SX_TURN[6], SX_TURN[7], SX_TURN[7], SX_TURN[8]], { fps: 8, loop: false });
 
-  // the same victory, hair gold
-  win: { fr: GOKU_WIN.map(r => ({ ...r, ssj: true })), fps: 5, loop: false },
-  // Dragon Fist: power up to Super Saiyan 3, rush in, dragon
-  ult1: { fr: ['12.1', '12.2', '12.3', '12.4', '12.3', '12.7', '12.5'], fps: 7, loop: false },
-  // the launch into the rush, then the rising fist as the dragon bursts out
-  ult2: { fr: ['13.2', '13.4'], fps: 8, loop: false },
-  ult3: { fr: ['13.5', { id: '13.6', ax: 0.3 }], fps: 10, loop: false },
+// Gi top torn off. The newer sheet draws some of it itself: the Spirit Bomb, and the whole Super Saiyan
+// transformation (hair lifting, the white flash, the gold bursting off him)
+const TORN_SSJ = [GBN(80, 2145, 31, 52), GBN(126, 2145, 32, 52), GBN(179, 2139, 29, 58), GBN(230, 2140, 27, 58), GBN(280, 2142, 28, 55),
+  GBN(330, 2139, 30, 58), GBN(385, 2142, 33, 55), GBN(435, 2140, 52, 60), GBN(507, 2134, 46, 65)];
+const GOKU_BASE_T = formAnims(GOKU_MOVES, 'torn');
+Object.assign(GOKU_BASE_T, {
+  spirit: nativeFr([GBN(77, 1988, 37, 49), GBN(128, 1984, 32, 53), GBN(175, 1982, 31, 56), GBN(241, 1970, 39, 69)], { fps: 6, loop: false }),
+  spiritThrow: nativeFr([GBN(305, 1985, 38, 52), GBN(361, 1990, 38, 47)], { fps: 5, loop: false }),
+  // the Spirit Bomb that turns him Super Saiyan: as it lands the gold outline bursts off him and the
+  // flames go up (the frames after the throw on the sheet)
+  spiritSsj: nativeFr([{ ...GB(415, 1979, 38, 60), hollow: true }, { ...GB(415, 1979, 38, 60), hollow: true }, { ...GB(463, 1958, 65, 82), hollow: true },
+    { ...GB(463, 1958, 65, 82), hollow: true }], { fps: 5, loop: false }),
+  transform: nativeFr([...TORN_SSJ, formFrame(SS_CHARGE[0], 'ssjT'), formFrame(SS_CHARGE[0], 'ssjT')], { fps: 8, loop: false }),
+  ssjBuild: nativeFr([0, 1, 2, 3, 4, 5, 6].map(i => TORN_SSJ[i]), { fps: 6, loop: true, loopFrom: 4 }),
+  ssjRise: nativeFr([6, 7, 7, 8].map(i => TORN_SSJ[i]), { fps: 4, loop: false }),
+});
+
+// Super Saiyan: every move of base Goku's whose frames the Super Saiyan sheet has, in its frames (in
+// his full gi, or with the top torn). He doesn't run: he glides in his stance, a few pixels off the
+// ring (see hover in game/fighter-update.js). A move with a frame missing is left out, and Fighter.A
+// falls back to base Goku's
+const ssjTable = look => {
+  const fr = rs => rs.map(r => formFrame(r, look));
+  const stance = fr([SS_IDLE[0], SS_IDLE[1], SS_IDLE[2], SS_IDLE[1]]);
+  const moves = Object.entries(GOKU_MOVES).filter(([, a]) => !a.native).map(([k, a]) => [k, { ...a, fr: a.fr.map(r => SSJ_TWIN[JSON.stringify(r)] || null) }])
+    .filter(([, a]) => !a.fr.includes(null)).map(([k, a]) => [k, { ...a, fr: fr(a.fr) }]);
+  const t = {
+    ...Object.fromEntries(moves),
+    idle: { fr: stance, fps: 7, loop: true },
+    dashStop: { fr: fr([SS_IDLE[2]]), fps: 10, loop: false, then: 'idle' },
+    walk: { fr: stance, fps: 10, loop: true },
+    back: { fr: [...stance].reverse(), fps: 9, loop: true },
+    // powering up, as the sheet draws it: the stance twice, then the gold flames looping
+    charge: { fr: fr(SS_CHARGE), fps: 10, loop: true, loopFrom: 2 },
+    chargeEnd: { fr: fr([SS_CHARGE[1]]), fps: 9, loop: false, then: 'idle' },
+    // his Kamehameha: the turn, the swirl gathering in his hands, then the thrust
+    // (in his full gi, the sheet's own Kamehameha: see SK_KAME)
+    kameCharge: look === 'ssj' ? { fr: SK_KAME.slice(0, 5), fps: 6, loop: false } : { fr: fr([SS_SUPER[9], SS_SUPER[10]]), fps: 4, loop: false },
+    // (with the top torn: the sheet's own, firing in a burst of gold flames)
+    kameFire: look === 'ssj' ? { fr: SK_KAME.slice(5), fps: 12, loop: false, emitAt: 1, emit: 28 } : { fr: fr([SS_SUPER[11]]), fps: 1, loop: false, emit: 46 },
+    // Instant Transmission (full gi only, see teleKame in game/cinematics.js): from the ground the
+    // crouch, the spring up and the fade; in the air the turn and the zip away; appearing; the
+    // Kamehameha held at his side
+    // From the ground (sharp frames of his own jump): the crouch, the leap, stretched high, then the
+    // sheet's fade and streak as he goes; dropping in with speed lines, and the landing crouch
+    ...(look === 'ssj' ? {
+      itCrouch: { fr: fr([SS_JUMP[0]]), fps: 1, loop: true },
+      itLeap: { fr: fr([SS_JUMP[1], SS_JUMP[4]]), fps: 7, loop: false },
+      itFade: { fr: [SX_TELE[2], SX_TELE[3]], fps: 8, loop: false },
+      itDrop: { fr: [SX_TELE[4]], fps: 1, loop: true },
+      itLand: { fr: fr([SS_JUMP[5]]), fps: 1, loop: true },
+      // from the air (the sheet's frames): the turn, the dash pose, the zip away
+      itAir: { fr: SX_TELE.slice(6, 10), fps: 7, loop: false },
+      itHold: { fr: [SK_KAME[4]], fps: 1, loop: true },
+    } : {}),
+    // the big attack (O on the ground with the gi top torn, full ki): see superRush in game/cinematics.js
+    superUp: { fr: fr([SS_SUPER[0], SS_SUPER[1], SS_SUPER[1]]), fps: 8, loop: false },
+    superDash: { fr: fr([SS_SUPER[2]]), fps: 1, loop: true },
+    super1: { fr: fr([SS_SUPER[3]]), fps: 1, loop: true },
+    super2: { fr: fr([SS_SUPER[4], SS_SUPER[5]]), fps: 9, loop: false },
+    super3: { fr: fr([SS_SUPER[6]]), fps: 1, loop: true },
+    super4: { fr: fr([SS_SUPER[7], SS_SUPER[8]]), fps: 7, loop: false },
+    superCharge: { fr: fr([SS_SUPER[9], SS_SUPER[10]]), fps: 5, loop: false },
+    superFire: { fr: fr([SS_SUPER[11]]), fps: 1, loop: true, emit: 46 },
+    // the Spirit Bomb that turns him: floating gold as it lands (the frames after his throw on the base sheet)
+    spiritFloat: nativeFr([GB(538, 1981, 39, 56), GB(581, 1973, 50, 65)], { fps: 7, loop: true }),
+    // the moment he turns: the flames held
+    ssjFlare: { fr: fr([SS_CHARGE[2], SS_CHARGE[3]]), fps: 10, loop: true },
+    // powering back down to base: his hair goes white, then black again
+    powerDown: nativeFr(fr([SS_DOWN[1], SS_DOWN[2], SS_DOWN[2], SS_DOWN[3]]), { fps: 8, loop: false }),
+    // Dragon Fist: power up to Super Saiyan 3, rush in, dragon
+    ult1: nativeFr(['12.1', '12.2', '12.3', '12.4', '12.3', '12.7', '12.5'], { fps: 7, loop: false }),
+    // the launch into the rush, then the rising fist as the dragon bursts out
+    ult2: nativeFr(['13.2', '13.4'], { fps: 8, loop: false }),
+    ult3: nativeFr(['13.5', { id: '13.6', ax: 0.3 }], { fps: 10, loop: false }),
+    // up in the air (before the Spirit Bomb) he powers down in the sheet's mid-air frames: floating
+    // gold, the burst of light, the white outline, and then he's normal Goku again
+    powerDownAir: nativeFr([G2(578, 2128, 50, 64), G2(454, 2114, 74, 78), G2(406, 2135, 35, 57)], { fps: 7, loop: false }),
+  };
+  // until the looks have been made (tools/goku-forms.py), there are no frames to show
+  return Object.fromEntries(Object.entries(t).filter(([, a]) => !a.fr.includes(null)));
+};
+const GOKU_SSJ = ssjTable('ssj'), GOKU_SSJ_T = ssjTable('ssjT');
+
+// Kaioken: the torn look in red. The sheet draws its flames, its dash, a flurry that becomes his rush
+// (toward + J: three hits, each stepping further in) and a Kamehameha of its own, which is the end of
+// his big attack. U is the ordinary Kamehameha, in red
+const GOKU_KAIO = formAnims(GOKU_MOVES, 'kaio');
+Object.assign(GOKU_KAIO, {
+  charge: nativeFr(KAIO_AURA, { fps: 10, loop: true }),
+  chargeEnd: nativeFr([KAIO_STANCE], { fps: 9, loop: false, then: 'idle' }),
+  dash: nativeFr([GB(486, 1312, 39, 47), GB(523, 1315, 75, 45), GB(523, 1315, 75, 45)], { fps: 16, loop: false }),
+  rush: nativeFr([GB(486, 1312, 39, 47), GB(649, 1309, 39, 49), GB(699, 1308, 52, 51)], { fps: 15, hit: { at: 1, dmg: 5, reach: 40 } }),
+  rush2: nativeFr([GB(603, 1305, 36, 55), GB(760, 1307, 39, 53), GB(760, 1307, 39, 53)], { fps: 15, hit: { at: 1, dmg: 5, reach: 38 } }),
+  rush3: nativeFr([GB(806, 1312, 46, 43), GB(864, 1313, 45, 46), GB(864, 1313, 45, 46), KAIO_STANCE], { fps: 13, hit: { at: 1, dmg: 8, reach: 42, heavy: true, wallBounce: true } }),
+  // the big attack (O, 50 ki): his dash in, the flurry above, then the sheet's own Kamehameha: a run-up, a
+  // flip, hands out, the swirl, and a beam half as big again as anyone else's (see superRush in game/cinematics.js)
+  superDash: nativeFr([GB(523, 1315, 75, 45)], { fps: 1, loop: true }),
+  // the run in, the flip kick that sends them up, hands out, the swirl, and firing in mid-air (the
+  // sheet's own Kamehameha and beam: BEAMS.gokuKaio)
+  superRun: nativeFr([GB(142, 1412, 31, 52)], { fps: 1, loop: true }),
+  superKick: nativeFr([GB(189, 1410, 35, 52)], { fps: 1, loop: true }),
+  superCharge: nativeFr([GB(240, 1410, 38, 54), GB(291, 1399, 59, 65)], { fps: 2.5, loop: false }),
+  superFire: nativeFr([GB(366, 1410, 37, 54)], { fps: 1, loop: true, emit: 31 }),
+  // his ordinary Kamehameha (U) the same way: hands out, the swirl, and the sheet's firing pose
+  kameCharge: nativeFr([GB(240, 1410, 38, 54), GB(291, 1399, 59, 65)], { fps: 2.5, loop: false }),
+  kameFire: nativeFr([GB(366, 1410, 37, 54)], { fps: 1, loop: false, emit: 31 }),
+  // powering back down: the flames, the outline, and he's himself again
+  powerDown: nativeFr([KAIO_AURA[0], KAIO_FLASH, GBN(185, 1310, 31, 50)], { fps: 10, loop: false }),
 });
 
 // Written with Perfect Cell's rows (12-16); each form sits in the same layout 6 rows higher up.
@@ -206,12 +393,28 @@ const CELL_TEMPLATE = {
 // the forms Cell evolves through; the Cell Juniors (rows 17-21) are fought between Semi and Perfect
 const CELL_FORMS = ['imperfect', 'semi', 'perfect'];
 const CELL_ROW = { imperfect: 0, semi: 6, perfect: 12, junior: 17 };
+// Each form plays differently, not just harder:
+//   speed     how fast it walks and dashes       dmgMul     how hard it hits
+//   tempo     how fast its punches and kicks come out and recover
+//   airDashes how many times it can dash in one jump
+//   absorb    health Cell's grab gives back      guardDmg   how much faster its hits wear a guard down
+// Imperfect Cell lives off his tail (the grab heals most), Semi-Perfect is the heavy one (his blows
+// crush a guard), Perfect is the quick one (two air dashes, the Juniors, the Solar Kamehameha).
 const CELL_INFO = {
-  imperfect: { name: 'IMPERFECT CELL', speed: 0.9, dmgMul: 0.9, bar: '#7be05a', face: 0 },
-  semi: { name: 'SEMI-PERFECT CELL', speed: 1.05, dmgMul: 1.1, bar: '#3fc0a0', face: 1 },
-  perfect: { name: 'PERFECT CELL', speed: 1.25, dmgMul: 1.3, bar: '#c27aff', face: 2 },
-  junior: { name: 'CELL JR.', speed: 1.4, dmgMul: 0.75, bar: '#5aa8ff', face: 4, scale: 1 },
+  imperfect: { name: 'IMPERFECT CELL', speed: 0.9, dmgMul: 0.9, tempo: 0.95, airDashes: 1, absorb: 22, bar: '#7be05a', face: 0 },
+  semi: { name: 'SEMI-PERFECT CELL', speed: 1.05, dmgMul: 1.1, tempo: 1, airDashes: 1, guardDmg: 1.4, bar: '#3fc0a0', face: 1 },
+  perfect: { name: 'PERFECT CELL', speed: 1.25, dmgMul: 1.3, tempo: 1.12, airDashes: 2, bar: '#c27aff', face: 2 },
+  junior: { name: 'CELL JR.', speed: 1.4, dmgMul: 0.75, tempo: 1.1, airDashes: 1, bar: '#5aa8ff', face: 4, scale: 1 },
 };
+// Goku: base runs on foot and has the Spirit Bomb; the Kaioken is the fast one (it burns ki while it
+// lasts: two air dashes, quicker strings, a three-hit rush); a Super Saiyan hits hardest and glides.
+// kame: his Kamehameha in that form: seconds to charge it, damage a second, how thick the beam is
+const GOKU_INFO = {
+  base: { name: 'GOKU', speed: 1, dmgMul: 1, tempo: 1, airDashes: 1, kame: { charge: 1.15, dps: 16, size: 0.85 } },
+  kaioken: { name: 'GOKU  KAIOKEN', speed: 1.3, dmgMul: 1.2, tempo: 1.25, airDashes: 2, kame: { charge: 0.8, dps: 20, size: 1 } },
+  ssj: { name: 'GOKU  SSJ', speed: 1.15, dmgMul: 1.35, tempo: 1.1, airDashes: 1, kame: { charge: 0.9, dps: 22, size: 1 } },
+};
+const infoOf = f => f.who === 'cell' ? CELL_INFO[f.form] : GOKU_INFO[f.form];
 // The Juniors' rows follow Perfect Cell's except where their sheet has a frame fewer (row 13: no
 // knee) or splits the dizzy stars and an extra beam piece off as frames of their own.
 const JUNIOR_FIX = {
@@ -226,8 +429,9 @@ function cellForm(row, fix = {}) {
   }]));
 }
 
+// Goku's tables by form; a T on the end is that form with the gi top torn off (see Fighter.A)
 const ANIMS = {
-  goku: { base: GOKU_BASE, ssj: GOKU_SSJ },
+  goku: { base: GOKU_BASE, baseT: GOKU_BASE_T, ssj: GOKU_SSJ, ssjT: GOKU_SSJ_T, kaioken: GOKU_KAIO },
   cell: Object.fromEntries(CELL_FORMS.map(f => [f, cellForm(CELL_ROW[f])])),
 };
 ANIMS.cell.junior = cellForm(CELL_ROW.junior, JUNIOR_FIX);
@@ -249,6 +453,14 @@ const FX_ART = {
   cellZip: { sheet: 'cell', ref: '12.4' },
   streak: { sheet: 'cell', ref: '12.4' },
   gokuPortrait: { sheet: 'goku', ref: '10.0' },
+  // the Kaioken's own portrait, from the newer sheet
+  kaioPortrait: { sheet: 'gb', ref: GB(68, 1302, 40, 56) },
+  // the Destructo Disc in flight (two frames of its spin), and the Solar Flare going off: the flash
+  // across his forehead and the ring that spreads from it
+  disc: { sheet: 'gb', ref: GB(308, 1047, 63, 28) },
+  disc2: { sheet: 'gb', ref: GB(376, 1047, 61, 28) },
+  flareFlash: { sheet: 'gb', ref: GB(262, 1131, 143, 36) },
+  flareRing: { sheet: 'gb', ref: { ...GB(410, 1111, 62, 60), hollow: true } },
   ssj3Portrait: { sheet: 'goku', ref: { id: '12.0', w: 41 } },
   gokuHead: { sheet: 'gokuFace', ref: '0.0' },
   // the Spirit Bomb and the rings of its explosion
@@ -278,6 +490,21 @@ const BEAMS = {
     head: { sheet: 'cell', ref: { id: '16.4', x: 124, seed: 'tb' } },
     scale: 0.6,
   },
+  // Super Saiyan Goku's in his full gi, as the sheet draws it with his Kamehameha: a spiky burst out of
+  // his hands, a thinner stream, and a big round head (drawn at its own size, not squeezed to the stream)
+  gokuSsj: {
+    start: { sheet: 'sk', ref: { sheet: 'sk', rect: [331, 6, 104, 103], seed: 'tbl' } },
+    body: { sheet: 'sk', ref: { sheet: 'sk', rect: [441, 61, 40, 48], seed: 'tb' } },
+    head: { sheet: 'sk', ref: { sheet: 'sk', rect: [487, 6, 104, 103], seed: 'tbr' } },
+    scale: 0.62, tile: true, ownHead: true,
+  },
+  // the Kaioken's, as its sheet draws it with his finish (the same shape, a little bigger)
+  gokuKaio: {
+    start: { sheet: 'gb', ref: { sheet: 'gb', rect: [403, 1369, 135, 129], seed: 'tbl' } },
+    body: { sheet: 'gb', ref: { sheet: 'gb', rect: [560, 1404, 40, 60], seed: 'tb' } },
+    head: { sheet: 'gb', ref: { sheet: 'gb', rect: [646, 1369, 140, 129], seed: 'tbr' } },
+    scale: 0.5, tile: true, ownHead: true,
+  },
 };
 
 // Named combos: recognised while you play (name pops up, +8 ki) and listed in the pause menu and
@@ -290,12 +517,15 @@ const COMBOS = {
     { name: 'SKY CHASE', steps: ['launch', 'air'], how: 'J J J J (or K K K), then W, J' },
     { name: 'METEOR SMASH', steps: ['air', 'air2', 'spike'], how: 'in the air: J J J' },
     { name: 'KI CANCEL', steps: ['melee', 'kiBall'], how: 'land a hit, then L' },
-    { name: 'KAMEHAMEHA CANCEL', steps: ['melee', 'beam'], how: 'land a hit, then U (SSJ)' },
+    { name: 'KAMEHAMEHA CANCEL', steps: ['melee', 'beam'], how: 'land a hit, then U' },
     { name: 'VANISH STRIKE', steps: ['melee', 'vanish', 'melee'], how: 'land a hit, Q, then J' },
     { name: 'WALL SPLAT', steps: ['wall', 'melee'], how: 'toward + K near the edge, hit the rebound' },
     { name: 'AIR DASH EXTEND', steps: ['air2', 'air'], how: 'air J J, double-tap, J again' },
-    { name: 'AERIAL KAMEHAMEHA', steps: ['air', 'beam'], how: 'air hit, then U (SSJ)' },
-    { name: 'SAIYAN SKY BLAST', steps: ['launch', 'air', 'air2', 'beam'], how: 'launcher, W, J J, then U (SSJ)' },
+    { name: 'AERIAL KAMEHAMEHA', steps: ['air', 'beam'], how: 'air hit, then U' },
+    { name: 'SAIYAN SKY BLAST', steps: ['launch', 'air', 'air2', 'beam'], how: 'launcher, W, J J, then U' },
+    { name: 'KAIOKEN ASSAULT', steps: ['rush', 'rush2', 'rush3'], how: 'in the Kaioken (E): toward + J' },
+    { name: 'BLINDSIDE', steps: ['flare', 'melee', 'melee'], how: 'G blinds them (base or Kaioken), then hit twice' },
+    { name: 'DISC CANCEL', steps: ['melee', 'disc'], how: 'land a hit, then Y (base or Kaioken)' },
     { name: 'DRAGON RUSH CHASE', steps: ['grab', 'air'], how: 'J+K (or F) through a block, W, J' },
     { name: 'COUNTER STRIKE', steps: ['counter', 'melee', 'melee'], how: 'hit them as they attack, keep going' },
     { name: 'KI BLAST RUSH', steps: ['kiBall', 'rush'], how: 'L hits, then J to rush in after it' },
@@ -329,7 +559,7 @@ const COMBOS = {
     { name: 'RELAUNCH', steps: ['air', 'airLaunch', 'air'], how: 'air hit, F to send them up again, J' },
   ],
 };
-const MELEE = ['p1', 'p2', 'p3', 'p4', 'k1', 'k2', 'k3', 'rush', 'grab', 'slash', 'air', 'air2', 'spike', 'airLaunch'];
+const MELEE = ['p1', 'p2', 'p3', 'p4', 'k1', 'k2', 'k3', 'rush', 'rush2', 'rush3', 'grab', 'slash', 'air', 'air2', 'spike', 'airLaunch'];
 
 // Move list shown in the pause menu and from the select screen: [input, what it does]
 const MOVES = {
@@ -351,12 +581,19 @@ const MOVES = {
     ['S + J IN THE AIR', 'Dunk: slam them down, they bounce off the ring'],
     ['F IN THE AIR', 'Re-launch a juggled enemy (once per combo)'],
     ['HOLD I', 'Charge ki'],
-    ['T', 'Super Saiyan (full ki)'],
-    ['U', 'Kamehameha (SSJ, 50 ki, air too)'],
+    ['U', 'Kamehameha (50 ki, air too): stronger each form'],
+    ['G', 'Solar Flare (20 ki): blinds them if they are looking at you'],
+    ['Y', 'Destructo Disc (30 ki): cuts through a guard'],
+    ['E', 'Kaioken (25 ki): fastest form, burns ki, E ends it'],
+    ['KAIOKEN: O (50 KI)', 'Kaioken finish: rush, kick them up, Kamehameha'],
+    ['KAIOKEN: DOUBLE-TAP', 'Two air dashes a jump instead of one'],
+    ['KAIOKEN: O (50 KI)', 'Dash in: if it lands, a flurry into his biggest Kamehameha'],
+    ['T', 'Super Saiyan (full ki): hits hardest'],
     ['Q THEN U  /  U THEN Q', 'Instant Kamehameha (SSJ, full ki)'],
     ['O', 'Spirit Bomb (base, full ki) / Dragon Fist (SSJ)'],
+    ['O IN THE AIR (BASE)', 'Spirit Bomb that turns him Super Saiyan if it lands'],
+    ['O (SSJ, GI TORN)', 'Dash in: if it lands, kicks into a Kamehameha'],
     ['O IN THE AIR (SSJ)', 'Power down mid-air: a bigger Spirit Bomb (full ki)'],
-    ['S + O IN THE AIR (SSJ)', 'Spirit Bomb as a Super Saiyan (full ki)'],
     ['T  (AS SSJ)', 'Power down to base, keeping your ki'],
   ],
   cell: [
@@ -442,7 +679,7 @@ function promptKeys(str, c = P1) {
 // the controls page and the versus screen, from the current keys and buttons
 const CONTROL_GROUPS = [
   ['MOVE', ['left', 'right']], ['JUMP', ['jump']], ['BLOCK', ['block']], ['PUNCH / KICK', ['punch', 'kick']],
-  ['GRAB / AIR RE-LAUNCH', ['grab']], ['CELL SPECIALS', ['barrier', 'junior', 'cannon']], ['KI ATTACK', ['ki']],
+  ['GRAB / AIR RE-LAUNCH', ['grab']], ['SPECIALS 1 / 2 / 3', ['barrier', 'junior', 'cannon']], ['KI ATTACK', ['ki']],
   ['BEAM / ULTIMATE', ['beam', 'ult']], ['CHARGE / TRANSFORM', ['charge', 'transform']], ['DASH / VANISH', ['dash', 'vanish']], ['PAUSE', ['pause']],
 ];
 const keysOf = (table, acts) => acts.map(a => table[a] && table[a].length ? keyName(table[a][0]) : '-').join(' / ');
@@ -454,5 +691,5 @@ const versusRows = () => CONTROL_GROUPS.filter(([n]) => n !== 'PAUSE').map(([nam
 const ACTION_NAMES = {
   left: 'MOVE LEFT', right: 'MOVE RIGHT', jump: 'JUMP', block: 'BLOCK', punch: 'PUNCH', kick: 'KICK', grab: 'GRAB',
   ki: 'KI ATTACK', beam: 'BEAM', ult: 'ULTIMATE', charge: 'CHARGE', transform: 'TRANSFORM', vanish: 'VANISH', dash: 'DASH',
-  barrier: 'CELL BARRIER', junior: 'CELL JUNIOR', cannon: 'CELL CANNON', pause: 'PAUSE',
+  barrier: 'SOLAR FLARE / BARRIER', junior: 'KAIOKEN / CELL JUNIOR', cannon: 'DISC / BEAM CANNON', pause: 'PAUSE',
 };

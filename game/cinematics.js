@@ -8,6 +8,7 @@
 // Doing nothing takes the full hit. The boss answers too, more often the further into the fight.
 const REACT_PERFECT = 0.35;
 function reactWindow(def, dur) {
+  if (def === player && !game.versus) dur *= diff().window; // Easy gives you longer to answer
   const r = { def, t: 0, dur, answer: null, at: 0 };
   if (!human(def)) {
     const ph = game.phase, x = Math.random();
@@ -107,11 +108,67 @@ function endCinematic(f, foe) {
 // Instant Kamehameha: charge it floating in the air, vanish, reappear right behind the enemy and
 // fire point-blank. The enemy gets a moment to answer (see reactWindow); unanswered it deals 60
 // and launches them.
+// Instant Transmission the way the full-gi Super Saiyan sheet draws it. From the ground he crouches,
+// springs up and fades out; in the air he turns and zips away. He reappears behind them (in the air
+// too if they're up there; in front if they're backed against the edge), and holds the Kamehameha at
+// his side, ready to fire. Only his full gi has these frames: hasTeleKame says whether he can.
+const hasTeleKame = f => f.who === 'goku' && f.form === 'ssj' && !!f.A('itHold') && !(f.torn && ANIMS.goku.ssjT);
+async function teleKame(f, foe, chant = true) {
+  const ground = f.y >= FLOOR - 2;
+  const pose = name => { f.play(name, 'pose'); f.t2 = 99; };
+  const run = async name => { pose(name); const a = f.A(); await wait(a.fr.length / a.fps); };
+  Object.assign(f, { vx: 0, vy: 0, visible: true, floating: true, facing: foe.x > f.x ? 1 : -1 });
+  if (chant) { Voice.shout('goku', 'Ka... me... ha... me...'); if (!sfx.kameChant(f, 2.6)) sfx.charge(1.8); }
+  if (ground) {
+    // crouch...
+    pose('itCrouch'); f.sq = 0.12; await wait(0.3);
+    // ...and leap: up he goes, fast off the ground and slowing near the top
+    pose('itLeap'); f.sq = -0.14; sfx.whoosh(); Stage.puff(f.x, 1); Stage.puff(f.x, -1);
+    for (let i = 0; i < 12; i++) { f.y -= 9 - i * 0.6; await wait(0.03); }
+    // at the top he fades out into streaks, and he's gone
+    await run('itFade');
+  } else await run('itAir');
+  ghosts.push({ img: teleArt(f), x: f.x, y: f.y, t: 0 }); sfx.teleport();
+  f.visible = false;
+  await wait(0.3);
+  // he reappears behind them, a step away so the two don't overlap (in front if they're backed
+  // against the edge)
+  let x = foe.x - foe.facing * 38;
+  if (x < 16 || x > W - 16) x = foe.x + foe.facing * 38;
+  const air = foe.y < FLOOR - 12;
+  f.facing = foe.x > x ? 1 : -1;
+  if (air) {
+    // they're up in the air: he's right there with them
+    Object.assign(f, { x, y: foe.y, visible: true });
+    ghosts.push({ img: teleArt(f), x: f.x, y: f.y, t: 0 }); sfx.teleport();
+  } else {
+    // from above, dropping in behind them, and landing in a crouch
+    Object.assign(f, { x, y: FLOOR - 56, visible: true });
+    ghosts.push({ img: teleArt(f), x: f.x, y: f.y, t: 0 }); sfx.teleport();
+    cam.focus = { x: (f.x + foe.x) / 2, y: FLOOR - 10, z: 1.4 };
+    pose('itDrop');
+    for (let i = 0; i < 10; i++) { f.y = Math.min(FLOOR, f.y + 2 + i * 1.1); await wait(0.03); }
+    f.y = FLOOR; f.floating = false;
+    pose('itLand'); f.sq = 0.16; Stage.puff(f.x, 1); Stage.puff(f.x, -1); sfx.whoosh();
+    await wait(0.28);
+  }
+  cam.focus = { x: (f.x + foe.x) / 2, y: Math.min(FLOOR, (f.y + foe.y) / 2 + 20), z: 1.5 };
+  // the Kamehameha drawn back at his side, ready
+  pose('itHold'); f.floating = f.y < FLOOR - 2;
+  await wait(0.25);
+}
+
 async function instantKame(f) {
   const foe = foeOf(f), scale = comboScale(foe, 'ult'); // out of a combo, it's worth less
   f.ki = 0;
   game.mode = 'cut'; projs = []; beams = []; minions = []; clash = null; game.banner = null; game.spirit = null;
   settle(foe);
+  if (hasTeleKame(f)) {
+    f.inv = 99; cam.focus = { f, z: 1.25 };
+    await teleKame(f, foe);
+    foe.facing = f.x > foe.x ? 1 : -1; foe.play('idle', 'pose'); foe.t2 = 99;
+    return instantKameFire(f, foe, scale);
+  }
   Object.assign(f, { vx: 0, vy: 0, visible: true, inv: 99, floating: true });
   f.y = Math.min(f.y, FLOOR - 40);
   f.facing = foe.x > f.x ? 1 : -1;
@@ -134,6 +191,10 @@ async function instantKame(f) {
   f.play('kameCharge', 'pose');
   foe.facing = f.x > foe.x ? 1 : -1; foe.play('idle', 'pose'); foe.t2 = 99;
   cam.focus = { x: (f.x + foe.x) / 2, y: FLOOR, z: 1.5 };
+  return instantKameFire(f, foe, scale);
+}
+// the moment after he reappears: they get a moment to answer, then the point-blank beam
+async function instantKameFire(f, foe, scale) {
   game.slow = 0.4;
   const r = await reactWindow(foe, 0.9);
   game.slow = 1;
@@ -148,6 +209,158 @@ async function instantKame(f) {
   await cinematicBeam(f, foe, r, 60 * scale, () => {
     foe.play('knock'); foe.vy = -320; foe.vx = f.facing * 230; foe.y -= 1; Stage.crack(foe.x, 2);
   }, 'INSTANT KAMEHAMEHA!');
+  endCinematic(f, foe);
+}
+
+// The blow that wins it: Cell is down to nothing and Goku finishes him with a Kamehameha. As a
+// Super Saiyan in his full gi it's the Instant Transmission one (from the ground or from the air, as
+// he is); otherwise (base, Kaioken, the torn gi) the regular one, aimed at wherever Cell is.
+async function winBlow(f, foe) {
+  game.mode = 'cut'; projs = []; beams = []; minions = []; clash = null; game.banner = null; game.spirit = null;
+  for (const x of [f, foe]) { sfx.stopSustain(x); sfx.stopKame(x); }
+  // Cell hangs where the last hit left him
+  Object.assign(foe, { vx: 0, vy: 0, visible: true, floating: foe.y < FLOOR - 4 }); foe.play(foe.y < FLOOR - 4 ? 'knock' : 'hurt', 'pose'); foe.t2 = 99;
+  Object.assign(f, { vx: 0, vy: 0, visible: true, inv: 99 });
+  if (f.state === 'tele') f.x = f.teleTo ?? f.x;
+  game.slow = 0.5; cam.focus = { f, z: 1.3 };
+  if (hasTeleKame(f)) await teleKame(f, foe);
+  else {
+    f.facing = foe.x > f.x ? 1 : -1; f.floating = f.y < FLOOR - 2;
+    f.play('kameCharge', 'pose'); f.t2 = 99;
+    Voice.shout('goku', 'Ka... me... ha... me...'); if (!sfx.kameChant(f, 1)) sfx.charge(1);
+    await wait(0.9);
+  }
+  game.slow = 1;
+  Voice.shout('goku', 'HAAAAAAA!');
+  f.big = true; fireKame(f); f.t2 = 1.3; f.big = false;
+  // aimed up at him if he's in the air; along the ring if he's standing
+  const b = beams.find(x => x.owner === f);
+  if (b) b.ang = foe.y < FLOOR - 12 ? clamp(Math.atan2(foe.y - 22 - b.y, Math.max(20, Math.abs(foe.x - b.x0))), -0.9, 0.9) : 0;
+  game.banner = { text: hasTeleKame(f) ? 'INSTANT KAMEHAMEHA!' : 'KAMEHAMEHA!', t: 0, dur: 1.3 };
+  game.flash = 1; shake(12); sfx.explode(); Stage.strike();
+  await wait(0.15, true);
+  foe.floating = false; foe.play('knock'); foe.vy = -260; foe.vx = f.facing * 240; foe.y -= 1;
+  await wait(1.3, true);
+  for (const x of [f, foe]) { sfx.stopSustain(x); sfx.stopKame(x); }
+  beams = []; f.inv = 0; cam.focus = null; game.banner = null;
+  if (f.state === 'kameFire' || f.state === 'pose') f.play(f.y < FLOOR - 2 ? 'fall' : 'idle', f.y < FLOOR - 2 ? 'jump' : 'idle');
+  f.floating = false;
+}
+
+// ---- cutscene attacks ----
+// Goku's big attacks as a Super Saiyan with his gi top torn (full ki) and in the Kaioken (SUPER_KI). He
+// winds up and dashes in (see superUp and superDash in game/fighter-update.js). The dash is the part
+// that can be stopped: block it, jump it or vanish. If it lands the fight stops and the rest plays
+// itself out, the way the sheets draw it.
+const SUPER_KI = { ssj: 100, kaioken: 50 };
+function superRush(f) {
+  const ssj = f.form === 'ssj';
+  f.ki -= SUPER_KI[f.form]; f.vx = 0; f.facing = foeOf(f).x > f.x ? 1 : -1;
+  if (ssj) { f.play('superUp', 'superUp'); f.t2 = 0.38; game.flash = Math.max(game.flash, 0.35); }
+  else { f.play('superDash', 'superDash'); f.t2 = 0.5; }
+  sfx.powerup(); shake(4);
+  popups.push({ text: ssj ? 'SUPER KAMEHAMEHA!' : 'KAIOKEN FINISH!', x: f.x, y: f.y - 70, t: 0, c: ssj ? '#ffe04a' : '#ff5a5a' });
+}
+
+// a beam for a cutscene: it does no damage of its own (the scene deals it), and it's aimed at them
+function superBeam(f, foe, size) {
+  f.play('superFire', 'kameFire'); f.t2 = 1.25;
+  const [hx, hy] = f.hand('superFire');
+  const ang = clamp(Math.atan2(foe.y - 22 - hy, Math.max(20, Math.abs(foe.x - hx))), -0.9, 0.5);
+  beams.push({ owner: f, x0: hx, y: hy, ang, dir: f.facing, len: 0, t: 0, tick: 0, big: false, dps: 0, size });
+  sfx.beam(f.t2); sfx.beamLoop(f); sfx.stopKame(f); sfx.kameBlast(f, size > 1.3);
+  game.flash = 1; shake(12); Stage.strike();
+}
+
+async function superScene(f, foe) {
+  // (out of a combo it's worth less, and the boss's hurts as much as the difficulty says)
+  const ssj = f.form === 'ssj', scale = comboScale(foe, 'ult') * (foe === player && !game.versus ? diff().taken : 1), dir = f.facing;
+  game.mode = 'cut'; projs = []; beams = []; minions = []; clash = null; game.banner = null; game.spirit = null;
+  Object.assign(f, { vx: 0, vy: 0, inv: 99, visible: true });
+  Object.assign(foe, { vx: 0, vy: 0, visible: true, y: FLOOR, floating: false, facing: -dir });
+  cam.focus = { x: (f.x + foe.x) / 2, y: FLOOR, z: 1.5 };
+  // one blow of the string: he's on them, they reel (it never knocks them out: the beam does that)
+  const blow = async (anim, dmg, dur, push) => {
+    foe.x = clamp(foe.x + dir * push, 20, W - 20); f.x = clamp(foe.x - dir * 22, 14, W - 14);
+    f.play(anim, 'pose'); f.t2 = 99;
+    foe.play('hurt', 'pose'); foe.t2 = 99;
+    directDamage(foe, Math.min(dmg * scale, foe.hp - 1));
+    sparks.push({ x: foe.x - dir * 8, y: foe.y - 30, t: 0, c: '#fff6b8' });
+    if (dmg >= 4) sfx.kick(); else sfx.punch();
+    shake(5); game.freeze = 0.045;
+    cam.focus = { x: (f.x + foe.x) / 2, y: FLOOR, z: 1.5 };
+    await wait(dur);
+  };
+  if (ssj) {
+    await blow('super1', 3, 0.2, 4);
+    await blow('super2', 3, 0.24, 4);
+    await blow('super3', 4, 0.22, 6);
+    // the flip kick: up they go
+    await blow('super4', 5, 0.08, 0);
+    foe.play('knock', 'pose'); foe.t2 = 99; foe.floating = true; Stage.crack(foe.x, 1.5);
+    for (let i = 0; i < 9; i++) { foe.y -= 9 - i * 0.6; foe.x = clamp(foe.x + dir * 5, 20, W - 20); await wait(0.03); }
+    cam.focus = { x: (f.x + foe.x) / 2, y: FLOOR - 30, z: 1.25 };
+    f.play('superCharge', 'pose'); f.t2 = 99;
+    Voice.shout('goku', 'Ka... me... ha... me...'); if (!sfx.kameChant(f, 0.8)) sfx.charge(0.8);
+    await wait(0.8);
+    Voice.shout('goku', 'HAAAAAAA!');
+    superBeam(f, foe, 1.25);
+  } else {
+    for (const [anim, dmg] of [['rush', 2], ['rush2', 2], ['rush', 2], ['rush2', 2], ['rush3', 3]]) await blow(anim, dmg, 0.12, 5);
+    // the sheet's own finish: he runs in, a flip kick sends them up (they only go up once his foot is
+    // on them), he follows them up, the swirl gathers in his hands, and he fires up at them
+    f.x = clamp(foe.x - dir * 30, 14, W - 14);
+    f.play('superRun', 'pose'); f.t2 = 99; sfx.whoosh();
+    for (let i = 0; i < 5; i++) { f.x = clamp(f.x + dir * 2, 14, W - 14); await wait(0.04); }
+    f.play('superKick', 'pose'); f.t2 = 99;
+    await wait(0.06);
+    directDamage(foe, Math.min(4 * scale, foe.hp - 1));
+    sparks.push({ x: foe.x - dir * 6, y: foe.y - 34, t: 0, c: '#fff6b8' });
+    sfx.kick(); shake(7); game.freeze = 0.08;
+    foe.play('knock', 'pose'); foe.t2 = 99; foe.floating = true; Stage.crack(foe.x, 1.2); Stage.puff(foe.x, dir);
+    await wait(0.1);
+    // up they go, fast off the kick and slowing near the top, while he lands from the flip
+    for (let i = 0; i < 10; i++) { foe.y -= 9 - i * 0.6; foe.x = clamp(foe.x + dir * 2, 20, W - 20); await wait(0.035); }
+    cam.focus = { x: (f.x + foe.x) / 2, y: FLOOR - 40, z: 1.2 };
+    // hands out, then the swirl (Kamehameha chant over it), held long enough to read
+    f.play('superCharge', 'pose'); f.t2 = 99;
+    Voice.shout('goku', 'Ka... me... ha... me...'); if (!sfx.kameChant(f, 1)) sfx.charge(1);
+    await wait(1);
+    Voice.shout('goku', 'HAAAAAAA!');
+    superBeam(f, foe, 1.2);
+  }
+  game.banner = { text: ssj ? 'SUPER KAMEHAMEHA!' : 'KAIOKEN KAMEHAMEHA!', t: 0, dur: 1.3 };
+  await wait(0.12, true);
+  directDamage(foe, (ssj ? 46 : 30) * scale);
+  foe.floating = false; foe.play('knock'); foe.vy = ssj ? -200 : -300; foe.vx = dir * 240; foe.y -= 1; sfx.explode();
+  await wait(1.25, true);
+  endCinematic(f, foe);
+}
+
+// The Spirit Bomb that turns him (base Goku, O in the air at full ki): it lands, and with everyone's
+// energy still pouring through him the gold bursts out. He's a Super Saiyan as it goes off.
+async function spiritSaiyan(sb, f, foe) {
+  const scale = comboScale(foe, 'ult') * (foe === player && !game.versus ? diff().taken : 1), dir = sb.vx >= 0 ? 1 : -1;
+  game.mode = 'cut'; projs = []; beams = []; minions = []; clash = null; game.banner = null;
+  sb.phase = 'hold'; sb.t = 0;
+  f.torn = true;   // (the bomb was thrown in his undershirt, whatever has happened to him since)
+  Object.assign(foe, { vx: 0, vy: 0, visible: true, floating: foe.y < FLOOR - 4 }); foe.play('hurt', 'pose'); foe.t2 = 99;
+  Object.assign(f, { vx: 0, vy: 0, inv: 99, visible: true, floating: f.y < FLOOR - 4 });
+  cam.focus = { f, z: 1.4 };
+  f.play('spiritSsj', 'pose'); f.t2 = 99; sfx.powerup(); shake(5);
+  await wait(0.85);
+  finishTransform(f, false); game.wentSsj = true; // (the music carries on: a change mid-bomb sounded wrong)
+  f.play('spiritFloat', 'pose'); f.t2 = 99;
+  popups.push({ text: 'SUPER SAIYAN!', x: f.x, y: Math.max(44, f.y - 70), t: 0, c: '#ffe04a' });
+  await wait(0.8, true);
+  // and it goes off
+  cam.focus = null;
+  sb.phase = 'boom'; sb.t = 0;
+  game.flash = 1; shake(12); sfx.explode(); Stage.crack(sb.x, 2.5); Stage.cloud(sb.x, 3);
+  directDamage(foe, SPIRIT_DMG * 1.2 * scale);
+  foe.floating = false; foe.play('knock'); foe.vy = -300; foe.vx = dir * 200; foe.y -= 1;
+  await wait(1, true);
+  if (f.y < FLOOR - 1) { f.floating = false; f.play('fall', 'jump'); }
   endCinematic(f, foe);
 }
 
@@ -251,9 +464,14 @@ async function cellDestroyed() {
 // Goku loses the clash: blasted down, he gets up for one last Instant Kamehameha point-blank... and
 // Cell regenerates from it and finishes him.
 async function gokuLastStand() {
-  cell.t2 = 1.0;
+  cell.t2 = 99;
   goku.floating = false; goku.play('knock'); goku.vy = -260; goku.vx = (goku.x > cell.x ? 1 : -1) * 160; goku.y -= 1;
   game.flash = 0.8; shake(10); sfx.explode();
+  // his beam spent, Cell stays where he is, up in the sky, looking down at what's left of Goku (he used
+  // to drop to the ring as it ended, so the rest of the scene, written for the sky, played on the ground)
+  await wait(0.9);
+  beams = beams.filter(b => b.owner !== cell); sfx.stopSustain(cell);
+  Object.assign(cell, { big: false, floating: true, vx: 0, vy: 0 }); cell.play('taunt', 'pose'); cell.t2 = 99;
   for (let i = 0; i < 120 && goku.state !== 'down'; i++) await wait(1 / 60);
   await wait(0.8);
   goku.play('getup', 'pose'); goku.t2 = 99;
@@ -304,8 +522,11 @@ async function gokuLastStand() {
 // assets/cutins (the .gif next to it is the original): seq lists [atlas cell, milliseconds] per frame
 // in the GIF's own order and timing (repeated frames are stored once).
 const CUTINS = {
-  // Goku's eyes narrowing, the moment before his hair turns gold (160 x 90 pixel art, drawn 2x)
-  gokuSsj: { src: 'assets/cutins/goku-ssj-eyes.png', w: 160, h: 90, cols: 3, seq: Array.from({ length: 9 }, (_, i) => [i, 100]) },
+  // Goku's eyes, the rage building in them, and the scream as his hair turns gold: fifteen frames on a
+  // strip that isn't an even grid, so each one's corner is listed (cells). The scream at the end loops
+  gokuSsj: { src: 'assets/cutins/goku-ssj-cutins.png', w: 112, h: 63,
+    cells: [...[3, 119, 235, 351, 468, 584, 700, 816, 933, 1049, 1165].map(x => [x + 1, 6]), ...[3, 119, 235, 351].map(x => [x + 1, 72])],
+    seq: [...[0, 1, 2, 3].map(i => [i, 120]), ...[4, 5, 6, 7, 8, 9].map(i => [i, 90]), [10, 100], ...[11, 12, 13, 14, 11, 12, 13, 14].map(i => [i, 70])] },
   // Cell's hand clenching, then pulling away from his smirking Perfect face (its last 4 frames loop)
   cellPerfect: { src: 'assets/cutins/cell-perfect-reveal.png', w: 640, h: 360, cols: 6,
     seq: [...Array.from({ length: 35 }, (_, i) => [i, 100]), ...[31, 32, 33, 34, 31, 32, 33, 34, 31, 32, 33, 34, 31, 32, 33, 34].map(i => [i, 100]), [31, 400]] },
@@ -326,7 +547,7 @@ function drawCutin() {
   if (!C.img.complete || !C.img.naturalWidth) return;
   let ms = c.t * 1000, i = 0;
   while (i < C.seq.length - 1 && ms >= C.seq[i][1]) { ms -= C.seq[i][1]; i++; }
-  const cell = C.seq[i][0], sx = (cell % C.cols) * C.w, sy = Math.floor(cell / C.cols) * C.h;
+  const cell = C.seq[i][0], [sx, sy] = C.cells ? C.cells[cell] : [(cell % C.cols) * C.w, Math.floor(cell / C.cols) * C.h];
   // a quick fade at each end, so it cuts in and out like the anime rather than popping
   const a = Math.min(1, c.t / 0.08, (C.dur - c.t) / 0.1);
   gfx.save(); gfx.globalAlpha = clamp(a, 0, 1); gfx.imageSmoothingEnabled = false;

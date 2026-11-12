@@ -23,9 +23,7 @@
     for (const v of Object.values(FX_ART)) if (v && v.sheet) add(v.sheet, v.ref);
     for (let k = 0; k < 5; k++) { const v = FX_ART.cellFace(k); add(v.sheet, v.ref); }
     for (const B of Object.values(BEAMS)) for (const part of ['start', 'body', 'head']) add(B[part].sheet, B[part].ref);
-    // frames named directly in the code (title, select screen, Cell Juniors, the SSJ hair template)
-    for (const id of ['11.0', '0.2']) add('goku', id);
-    for (const id of ['12.0', '0.0']) add('cell', id);
+    // frames named directly in the code (the Cell Juniors that fly in)
     for (const id of Object.values(JR_FRAMES)) add('cell', id);
     return list;
   }

@@ -38,7 +38,7 @@ hear one at random the way the game plays it. To change what plays, edit the num
   };
   for (const [ev, slices] of Object.entries(A.bank.slices)) {
     const box = document.createElement('div'); box.className = 'ev';
-    box.innerHTML = `<h2>${ev} <code>— ${USES[ev] || ''}</code></h2>`;
+    box.innerHTML = `<h2>${ev} <code>${USES[ev] || ''}</code></h2>`;
     const all = document.createElement('button'); all.className = 'main'; all.textContent = 'play ' + ev;
     all.onclick = () => { A.init(); (A.sfx[ev] || (() => A.bank.play(ev, Math.floor(Math.random() * slices.length))))(); };
     if (ev === 'charge' || ev.startsWith('spirit')) all.onclick = () => A.bank.play(ev, 0);

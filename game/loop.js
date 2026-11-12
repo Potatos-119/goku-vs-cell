@@ -88,7 +88,7 @@ function step(raw) {
   }
   if (game.mode === 'paused') return;
   if (game.mode === 'end') {
-    if (tap('confirm')) { if (game.versus) startVersus(game.side); else { reset(); Audio8.music.play('bg', true); startFight(); } }
+    if (tap('confirm')) retryFight();
     else if (tap('back')) { if (window.Net && Net.role === 'host') Net.drop(); reset(); Audio8.music.play('bg', true); game.mode = 'select'; }
   }
   if (game.mode === 'intro' && tap('back')) { game.skip = true; timers.forEach(t => t.r()); if (game.dlg) game.dlg.done(); game.dlg = null; }
@@ -111,7 +111,7 @@ function step(raw) {
   game.flash = Math.max(0, game.flash - raw * 2.5);
   for (const s of sparks) s.t += raw;
   sparks = sparks.filter(s => s.t < 0.3);
-  for (const m of kiMotes) { m.t += raw; m.x += m.vx * raw; m.y += m.vy * raw; m.vy -= 5 * raw; }
+  for (const m of kiMotes) { m.t += raw; m.x += m.vx * raw; m.y += m.vy * raw; m.vy += (m.big ? 260 : -5) * raw; } // (big: scraps of cloth, which fall)
   kiMotes = kiMotes.filter(m => m.t < m.life);
   for (const gh of ghosts) gh.t += raw;
   ghosts = ghosts.filter(gh => gh.t < 0.3);
@@ -128,7 +128,7 @@ function step(raw) {
   // is down to their last 30%
   // ...and the sky answers the big moments in any mode: someone transforming, a beam clash, a finisher
   const bigMoment = !!clash || !!game.cine || !!game.react || (game.mode === 'cut' && beams.length > 0)
-    || [goku, cell].some(f => ['transform', 'evolve', 'ult1', 'ult2', 'ult3', 'spirit'].includes(f.state) || (f.state === 'pose' && ['kameCharge', 'ssjBuild', 'ssjRise', 'ssjFlare', 'power'].includes(f.anim)));
+    || [goku, cell].some(f => ['transform', 'evolve', 'kaioUp', 'ult1', 'ult2', 'ult3', 'spirit'].includes(f.state) || (f.state === 'pose' && ['kameCharge', 'ssjBuild', 'ssjRise', 'ssjFlare', 'power'].includes(f.anim)));
   const lastStretch = !game.training && (game.versus ? Math.min(goku.hp / goku.maxHp, cell.hp / cell.maxHp) < 0.3 : game.phase >= 2);
   Stage.setStorm(bigMoment || lastStretch, bigMoment);
   Stage.update(raw);
@@ -166,7 +166,7 @@ function step(raw) {
   // shoved: the one walking into them is pushed back instead.
   const room = goku.state === 'down' || cell.state === 'down' ? 36 : 20;
   if (goku.visible && cell.visible && Math.abs(goku.x - cell.x) < room && goku.y > FLOOR - 30 && cell.y > FLOOR - 30) {
-    const planted = f => ['kameCharge', 'kameFire', 'kiHold', 'charge', 'power', 'transform', 'evolve', 'ult1', 'spirit', 'powerDown'].includes(f.state);
+    const planted = f => ['kameCharge', 'kameFire', 'kiHold', 'charge', 'power', 'transform', 'evolve', 'kaioUp', 'ult1', 'spirit', 'powerDown'].includes(f.state);
     const pg = planted(goku), pc = planted(cell);
     const gap = room - Math.abs(goku.x - cell.x), d = goku.x < cell.x ? -1 : 1;
     const share = pg === pc ? 0.5 : pg ? 0 : 1; // goku's share of the push
@@ -181,7 +181,10 @@ function step(raw) {
   updateSpirit(dt);
   if (game.mode === 'fight') {
     // the final boss beaten: the last clash decides it (once per fight)
-    if (boss.hp <= 0) { if (game.juniors) juniorDown(); else if (game.phase === 2 && !game.training && !game.finalDone) finalClash(); else finish('win'); }
+    if (boss.hp <= 0) { if (game.juniors) juniorDown(); else if (game.phase === 2 && !game.training && !game.finalDone) finalClash();
+      // Goku finishes him with a Kamehameha (see winBlow in game/cinematics.js)
+      else if (boss.who === 'cell' && player.who === 'goku' && player.hp > 0 && !game.training) winBlow(player, boss).then(() => finish('win'));
+      else finish('win'); }
     else if (player.hp <= 0) finish('lose');
     else if (game.time <= 0) finish('timeup');
   }

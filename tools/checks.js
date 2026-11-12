@@ -242,6 +242,183 @@
       });
       expect(top >= 44, `feet at y ${top.toFixed(0)}: the head is ${Math.max(0, 46 - top).toFixed(0)} px above the screen`);
     },
+
+    // ---- Goku's forms ----
+    'the Kaioken costs ki to start, makes him the fastest, tears the gi top, and ends when the ki runs out': async () => {
+      scene();
+      player.ki = 60;
+      hold(P1, 'junior', true); await tick(2); hold(P1, 'junior', false);
+      await tick(95);
+      expect(goku.form === 'kaioken', 'E with 60 ki did not start the Kaioken (' + goku.form + ', ' + goku.state + ')');
+      expect(goku.torn, 'the gi top is still on');
+      expect(goku.speed > GOKU_INFO.ssj.speed, `Kaioken speed ${goku.speed} is not above a Super Saiyan's`);
+      expect(player.ki < 60 - KAIO_COST + 1, `it cost ${(60 - player.ki).toFixed(1)} ki (should be ${KAIO_COST} and counting)`);
+      player.ki = 0.2;
+      await tick(120);
+      expect(goku.form === 'base', 'out of ki and still in the Kaioken (' + goku.form + ', ' + goku.state + ')');
+    },
+
+    'the Kaioken rush is three hits from one press': async () => {
+      scene({ gap: 60 });
+      setForm(goku, 'kaioken'); goku.torn = true; player.ki = 100; boss.maxHp = boss.hp = 1000;
+      const seen = [];
+      hold(P1, 'right', true); await tick(1); hold(P1, 'punch', true); await tick(2); hold(P1, 'punch', false);
+      await tick(90, () => { if (goku.state === 'attack' && seen[seen.length - 1] !== goku.anim) seen.push(goku.anim); });
+      hold(P1, 'right', false);
+      expect(seen.join(' ') === 'rush rush2 rush3', 'toward + J played: ' + (seen.join(' ') || 'nothing'));
+      expect(game.learned.has('KAIOKEN ASSAULT'), 'three hits landed (' + (1000 - boss.hp).toFixed(0) + ' damage) but KAIOKEN ASSAULT was not named');
+    },
+
+    'base Goku has a Kamehameha, weaker and slower than a Super Saiyan\'s': async () => {
+      const fire = async form => {
+        scene({ gap: 140 }); if (form !== 'base') setForm(goku, form);
+        player.ki = 100; boss.maxHp = boss.hp = 1000;
+        hold(P1, 'beam', true); await tick(2); hold(P1, 'beam', false);
+        let at = null;
+        await tick(260, i => { if (at === null && beams.length) at = i; });
+        return { at, dmg: 1000 - boss.hp };
+      };
+      const base = await fire('base'), ssj = await fire('ssj');
+      expect(base.at !== null, 'U as base Goku fired nothing');
+      expect(base.dmg > 5, `the base beam did ${base.dmg.toFixed(1)} damage`);
+      expect(base.at > ssj.at && base.dmg < ssj.dmg, `base: fires after ${base.at} frames for ${base.dmg.toFixed(0)}; Super Saiyan: ${ssj.at} frames for ${ssj.dmg.toFixed(0)}`);
+    },
+
+    // he used to rise into the sky for it; the sheet draws him standing under it
+    'the Spirit Bomb is gathered standing on the ring, as big as he is': async () => {
+      scene({ gap: 160 });
+      player.ki = 100; spiritBomb(player);
+      let floated = false;
+      await tick(80, () => { if (player.y < FLOOR - 1) floated = true; });
+      expect(!floated, 'he left the ring while gathering it');
+      expect(game.spirit && game.spirit.r > 30, 'the bomb is ' + (game.spirit ? game.spirit.r.toFixed(0) : 'gone') + ' px across its radius');
+      expect(game.spirit.y - game.spirit.r > 0, 'the top of the bomb is off the screen');
+    },
+
+    'hurt enough, Goku fights on with his gi top torn off': async () => {
+      scene({ gap: 30 });
+      expect(!goku.torn, 'setup: torn from the start');
+      damage(player, boss, player.maxHp * 0.6, false, -1); await tick(2);
+      expect(goku.torn, `at ${player.hp.toFixed(0)} of ${player.maxHp} health the gi is whole`);
+      expect(goku.A('idle') === ANIMS.goku.baseT.idle, 'torn, but his stance is not the torn one');
+    },
+
+    // Cell's beam ended and he dropped to the ring, so Goku's last Instant Kamehameha "up in the sky" was
+    // fired standing on the ground next to him
+    // ---- the cutscene attacks ----
+    'Super Saiyan with the gi torn: O dashes in, and a dash that lands plays the whole attack': async () => {
+      scene({ gap: 110 });
+      goku.torn = true; setForm(goku, 'ssj'); player.ki = 100;
+      const hp = boss.hp;
+      hold(P1, 'ult', true); await tick(2); hold(P1, 'ult', false);
+      let cut = false, beam = false;
+      await tick(420, () => { if (game.mode === 'cut') cut = true; if (beams.length) beam = true; });
+      expect(cut, 'the dash reached him and no cutscene started (' + goku.state + ')');
+      expect(beam, 'the attack never fired its Kamehameha');
+      expect(hp - boss.hp > 40, `the whole attack did ${(hp - boss.hp).toFixed(0)} damage`);
+      expect(game.mode === 'fight' && goku.state !== 'pose', 'the fight did not carry on after it (' + game.mode + ', ' + goku.state + ')');
+    },
+
+    'a cutscene attack that does not reach them is just a missed dash': async () => {
+      scene({ gap: 30 });
+      player.x = 30; boss.x = W - 20;
+      goku.torn = true; setForm(goku, 'ssj'); player.ki = 100;
+      const hp = boss.hp;
+      superRush(goku);
+      let cut = false;
+      await tick(150, () => { if (game.mode === 'cut') cut = true; });
+      expect(!cut, 'a cutscene started although the dash fell short');
+      expect(boss.hp === hp, 'a missed dash did damage');
+      expect(goku.free, 'he is stuck after a missed dash (' + goku.state + ')');
+    },
+
+    'in his full gi a Super Saiyan keeps the Dragon Fist on O': async () => {
+      scene({ gap: 110 });
+      setForm(goku, 'ssj'); player.ki = 100;
+      hold(P1, 'ult', true); await tick(2); hold(P1, 'ult', false);
+      expect(goku.state === 'ult1', 'O started ' + goku.state);
+    },
+
+    'the Kaioken: O at 50 ki is its own attack, and U is an ordinary Kamehameha': async () => {
+      scene({ gap: 110 });
+      player.ki = 100; goKaioken(goku); await tick(100);
+      expect(goku.form === 'kaioken', 'setup: not in the Kaioken (' + goku.form + ')');
+      player.ki = 60;
+      const hp = boss.hp;
+      hold(P1, 'ult', true); await tick(2); hold(P1, 'ult', false);
+      let cut = false;
+      await tick(420, () => { if (game.mode === 'cut') cut = true; });
+      expect(cut, 'O at 60 ki did not start the attack (' + goku.state + ')');
+      expect(hp - boss.hp > 25, `the whole attack did ${(hp - boss.hp).toFixed(0)} damage`);
+      expect(GOKU_INFO.kaioken.kame.size === 1, 'the Kaioken\'s U is still the oversized beam');
+    },
+
+    'base Goku, O in the air: the Spirit Bomb tears his gi, and landing it makes him a Super Saiyan': async () => {
+      scene({ gap: 110 });
+      player.ki = 100; goku.y = FLOOR - 50; goku.vy = -120; goku.play('jump', 'jump');
+      await tick(3);
+      hold(P1, 'ult', true); await tick(2); hold(P1, 'ult', false);
+      expect(goku.state === 'spirit' && goku.torn, 'O in the air gave ' + goku.state + (goku.torn ? '' : ', gi still on'));
+      const hp = boss.hp;
+      await tick(480);
+      expect(goku.form === 'ssj' && goku.torn, 'after it landed he is ' + goku.form);
+      expect(hp - boss.hp > 40, `it did ${(hp - boss.hp).toFixed(0)} damage`);
+      expect(game.mode === 'fight', 'the fight did not carry on (' + game.mode + ')');
+    },
+
+    'the Spirit Bomb from the ring is the ordinary one: no Super Saiyan': async () => {
+      scene({ gap: 110 });
+      player.ki = 100;
+      hold(P1, 'ult', true); await tick(2); hold(P1, 'ult', false);
+      await tick(420);
+      expect(goku.form === 'base', 'he turned ' + goku.form);
+    },
+
+    'Cell\'s story: Goku goes Kaioken at two thirds and Super Saiyan at one third, on Easy too': async () => {
+      const was = settings.difficulty; settings.difficulty = 'easy';
+      try {
+        scene({ side: 'cell' });
+        const through = async () => {
+          for (let k = 0; k < 60 && (k < 2 || game.mode !== 'fight'); k++)
+            await tick(20, () => { if (game.dlg) { const d = game.dlg; game.dlg = null; d.done(); } if (game.cine) game.cine.clock = 99; });
+        };
+        boss.hp = boss.maxHp * 0.66; await tick(2); await through();
+        expect(goku.form === 'kaioken', 'his second stage is ' + goku.form);
+        await tick(400);
+        expect(goku.form === 'kaioken', 'the Kaioken ran out during his second stage (' + goku.form + ')');
+        boss.hp = boss.maxHp * 0.32; await tick(2); await through();
+        expect(goku.form === 'ssj' && goku.torn, 'his last stage is ' + goku.form + (goku.torn ? '' : ' in his full gi'));
+      } finally { settings.difficulty = was; }
+    },
+
+    'RETRY in the pause menu starts the fight again': async () => {
+      scene();
+      boss.hp = 50; player.hp = 40;
+      expect(MENUS.pause().items.some(i => i.label === 'RETRY'), 'the pause menu has no RETRY');
+      game.mode = 'paused'; openMenu('pause');
+      MENUS.pause().items.find(i => i.label === 'RETRY').go();
+      await tick(5);
+      expect(player.hp === player.maxHp && boss.hp === boss.maxHp, `health after RETRY: ${player.hp} and ${boss.hp}`);
+      expect(game.menu.length === 0 && game.mode !== 'paused', 'still paused (' + game.mode + ')');
+    },
+
+    'losing the final clash, Cell stays in the sky for Goku\'s last stand': async () => {
+      scene();
+      window.noAI = true; game.phase = 2; setForm(cell, 'perfect'); boss.hp = 0;
+      let lastStandY = null, ended = false;
+      for (let k = 0; k < 1500 && !ended; k += 20) {
+        await tick(20, () => {
+          if (game.dlg) { const d = game.dlg; game.dlg = null; d.done(); }
+          if (clash) clash.s -= 0.004;
+          if (goku.floating && goku.state === 'kameFire' && lastStandY === null) lastStandY = cell.y;
+        });
+        ended = game.mode === 'end';
+      }
+      expect(ended, 'the scene did not reach its end (' + game.mode + ')');
+      expect(lastStandY !== null, 'setup: Goku never fired his last Kamehameha');
+      expect(lastStandY < FLOOR - 40, `Cell was at y ${Math.round(lastStandY)} (the ring is ${FLOOR}) when Goku fired`);
+      expect(game.result === 'lose', 'the clash was lost and the result is ' + game.result);
+    },
   };
 
   window.runChecks = async function (only = '') {

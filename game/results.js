@@ -31,7 +31,7 @@ function makeReport(win) {
 function drawResults() {
   const r = game.report;
   if (!r) return;
-  const x = 58, y = 96, w = 204;
+  const x = 58, y = 31, w = 204;
   gfx.fillStyle = 'rgba(6,5,16,0.82)'; gfx.fillRect(x, y, w, 64);
   gfx.strokeStyle = r.win ? '#ffd23a' : '#7a5a5a'; gfx.lineWidth = 1; gfx.strokeRect(x + 0.5, y + 0.5, w - 1, 63);
   const rows = [
