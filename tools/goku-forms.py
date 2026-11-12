@@ -71,7 +71,8 @@ def slice_rows(a, gap=4, min_x=22, max_x=760):
 class Sheets:
     def __init__(self):
         self.img = {k: load(v) for k, v in SHEETS.items()}
-        self.rows = slice_rows(self.img['goku'])
+        # where its frames sit (found once, on an older copy of the sheet: kept so the frame numbers don't move)
+        self.rows = json.load(open(os.path.join(SHEET_DIR, 'goku-rows.json')))
 
     def box(self, ref):
         """(sheet, [x, y, w, h]) for a frame reference, as Sheets.frame works it out"""

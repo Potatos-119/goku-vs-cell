@@ -1,7 +1,9 @@
 // Loads the sprite sheets, finds every sprite (white background, blobs grouped into rows)
 // and hands out frames by id "row.index" with the white background removed.
 const SHEET_CFG = {
-  goku: { src: 'assets/sheets/goku.png', gap: 4, minX: 22, maxX: 760 },
+  // (its frames sit where goku-rows.json says: found once on an older, noisier copy of the sheet, and kept
+  // so every frame number stays the same now the sheet is clean)
+  goku: { src: 'assets/sheets/goku.png', gap: 4, minX: 22, maxX: 760, rows: 'assets/sheets/goku-rows.json' },
   cell: { src: 'assets/sheets/cell.png', gap: 1, minX: 0, maxX: 99999 },
   cellFaces: { src: 'assets/sheets/cell-faces.png', gap: 1, minX: 0, maxX: 99999 },
   // base Goku's HUD portrait, cut from the title of the bigger sheet (goku1-source.png)
@@ -135,7 +137,11 @@ const Sheets = {
   async load(base = '') {
     await Promise.all(Object.entries(SHEET_CFG).map(([name, cfg]) => new Promise((ok, fail) => {
       const img = new Image();
-      img.onload = () => { this.sheets[name] = cfg.raw ? rawSheet(img) : sliceSheet(img, cfg); this.sheets[name].bg = cfg.bg; this.sheets[name].keyed = cfg.keyed; ok(); };
+      img.onload = async () => {
+        this.sheets[name] = cfg.raw || cfg.rows ? rawSheet(img) : sliceSheet(img, cfg);
+        if (cfg.rows) this.sheets[name].rows = await (await fetch(base + cfg.rows)).json();
+        this.sheets[name].bg = cfg.bg; this.sheets[name].keyed = cfg.keyed; ok();
+      };
       img.onerror = fail;
       img.src = base + cfg.src;
     })));
