@@ -43,7 +43,7 @@ const GBN = (x, y, w, h) => { const r = GB(x, y, w, h); GB_NATIVES.push(r); retu
 const GOKU_WIN = [G2(68, 2782, 37, 46), G2(113, 2777, 31, 51), G2(156, 2775, 31, 53), G2(156, 2775, 31, 53),
   G2(221, 2776, 37, 52), G2(275, 2779, 37, 47), G2(325, 2791, 35, 37)];
 // ---- the Super Saiyan sheet ----
-// assets/sheets/goku-ssj-first.png (tools/sheet-rebuild.py makes it from the preview of the sheet).
+// assets/sheets/goku-ssj-first.png (mrruben7's sheet, at its full size).
 // It has the same rows as base Goku's sheet, pose for pose, so each of his moves has its Super Saiyan
 // frames. SS(x, y, w, h) is one frame of it; alone: the full-gi sheet has no frame like it to take colours from
 const SS_FRAMES = [];

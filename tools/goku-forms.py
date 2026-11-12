@@ -10,8 +10,7 @@ the same frames in his other looks and packs them onto one generated sheet:
   torn   the orange gi top recoloured to the blue undershirt (the sheet draws him like this in a few
          rows; this gives every move that look)
   ssjT   Super Saiyan, cut whole from the Super Saiyan sheet (goku-ssj-first.png, mrruben7's "first
-         time" sheet, which draws him with the gi top torn; tools/sheet-rebuild.py rebuilt it from a
-         shrunken preview).
+         time" sheet, which draws him with the gi top torn, at full size).
   ssj    Super Saiyan in his full gi: each frame cut as drawn from the full-gi sheet (goku-super-saiyan.png,
          PeculiarDoc's, full size), where the same pose sits, lined up with the torn-gi frame. A pose
          it doesn't line up with is the torn-gi frame recoloured.

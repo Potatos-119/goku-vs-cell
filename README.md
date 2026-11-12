@@ -110,7 +110,6 @@ slower and throws shorter combos.
 - `sheets.js`: cuts those frames out of the sheets. Only the bake tool uses it
 - `goku-forms.js` and `assets/sheets/goku-forms.png`: Goku's looks (base, torn gi, Kaioken, Super
   Saiyan), made by `tools/goku-forms.py`
-- `tools/sheet-rebuild.py`: turns the small preview of a sprite sheet back into sharp pixels
 - `audio.js`: music, sound effects and the sound slice table
 - `net.js`: online play
 - `stage.js`: the arena and the damage the fight does to it
@@ -129,10 +128,9 @@ slower and throws shorter combos.
 2. Open `tools/bake.html`, press Bake, then run `node tools/write-frames.js ~/Downloads/frames-bake.json`.
    To add only new frames cut by exact rectangles, without a browser: `python3 tools/bake-add.py`.
 
-Super Saiyan comes from two sheets. `goku-super-saiyan.png` is PeculiarDoc's full-gi sheet at full size,
-and every full-gi frame is cut from it as drawn (the tool lines each one up with the same pose on the
-torn-gi sheet). `goku-ssj-first.png`, the torn-gi sheet, was a shrunken preview (94% of full size) that
-`tools/sheet-rebuild.py` turned back into sharp pixels. His full-gi Kamehameha (the poses and the beam)
+Super Saiyan comes from two sheets, both at their full size: `goku-ssj-first.png` (mrruben7's, with the
+gi top torn) and `goku-super-saiyan.png` (PeculiarDoc's, in his full gi). Every frame is cut from them
+as drawn; the tool lines each full-gi frame up with the same pose on the torn-gi sheet. His full-gi Kamehameha (the poses and the beam)
 comes from a sharp strip of the sheet: `python3 tools/ssj-kame.py STRIP.png` scales its smaller poses
 up 1.25x (Scale2x, so the edges stay sharp) into `assets/sheets/goku-ssj-kame.png`. His Instant
 Transmission is cut from the full-gi sheet by `python3 tools/ssj-moves.py` into
@@ -143,7 +141,7 @@ Transmission is cut from the full-gi sheet by `python3 tools/ssj-moves.py` into
 Dragon Ball and its characters belong to Akira Toriyama, Bird Studio and Toei Animation.
 
 The Goku sprites are Ultimate LSW fan sheets: Goku by qsab101, omegasuper, xbae12 and tougarashi635,
-Kaioken by kaval2003, Super Saiyan by mrruben7 and Que, sheets put together by 2ruffles and PeculiarDoc.
+Kaioken by kaval2003, Super Saiyan by mrruben7 (with qsab101, allenyael and AntomTheTimeTraveler) and Que, sheets put together by 2ruffles and PeculiarDoc.
 The music, sound effects and cut-ins come from fan recordings and edits.
 
 This is a fan project made for learning, not for sale.
