@@ -313,8 +313,9 @@ const ssjTable = look => {
     spiritFloat: look === 'ssj' ? { fr: [TURN[9]], fps: 1, loop: true, breathe: true } : nativeFr([GB(538, 1981, 39, 56), GB(581, 1973, 50, 65)], { fps: 7, loop: true }),
     // the moment he turns: the flames held
     // (in his full gi, the gold flames his transformation ends in: TURN)
-    // (with the top torn, the last frames of its own transformation row, not his charge's flames)
-    ssjFlare: { fr: look === 'ssj' ? [TURN[8]] : [TORN_TURN[9], TORN_TURN[10]], fps: 10, loop: true },
+    // (with the top torn, the last frame of its own transformation row, held: flipping between its last two,
+    // two different poses, made him wiggle)
+    ssjFlare: { fr: look === 'ssj' ? [TURN[8]] : [TORN_TURN[10]], fps: 1, loop: true },
     // the last frame of turning with the top torn, held until he moves (see turnedPose)
     ...(look === 'ssjT' ? { turnHold: nativeFr([TORN_TURN[10]], { fps: 1, loop: true }) } : {}),
     // powering back down to base: his hair goes white, then black again
