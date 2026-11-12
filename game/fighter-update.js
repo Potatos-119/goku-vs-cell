@@ -289,7 +289,8 @@ function goKaioken(f) {
 // T at full ki just after a hit lands (base Goku, or in the Kaioken): he turns Super Saiyan in the
 // middle of the combo. They're held reeling for as long as it takes, so the combo carries on in gold.
 function comboTransform(f, foe) {
-  if (f.form === 'kaioken') { setForm(f, 'base'); f.kaioCd = KAIO_REST; }
+  // (the gi top the Kaioken tore comes back with the gold, unless he's hurt enough for it torn anyway)
+  if (f.form === 'kaioken') { setForm(f, 'base'); f.kaioCd = KAIO_REST; f.torn = f.hp <= f.maxHp * TORN_AT; }
   f.ki = 50; game.wentSsj = true;
   // (an attack queued in the old form goes: the Kaioken's rush has no Super Saiyan version)
   f.next = null; f.queue = [];

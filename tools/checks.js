@@ -383,6 +383,21 @@
       expect(goku.form === 'ssj', 'he is still ' + goku.form);
     },
 
+    // the Kaioken tears his gi top; going Super Saiyan from it he kept it torn even at full health
+    'Super Saiyan from the Kaioken: the gi comes back if he is healthy, stays torn if he is hurt': async () => {
+      for (const hurt of [false, true]) {
+        scene({ gap: 140 });
+        if (hurt) player.hp = player.maxHp * 0.3;
+        player.ki = 100; goKaioken(goku); await tick(100);
+        expect(goku.form === 'kaioken' && goku.torn, 'setup: the Kaioken did not start with the gi torn');
+        player.ki = 100; game.wentSsj = true;
+        hold(P1, 'transform', true); await tick(2); hold(P1, 'transform', false);
+        await tick(200);
+        expect(goku.form === 'ssj', 'he is ' + goku.form);
+        expect(goku.torn === hurt, hurt ? 'hurt, his gi came back' : 'at full health his gi stayed torn');
+      }
+    },
+
     // turning Super Saiyan draws its own aura and flames: the game's aura on top doubled them
     'no second aura is drawn over the transformation': async () => {
       scene({ gap: 140 });
