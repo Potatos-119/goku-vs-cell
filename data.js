@@ -102,7 +102,8 @@ twins(['9.0', '9.1', '9.2', { id: '9.3', w: 31 }, '9.4', { id: '9.5', w: 31 }], 
 
 // the Kaioken's red flames (two frames), and the frames around them
 // (hollow: the white inside the flames is see-through, as it is on the sheet)
-const KAIO_AURA = [{ ...GB(288, 1281, 70, 78), hollow: true }, { ...GB(361, 1278, 70, 82), hollow: true }];
+// (solid: cut see-through, the middle of the flames looked patchy)
+const KAIO_AURA = [GB(288, 1281, 70, 78), GB(361, 1278, 70, 82)];
 const KAIO_STANCE = GB(441, 1310, 31, 48);
 // the moment the Kaioken bursts out: a white flash of him in a red outline (the sheet's frame, its white
 // middle kept: cut see-through, only broken scraps of the outline were left)
@@ -219,14 +220,17 @@ const GOKU_MOVES = {
 const GOKU_BASE = formAnims(GOKU_MOVES, 'base');
 // in his full gi he turns Super Saiyan the way the full-gi sheet draws it: the blue aura, the white
 // flash, the gold flames (with the gi top torn, GOKU_BASE_T has the newer sheet's own)
+// it ends on his Super Saiyan stance itself, so there's no jump into it (the sheet's last frame is
+// drawn a little differently)
+const SSJ_STANCE = formFrame(SS_IDLE[0], 'ssj') || SX_TURN[8];
 // (the first time, in the cutscene: the stance and the blue aura while the music builds, then the
 // crouch, the white flash, the gold swirl and the flames)
 GOKU_BASE.ssjBuild = nativeFr([SX_TURN[0], SX_TURN[1], SX_TURN[2], SX_TURN[3]], { fps: 6, loop: true, loopFrom: 2 });
-GOKU_BASE.ssjRise = nativeFr([SX_TURN[4], SX_TURN[5], SX_TURN[6], SX_TURN[7]], { fps: 4, loop: false });
+GOKU_BASE.ssjRise = nativeFr([SX_TURN[4], SX_TURN[5], SX_TURN[6], SX_TURN[7]], { fps: 5, loop: false });
 GOKU_BASE.transform = nativeFr([SX_TURN[0], SX_TURN[0], SX_TURN[1], SX_TURN[1], SX_TURN[2], SX_TURN[3], SX_TURN[2], SX_TURN[3], SX_TURN[2], SX_TURN[3],
-  SX_TURN[4], SX_TURN[5], SX_TURN[6], SX_TURN[7], SX_TURN[7], SX_TURN[8]], { fps: 8, loop: false });
+  SX_TURN[4], SX_TURN[5], SX_TURN[6], SX_TURN[7], SX_TURN[7], SSJ_STANCE], { fps: 8, loop: false });
 // in the middle of a combo it's quicker (they're held reeling while it plays: see comboTransform)
-GOKU_BASE.transformQuick = nativeFr([SX_TURN[1], SX_TURN[2], SX_TURN[3], SX_TURN[4], SX_TURN[5], SX_TURN[6], SX_TURN[7], SX_TURN[7], SX_TURN[8]], { fps: 9, loop: false });
+GOKU_BASE.transformQuick = nativeFr([SX_TURN[1], SX_TURN[2], SX_TURN[3], SX_TURN[4], SX_TURN[5], SX_TURN[6], SX_TURN[7], SX_TURN[7], SSJ_STANCE], { fps: 9, loop: false });
 
 // Gi top torn off. The newer sheet draws some of it itself (the Spirit Bomb)
 // turning Super Saiyan with the gi top torn, as the torn-gi Super Saiyan sheet draws it (its top row):
@@ -247,7 +251,7 @@ Object.assign(GOKU_BASE_T, {
   transform: nativeFr([TORN_TURN[0], TORN_TURN[0], ...TORN_TURN, TORN_TURN[10]], { fps: 8, loop: false }),
   transformQuick: nativeFr([...TORN_TURN.slice(3), TORN_TURN[10]], { fps: 9, loop: false }),
   ssjBuild: nativeFr(TORN_TURN.slice(0, 7), { fps: 6, loop: true, loopFrom: 4 }),
-  ssjRise: nativeFr(TORN_TURN.slice(7, 11), { fps: 4, loop: false }),
+  ssjRise: nativeFr(TORN_TURN.slice(7, 11), { fps: 5, loop: false }),
 });
 
 // Super Saiyan: every move of base Goku's whose frames the Super Saiyan sheet has, in its frames (in

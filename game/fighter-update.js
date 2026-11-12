@@ -29,9 +29,10 @@ function updateFighter(f, foe, dt) {
   if (f.assistCd > 0) f.assistCd -= dt;
   // the ki aura behind him swells in over a quarter second and dies away when he stops, instead of
   // popping on and off with the state
-  // (a Super Saiyan powering up, or just turned, is drawn in his own gold flames, so he doesn't get it then)
+  // (a Super Saiyan powering up, or just turned, is drawn in his own gold flames, and turning Super
+  // Saiyan draws its own blue aura and flames, so he doesn't get it then: on top it doubled them)
   const flaring = f.state === 'pose' && f.anim === 'ssjFlare';
-  const ownFlames = f.who === 'goku' && f.form === 'ssj' && (flaring || f.state === 'charge');
+  const ownFlames = f.who === 'goku' && ((f.form === 'ssj' && (flaring || f.state === 'charge')) || f.state === 'transform');
   const auraOn = !ownFlames && ['power', 'charge', 'transform', 'ult1', 'kameCharge', 'kaioUp'].includes(f.state);
   // (the Kaioken never quite goes out: a low red glow stays on him while it lasts)
   const auraTo = auraOn ? 1 : f.form === 'kaioken' ? 0.45 : 0;

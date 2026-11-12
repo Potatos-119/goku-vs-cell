@@ -367,6 +367,27 @@
       expect(game.mode === 'fight', 'the fight did not carry on (' + game.mode + ')');
     },
 
+    // the Kaioken burns ki every second, so its ki was never quite full and T did nothing in it
+    'T turns the Kaioken Super Saiyan, even with its ki draining': async () => {
+      scene({ gap: 140 });
+      goku.torn = true; setForm(goku, 'kaioken'); player.ki = 100; game.wentSsj = true;
+      await tick(30); // a moment of the drain
+      expect(player.ki < 100, 'setup: no ki drained');
+      hold(P1, 'transform', true); await tick(2); hold(P1, 'transform', false);
+      await tick(200);
+      expect(goku.form === 'ssj', 'he is still ' + goku.form);
+    },
+
+    // turning Super Saiyan draws its own aura and flames: the game's aura on top doubled them
+    'no second aura is drawn over the transformation': async () => {
+      scene({ gap: 140 });
+      player.ki = 100; game.wentSsj = true;
+      hold(P1, 'transform', true); await tick(2); hold(P1, 'transform', false);
+      let most = 0;
+      await tick(60, () => { if (goku.state === 'transform') most = Math.max(most, goku.aura || 0); });
+      expect(most < 0.05, 'the aura reached ' + most.toFixed(2) + ' while he transformed');
+    },
+
     'the Spirit Bomb from the ring is the ordinary one: no Super Saiyan': async () => {
       scene({ gap: 110 });
       player.ki = 100;

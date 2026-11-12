@@ -63,7 +63,7 @@ function hintFor(g) {
     if (g.form === 'base' && g.ki >= 100) return 'T  SUPER SAIYAN     O  SPIRIT BOMB     E  KAIOKEN';
     if (g.form === 'base' && g.ki >= 50) return g.kaioCd > 0 ? 'U  KAMEHAMEHA' : 'U  KAMEHAMEHA     E  KAIOKEN';
     if (g.form === 'base' && g.ki >= KAIO_COST && g.kaioCd <= 0) return 'E  KAIOKEN';
-    if (g.form === 'kaioken' && g.ki >= 100) return 'T  SUPER SAIYAN     U  KAMEHAMEHA';
+    if (g.form === 'kaioken' && g.ki >= ssjKi(g)) return 'T  SUPER SAIYAN     O  KAIOKEN FINISH     U  KAMEHAMEHA';
     if (g.form === 'kaioken') return g.ki >= SUPER_KI.kaioken ? 'O  KAIOKEN FINISH     U  KAMEHAMEHA' : 'E  POWER DOWN';
     if (g.form === 'ssj' && g.ki >= 100 && g.y < FLOOR - 1) return 'O  POWER DOWN + SPIRIT BOMB';
     if (g.form === 'ssj' && g.ki >= 100) return g.torn ? 'U  KAMEHAMEHA     O  SUPER KAMEHAMEHA RUSH' : 'U KAMEHAMEHA   Q + U  INSTANT KAMEHAMEHA   O DRAGON FIST';

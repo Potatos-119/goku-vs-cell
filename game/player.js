@@ -5,6 +5,9 @@ const CHAINS = {
   cell: { j: { p1: 'p2', p2: 'p3', k1: 'p2', rush: 'p2' }, k: { p1: 'k1', p2: 'k2', k1: 'k2', rush: 'k2' } },
 };
 
+// the ki T needs to turn Super Saiyan (or to evolve, for Cell)
+const ssjKi = g => g.who === 'goku' && g.form === 'kaioken' ? 90 : 100;
+
 const AIR_CHAIN = { air: 'air2', air2: 'spike' };
 // the hop that follows someone up off a ground bounce
 const CHASE_LOW_V = -300;
@@ -23,7 +26,7 @@ function cancel(g, foe, dashDir) {
   if (dashDir) { dash(g, dashDir); return true; }
   // base Goku (or the Kaioken) at full ki: T after a hit lands turns him Super Saiyan right there,
   // while they're still reeling
-  if (isGoku && g.form !== 'ssj' && g.ki >= 100 && act('transform')) { comboTransform(g, foe); return true; }
+  if (isGoku && g.form !== 'ssj' && g.ki >= ssjKi(g) && act('transform')) { comboTransform(g, foe); return true; }
   if (!isGoku && g.form === 'perfect' && g.ki >= 100 && act('ult')) { solarKame(g); return true; }
   if (isGoku && g.form === 'base' && g.ki >= 100 && act('ult')) { spiritBomb(g, true); return true; }
   if (!isGoku && g.form === 'perfect' && g.ki >= 35 && g.assistCd <= 0 && act('junior')) { g.ki -= 35; g.assistCd = 3; callJunior(g); return true; }
@@ -147,7 +150,8 @@ function playerInput(dt, g = player, foe = boss) {
     if (isGoku && g.form === 'base' && g.ki >= KAIO_COST && g.kaioCd <= 0 && act('junior')) { g.ki -= KAIO_COST; return goKaioken(g); }
     // T as a Super Saiyan powers back down to base (keeping his ki, e.g. for a Spirit Bomb)
     if (isGoku && g.form === 'ssj' && act('transform')) return powerDown(g);
-    if (g.ki >= 100 && act('transform')) {
+    // (from the Kaioken it takes a little less: it burns ki every second, so full was out of reach)
+    if (g.ki >= ssjKi(g) && act('transform')) {
       if (isGoku && g.form !== 'ssj') {
         // (straight from the Kaioken: it ends as the gold comes up)
         if (g.form === 'kaioken') { setForm(g, 'base'); g.kaioCd = KAIO_REST; }
