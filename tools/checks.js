@@ -366,12 +366,29 @@
       expect(game.mode === 'fight', 'the fight did not carry on (' + game.mode + ')');
     },
 
-    'the Spirit Bomb from the ring is the ordinary one: no Super Saiyan': async () => {
+    // (it used to be the ordinary one from the ring; now every Spirit Bomb that lands turns him)
+    'the Spirit Bomb from the ring turns him Super Saiyan as it lands, with no music change': async () => {
       scene({ gap: 110 });
       player.ki = 100;
-      hold(P1, 'ult', true); await tick(2); hold(P1, 'ult', false);
-      await tick(420);
-      expect(goku.form === 'base', 'he turned ' + goku.form);
+      const was = Audio8.music.switchTo; let switched = false;
+      Audio8.music.switchTo = (...a) => { switched = true; return was.apply(Audio8.music, a); };
+      try {
+        hold(P1, 'ult', true); await tick(2); hold(P1, 'ult', false);
+        await tick(420);
+      } finally { Audio8.music.switchTo = was; }
+      expect(goku.form === 'ssj', 'he is still ' + goku.form);
+      expect(!switched, 'the music changed when the bomb turned him');
+    },
+
+    // thrown from the air, he used to fall to the ring before the bomb landed, and turn down there
+    'the Spirit Bomb thrown from the air: he is still up there when it turns him': async () => {
+      scene({ gap: 110 });
+      player.ki = 100; goku.y = FLOOR - 50; goku.vy = 0; goku.play('jump', 'jump');
+      spiritBomb(goku, false, false, true);
+      let lowest = FLOOR - 50;
+      await tick(420, () => { if (goku.form === 'base') lowest = Math.max(lowest, goku.y); });
+      expect(goku.form === 'ssj', 'he is still ' + goku.form);
+      expect(lowest < FLOOR - 20, 'he came down to ' + Math.round(FLOOR - lowest) + ' px off the ring before he turned');
     },
 
     'Cell\'s story: Goku goes Kaioken at two thirds and Super Saiyan at one third, on Easy too': async () => {

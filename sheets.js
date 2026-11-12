@@ -13,7 +13,9 @@ const SHEET_CFG = {
   // Super Saiyan Goku's Kamehameha in his full gi, and its beam (tools/ssj-kame.py)
   sk: { src: 'assets/sheets/goku-ssj-kame.png', raw: true },
   // his Instant Transmission and full-gi transformation (tools/ssj-moves.py)
-  sx: { src: 'assets/sheets/goku-ssj-moves.png', raw: true },
+  sx: { src: 'assets/sheets/goku-ssj-moves.png', raw: true, bg: [255, 0, 255], keyed: true },
+  // the torn-gi Super Saiyan sheet itself, for frames used as drawn (the torn transformation)
+  ss: { src: 'assets/sheets/goku-ssj-first.png', raw: true },
   // Goku's looks (base, torn gi, Super Saiyan, Kaioken), made by tools/goku-forms.py: frames on a
   // magenta background, every bit of which is see-through (keyed), wherever it is
   gf: { src: 'assets/sheets/goku-forms.png', raw: true, bg: [255, 0, 255], keyed: true },

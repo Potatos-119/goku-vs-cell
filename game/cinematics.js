@@ -108,8 +108,8 @@ function endCinematic(f, foe) {
 // Instant Kamehameha: charge it floating in the air, vanish, reappear right behind the enemy and
 // fire point-blank. The enemy gets a moment to answer (see reactWindow); unanswered it deals 60
 // and launches them.
-// Instant Transmission the way the full-gi Super Saiyan sheet draws it. From the ground he crouches,
-// springs up and fades out; in the air he turns and zips away. He reappears behind them (in the air
+// Instant Transmission the way the full-gi Super Saiyan sheet draws it. From the ground he crouches
+// and leaps up first; then, in the air, he turns and zips away. He reappears behind them (in the air
 // too if they're up there; in front if they're backed against the edge), and holds the Kamehameha at
 // his side, ready to fire. Only his full gi has these frames: hasTeleKame says whether he can.
 const hasTeleKame = f => f.who === 'goku' && f.form === 'ssj' && !!f.A('itHold') && !(f.torn && ANIMS.goku.ssjT);
@@ -125,9 +125,9 @@ async function teleKame(f, foe, chant = true) {
     // ...and leap: up he goes, fast off the ground and slowing near the top
     pose('itLeap'); f.sq = -0.14; sfx.whoosh(); Stage.puff(f.x, 1); Stage.puff(f.x, -1);
     for (let i = 0; i < 12; i++) { f.y -= 9 - i * 0.6; await wait(0.03); }
-    // at the top he fades out into streaks, and he's gone
-    await run('itFade');
-  } else await run('itAir');
+  }
+  // in the air (up there from his leap, or already): he turns, sets himself and zips away
+  await run('itAir');
   ghosts.push({ img: teleArt(f), x: f.x, y: f.y, t: 0 }); sfx.teleport();
   f.visible = false;
   await wait(0.3);
@@ -137,21 +137,10 @@ async function teleKame(f, foe, chant = true) {
   if (x < 16 || x > W - 16) x = foe.x + foe.facing * 38;
   const air = foe.y < FLOOR - 12;
   f.facing = foe.x > x ? 1 : -1;
-  if (air) {
-    // they're up in the air: he's right there with them
-    Object.assign(f, { x, y: foe.y, visible: true });
-    ghosts.push({ img: teleArt(f), x: f.x, y: f.y, t: 0 }); sfx.teleport();
-  } else {
-    // from above, dropping in behind them, and landing in a crouch
-    Object.assign(f, { x, y: FLOOR - 56, visible: true });
-    ghosts.push({ img: teleArt(f), x: f.x, y: f.y, t: 0 }); sfx.teleport();
-    cam.focus = { x: (f.x + foe.x) / 2, y: FLOOR - 10, z: 1.4 };
-    pose('itDrop');
-    for (let i = 0; i < 10; i++) { f.y = Math.min(FLOOR, f.y + 2 + i * 1.1); await wait(0.03); }
-    f.y = FLOOR; f.floating = false;
-    pose('itLand'); f.sq = 0.16; Stage.puff(f.x, 1); Stage.puff(f.x, -1); sfx.whoosh();
-    await wait(0.28);
-  }
+  // right there with them: up in the air if they are, on the ring if they're standing
+  Object.assign(f, { x, y: air ? foe.y : FLOOR, visible: true });
+  ghosts.push({ img: teleArt(f), x: f.x, y: f.y, t: 0 }); sfx.teleport();
+  if (!air) { Stage.puff(f.x, 1); Stage.puff(f.x, -1); }
   cam.focus = { x: (f.x + foe.x) / 2, y: Math.min(FLOOR, (f.y + foe.y) / 2 + 20), z: 1.5 };
   // the Kamehameha drawn back at his side, ready
   pose('itHold'); f.floating = f.y < FLOOR - 2;
@@ -247,6 +236,42 @@ async function winBlow(f, foe) {
   f.floating = false;
 }
 
+// Goku's Dragon Rush (the grab: J + K or F), in every form. Once it has hold of them: three quick blows
+// (punch, kick, punch) that count in the combo, then the launcher that sends them up, and W right
+// after chases them into the air (the DRAGON RUSH CHASE combo)
+async function dragonRush(f, foe) {
+  if (game.mode !== 'fight' || foe.hp <= 0) return;
+  const dir = f.facing;
+  game.mode = 'cut';
+  Object.assign(foe, { vx: 0, vy: 0, y: FLOOR, floating: false, visible: true, juggle: 0 }); foe.play('hurt', 'pose'); foe.t2 = 99;
+  Object.assign(f, { vx: 0, vy: 0, inv: 99, y: FLOOR });
+  // one blow: he steps in, and they reel as it lands (never the knockout: the launcher can be)
+  const blow = async (anim, dmg, last) => {
+    f.x = clamp(foe.x - dir * 24, 14, W - 14);
+    f.play(anim, 'pose'); f.t2 = 99;
+    const a = f.A(); await wait(Math.max(1, (a.hit && a.hit.at) || 1) / a.fps);
+    if (game.mode !== 'cut') return;
+    const d = dmg * comboScale(foe);
+    directDamage(foe, last ? d : Math.min(d, foe.hp - 1));
+    if (f === player) { game.combo.n++; game.combo.t = 0; game.combo.dmg += d; }
+    sparks.push({ x: foe.x - dir * 8, y: foe.y - 30, t: 0, c: '#fff6b8' });
+    foe.flash = 0.08; shake(last ? 6 : 4); game.freeze = last ? 0.07 : 0.045;
+    if (last) {
+      foe.play('knock'); foe.vy = -390; foe.vx = dir * 45; foe.y -= 1; sfx.smash();
+    } else { foe.play('hurt', 'pose'); foe.t2 = 99; foe.x = clamp(foe.x + dir * 3, 20, W - 20); if (anim[0] === 'k') sfx.kick(); else sfx.punch(); }
+    await wait(last ? 0.1 : 0.13);
+  };
+  await blow('p2', 3);
+  await blow('k2', 3);
+  await blow('p3', 3);
+  await blow('k3', 4, true);
+  if (game.mode !== 'cut') return;
+  f.inv = 0.15; f.play('idle');
+  // the moment where a jump chases them up, as after any launcher
+  if (human(f)) { f.chaseT = 0.7; f.chaseLow = false; popups.push({ text: actionLabel('jump', ctlOf(f)) + '  CHASE!', x: f.x, y: f.y - 60, t: 0, c: '#9ff' }); }
+  game.mode = 'fight';
+}
+
 // ---- cutscene attacks ----
 // Goku's big attacks as a Super Saiyan with his gi top torn (full ki) and in the Kaioken (SUPER_KI). He
 // winds up and dashes in (see superUp and superDash in game/fighter-update.js). The dash is the part
@@ -314,7 +339,7 @@ async function superScene(f, foe) {
     for (let i = 0; i < 5; i++) { f.x = clamp(f.x + dir * 2, 14, W - 14); await wait(0.04); }
     f.play('superKick', 'pose'); f.t2 = 99;
     await wait(0.06);
-    directDamage(foe, Math.min(4 * scale, foe.hp - 1));
+    directDamage(foe, Math.min(6 * scale, foe.hp - 1));
     sparks.push({ x: foe.x - dir * 6, y: foe.y - 34, t: 0, c: '#fff6b8' });
     sfx.kick(); shake(7); game.freeze = 0.08;
     foe.play('knock', 'pose'); foe.t2 = 99; foe.floating = true; Stage.crack(foe.x, 1.2); Stage.puff(foe.x, dir);
@@ -331,7 +356,7 @@ async function superScene(f, foe) {
   }
   game.banner = { text: ssj ? 'SUPER KAMEHAMEHA!' : 'KAIOKEN KAMEHAMEHA!', t: 0, dur: 1.3 };
   await wait(0.12, true);
-  directDamage(foe, (ssj ? 46 : 30) * scale);
+  directDamage(foe, (ssj ? 46 : 45) * scale);
   foe.floating = false; foe.play('knock'); foe.vy = ssj ? -200 : -300; foe.vx = dir * 240; foe.y -= 1; sfx.explode();
   await wait(1.25, true);
   endCinematic(f, foe);

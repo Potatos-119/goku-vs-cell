@@ -248,6 +248,9 @@ function updateFighter(f, foe, dt) {
     // arms raised while it gathers above him: feet planted on the ring, or held where he is in the sky
     case 'spirit': f.t2 -= dt; f.vx = 0; if (f.floating) f.vy = 0; break;
     case 'spiritThrow':
+      // the Spirit Bomb that turns him: he stays up there, hunched over, until it lands (he used to fall
+      // to the ring and turn Super Saiyan down there)
+      if (f.floating && game.spirit && game.spirit.owner === f && game.spirit.turn && game.spirit.phase === 'fly') { f.vy = 0; f.t2 = Math.max(f.t2, 0.05); break; }
       if ((f.t2 -= dt) <= 0) { const up = f.y < FLOOR - 1; f.floating = false; f.play(up ? 'fall' : 'idle', up ? 'jump' : 'idle'); }
       break;
   }
@@ -286,7 +289,7 @@ function comboTransform(f, foe) {
   f.ki = 50; game.wentSsj = true;
   f.play('transform', 'transform'); f.vx = 0;
   const a = f.A(), dur = a.fr.length / a.fps;
-  if (foe.state === 'hurt') foe.stun = Math.max(foe.stun, dur + 0.35);
+  if (foe.state === 'hurt') foe.stun = Math.max(foe.stun, dur + 0.45);
   game.comboNames.push({ text: 'SUPER SAIYAN COMBO!', t: 0 });
   Voice.shout('goku', 'Haaaaaaah!'); sfx.powerup(); shake(6);
 }

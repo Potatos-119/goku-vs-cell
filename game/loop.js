@@ -106,7 +106,8 @@ function step(raw) {
   // a Spirit Bomb thrown out of a combo keeps it going until it lands
   const bombPending = (game.spirit && game.spirit.combo && game.spirit.owner === player && ['gather', 'fly'].includes(game.spirit.phase))
     || (player && player.spiritNext && player.spiritNext.combo && player.state === 'powerDown');
-  if (bombPending) game.combo.t = 0;
+  // (and while he turns Super Saiyan in the middle of a combo, the combo waits for him)
+  if (bombPending || (player.state === 'transform' && game.combo.n > 0)) game.combo.t = 0;
   if ((game.combo.t += raw) > 1.1 && game.combo.n) Object.assign(game.combo, { n: 0, dmg: 0, moves: [], done: new Set() });
   game.flash = Math.max(0, game.flash - raw * 2.5);
   for (const s of sparks) s.t += raw;

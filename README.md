@@ -17,7 +17,9 @@ at 1/3. Beat the last phase and it ends in one final beam clash.
 | | |
 |---|---|
 | ![Kaioken](assets/gifs/kaioken.gif) | ![Super Saiyan](assets/gifs/ssj-transform.gif) |
-| Kaioken, then its finisher | Super Saiyan's rush into a Kamehameha |
+| Kaioken, then its finisher: the rush, a flip kick, and a Kamehameha up at them | T right after a hit: Super Saiyan in the middle of a combo |
+| ![Instant Transmission](assets/gifs/instant-transmission.gif) | ![Dragon Rush](assets/gifs/dragon-rush.gif) |
+| Instant Kamehameha: a leap, Instant Transmission, and a point-blank beam | Dragon Rush (F): grab, three hits, launch, and chase them up |
 | ![Spirit Bomb](assets/gifs/spirit-bomb.gif) | ![Final clash](assets/gifs/final-clash.gif) |
 | Spirit Bomb from the air: land it and he turns Super Saiyan | The final clash: mash Space to win it |
 | ![Perfect Cell](assets/gifs/perfect-cell.gif) | ![Re-launch and dunk](assets/gifs/relaunch-dunk.gif) |

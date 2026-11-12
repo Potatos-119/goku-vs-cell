@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Super Saiyan Goku's Instant Transmission and his full-gi transformation, cleaned up from the full-gi sheet.
+"""Super Saiyan Goku's Instant Transmission, full-gi transformation and powering up, cut from the full-gi sheet.
 
 assets/sheets/goku-super-saiyan.png was rebuilt from a shrunken preview (tools/sheet-rebuild.py), so its
 sprites are soft. The transformation's frames are sharpened a little and then every pixel is snapped to
@@ -16,6 +16,9 @@ import os
 import numpy as np
 from PIL import Image, ImageFilter
 from scipy.spatial import cKDTree
+from scipy import ndimage as ndi
+
+KEY = (255, 0, 255)   # the sheet's background (keyed out, like goku-forms.png's)
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SHEETS = os.path.join(ROOT, 'assets', 'sheets')
@@ -28,11 +31,13 @@ ROWS = {
     # turning Super Saiyan in his full gi: the stance, the blue aura, the white flash, the gold flames, the stance
     'turn': [(66, 139, 32, 48), (117, 139, 45, 48), (176, 115, 65, 73), (253, 111, 62, 76), (332, 134, 53, 55),
              (403, 129, 50, 59), (472, 124, 43, 63), (535, 108, 62, 79), (616, 131, 28, 56)],
+    # powering up as a Super Saiyan in his full gi: the stance twice, then the gold flames
+    'charge': [(67, 971, 31, 50), (125, 971, 32, 51), (178, 943, 63, 79), (250, 943, 70, 83)],
 }
 
 
 # the rows cleaned up (sharpened and snapped to the sharp sheets' colours); the rest are cut as they are
-CLEAN = {'turn'}
+CLEAN = set()   # snapping speckled the frames and turned his white hair dark: everything is cut as drawn
 
 
 def palette():
@@ -55,7 +60,19 @@ def main():
         for (bx, by, bw, bh) in boxes:
             c = src.crop((bx - 2, by - 2, bx + bw + 2, by + bh + 2))
             if name not in CLEAN:   # left as drawn: snapping these made them speckled, not sharper
-                out = np.asarray(c).copy(); out[(out > 222).all(-1)] = 255
+                # the background is only the near-white reachable from the crop's edges, and it becomes
+                # magenta: the aura's palest pixels are almost white too, and a white background took them
+                out = np.asarray(c).copy()
+                lab, _ = ndi.label((out >= 236).all(-1))
+                edge = set(lab[0]) | set(lab[-1]) | set(lab[:, 0]) | set(lab[:, -1])
+                out[np.isin(lab, list(edge - {0}))] = KEY
+                # and the pale fringe a screenshot leaves round a sprite, peeled off as sheets.js does
+                # (greyish white next to the background; the aura's blues are too coloured to count)
+                for _ in range(2):
+                    bg = (out == KEY).all(-1); near = np.zeros_like(bg)
+                    near[1:] |= bg[:-1]; near[:-1] |= bg[1:]; near[:, 1:] |= bg[:, :-1]; near[:, :-1] |= bg[:, 1:]
+                    mn, mx = out.min(-1).astype(int), out.max(-1).astype(int)
+                    out[near & ~bg & (mn > 175) & (mx - mn < 45)] = KEY
                 cells.append((x, out)); x += out.shape[1] + 6
                 continue
             c = c.filter(ImageFilter.UnsharpMask(radius=1.2, percent=90, threshold=2))
@@ -66,7 +83,7 @@ def main():
             cells.append((x, out)); x += out.shape[1] + 6
         h = max(o.shape[0] for _, o in cells)
         rows.append((name, y, h, cells)); Wd = max(Wd, x); y += h + 6
-    sheet = np.full((y, Wd, 3), 255, np.uint8)
+    sheet = np.full((y, Wd, 3), KEY, np.uint8)
     for name, ry, h, cells in rows:
         rects = []
         for x, o in cells:

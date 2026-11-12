@@ -81,6 +81,8 @@ const SX = (x, y, w, h) => ({ sheet: 'sx', rect: [x, y, w, h] });
 // crouch, rising, fading out, the streak he leaves; appearing, the squat, up, turning, the dash pose, the dash streak
 const SX_TELE = [SX(6, 15, 43, 53), SX(55, 11, 37, 57), SX(98, 11, 39, 57), SX(143, 13, 30, 55), SX(179, 15, 35, 53), SX(220, 15, 37, 53),
   SX(263, 10, 34, 58), SX(303, 6, 35, 62), SX(344, 6, 34, 62), SX(384, 38, 56, 30)];
+// powering up as a Super Saiyan in his full gi: the stance twice, then the gold flames
+const SX_CHARGE = [SX(6, 196, 35, 54), SX(47, 195, 36, 55), SX(89, 167, 67, 83), SX(162, 163, 74, 87)];
 // the stance, the blue aura, the white flash, the gold flames, the Super Saiyan stance
 const SX_TURN = [SX(6, 105, 36, 52), SX(48, 105, 49, 52), SX(103, 80, 69, 77), SX(178, 77, 66, 80), SX(250, 98, 57, 59), SX(313, 94, 54, 63),
   SX(373, 90, 47, 67), SX(426, 74, 66, 83), SX(498, 97, 32, 60)];
@@ -217,12 +219,19 @@ const GOKU_MOVES = {
 const GOKU_BASE = formAnims(GOKU_MOVES, 'base');
 // in his full gi he turns Super Saiyan the way the full-gi sheet draws it: the blue aura, the white
 // flash, the gold flames (with the gi top torn, GOKU_BASE_T has the newer sheet's own)
-GOKU_BASE.transform = nativeFr([SX_TURN[0], SX_TURN[1], SX_TURN[2], SX_TURN[3], SX_TURN[2], SX_TURN[3], SX_TURN[4], SX_TURN[5], SX_TURN[6], SX_TURN[7], SX_TURN[7], SX_TURN[8]], { fps: 8, loop: false });
+// (the first time, in the cutscene: the stance and the blue aura while the music builds, then the
+// crouch, the white flash, the gold swirl and the flames)
+GOKU_BASE.ssjBuild = nativeFr([SX_TURN[0], SX_TURN[1], SX_TURN[2], SX_TURN[3]], { fps: 6, loop: true, loopFrom: 2 });
+GOKU_BASE.ssjRise = nativeFr([SX_TURN[4], SX_TURN[5], SX_TURN[6], SX_TURN[7]], { fps: 4, loop: false });
+GOKU_BASE.transform = nativeFr([SX_TURN[0], SX_TURN[1], SX_TURN[2], SX_TURN[3], SX_TURN[2], SX_TURN[3], SX_TURN[4], SX_TURN[5], SX_TURN[6], SX_TURN[7], SX_TURN[7], SX_TURN[8]], { fps: 10, loop: false });
 
-// Gi top torn off. The newer sheet draws some of it itself: the Spirit Bomb, and the whole Super Saiyan
-// transformation (hair lifting, the white flash, the gold bursting off him)
-const TORN_SSJ = [GBN(80, 2145, 31, 52), GBN(126, 2145, 32, 52), GBN(179, 2139, 29, 58), GBN(230, 2140, 27, 58), GBN(280, 2142, 28, 55),
-  GBN(330, 2139, 30, 58), GBN(385, 2142, 33, 55), GBN(435, 2140, 52, 60), GBN(507, 2134, 46, 65)];
+// Gi top torn off. The newer sheet draws some of it itself (the Spirit Bomb)
+// turning Super Saiyan with the gi top torn, as the torn-gi Super Saiyan sheet draws it (its top row):
+// seven frames of the power building, his hair going white in a gold aura, the gold swirl, and the
+// gold flames twice
+const SST = (x, y, w, h) => ({ sheet: 'ss', rect: [x, y, w, h] });
+const TORN_TURN = [SST(61, 131, 32, 56), SST(106, 131, 34, 56), SST(161, 127, 29, 60), SST(211, 128, 28, 59), SST(261, 130, 29, 57),
+  SST(311, 130, 29, 56), SST(364, 130, 36, 57), SST(417, 129, 51, 58), SST(489, 122, 45, 64), SST(559, 107, 67, 80), SST(637, 107, 65, 80)];
 const GOKU_BASE_T = formAnims(GOKU_MOVES, 'torn');
 Object.assign(GOKU_BASE_T, {
   spirit: nativeFr([GBN(77, 1988, 37, 49), GBN(128, 1984, 32, 53), GBN(175, 1982, 31, 56), GBN(241, 1970, 39, 69)], { fps: 6, loop: false }),
@@ -231,9 +240,9 @@ Object.assign(GOKU_BASE_T, {
   // flames go up (the frames after the throw on the sheet)
   spiritSsj: nativeFr([{ ...GB(415, 1979, 38, 60), hollow: true }, { ...GB(415, 1979, 38, 60), hollow: true }, { ...GB(463, 1958, 65, 82), hollow: true },
     { ...GB(463, 1958, 65, 82), hollow: true }], { fps: 5, loop: false }),
-  transform: nativeFr([...TORN_SSJ, formFrame(SS_CHARGE[0], 'ssjT'), formFrame(SS_CHARGE[0], 'ssjT')], { fps: 8, loop: false }),
-  ssjBuild: nativeFr([0, 1, 2, 3, 4, 5, 6].map(i => TORN_SSJ[i]), { fps: 6, loop: true, loopFrom: 4 }),
-  ssjRise: nativeFr([6, 7, 7, 8].map(i => TORN_SSJ[i]), { fps: 4, loop: false }),
+  transform: nativeFr([...TORN_TURN, TORN_TURN[10]], { fps: 8, loop: false }),
+  ssjBuild: nativeFr(TORN_TURN.slice(0, 7), { fps: 6, loop: true, loopFrom: 4 }),
+  ssjRise: nativeFr(TORN_TURN.slice(7, 11), { fps: 4, loop: false }),
 });
 
 // Super Saiyan: every move of base Goku's whose frames the Super Saiyan sheet has, in its frames (in
@@ -252,25 +261,22 @@ const ssjTable = look => {
     walk: { fr: stance, fps: 10, loop: true },
     back: { fr: [...stance].reverse(), fps: 9, loop: true },
     // powering up, as the sheet draws it: the stance twice, then the gold flames looping
-    charge: { fr: fr(SS_CHARGE), fps: 10, loop: true, loopFrom: 2 },
-    chargeEnd: { fr: fr([SS_CHARGE[1]]), fps: 9, loop: false, then: 'idle' },
+    // (in his full gi, the full-gi sheet's own frames: SX_CHARGE)
+    charge: look === 'ssj' ? { fr: SX_CHARGE, fps: 10, loop: true, loopFrom: 2 } : { fr: fr(SS_CHARGE), fps: 10, loop: true, loopFrom: 2 },
+    chargeEnd: { fr: look === 'ssj' ? [SX_CHARGE[1]] : fr([SS_CHARGE[1]]), fps: 9, loop: false, then: 'idle' },
     // his Kamehameha: the turn, the swirl gathering in his hands, then the thrust
     // (in his full gi, the sheet's own Kamehameha: see SK_KAME)
-    kameCharge: look === 'ssj' ? { fr: SK_KAME.slice(0, 5), fps: 6, loop: false } : { fr: fr([SS_SUPER[9], SS_SUPER[10]]), fps: 4, loop: false },
-    // (with the top torn: the sheet's own, firing in a burst of gold flames)
-    kameFire: look === 'ssj' ? { fr: SK_KAME.slice(5), fps: 12, loop: false, emitAt: 1, emit: 28 } : { fr: fr([SS_SUPER[11]]), fps: 1, loop: false, emit: 46 },
+    // (with the top torn too: the torn sheet's own looked wrong, so he fires it the full-gi way)
+    kameCharge: { fr: SK_KAME.slice(0, 5), fps: 6, loop: false },
+    kameFire: { fr: SK_KAME.slice(5), fps: 12, loop: false, emitAt: 1, emit: 28 },
     // Instant Transmission (full gi only, see teleKame in game/cinematics.js): from the ground the
     // crouch, the spring up and the fade; in the air the turn and the zip away; appearing; the
     // Kamehameha held at his side
-    // From the ground (sharp frames of his own jump): the crouch, the leap, stretched high, then the
-    // sheet's fade and streak as he goes; dropping in with speed lines, and the landing crouch
+    // From the ground (sharp frames of his own jump): the crouch and the leap; then, in the air, the
+    // sheet's turn, dash pose and zip away
     ...(look === 'ssj' ? {
       itCrouch: { fr: fr([SS_JUMP[0]]), fps: 1, loop: true },
       itLeap: { fr: fr([SS_JUMP[1], SS_JUMP[4]]), fps: 7, loop: false },
-      itFade: { fr: [SX_TELE[2], SX_TELE[3]], fps: 8, loop: false },
-      itDrop: { fr: [SX_TELE[4]], fps: 1, loop: true },
-      itLand: { fr: fr([SS_JUMP[5]]), fps: 1, loop: true },
-      // from the air (the sheet's frames): the turn, the dash pose, the zip away
       itAir: { fr: SX_TELE.slice(6, 10), fps: 7, loop: false },
       itHold: { fr: [SK_KAME[4]], fps: 1, loop: true },
     } : {}),
@@ -286,7 +292,7 @@ const ssjTable = look => {
     // the Spirit Bomb that turns him: floating gold as it lands (the frames after his throw on the base sheet)
     spiritFloat: nativeFr([GB(538, 1981, 39, 56), GB(581, 1973, 50, 65)], { fps: 7, loop: true }),
     // the moment he turns: the flames held
-    ssjFlare: { fr: fr([SS_CHARGE[2], SS_CHARGE[3]]), fps: 10, loop: true },
+    ssjFlare: { fr: look === 'ssj' ? [SX_CHARGE[2], SX_CHARGE[3]] : fr([SS_CHARGE[2], SS_CHARGE[3]]), fps: 10, loop: true },
     // powering back down to base: his hair goes white, then black again
     powerDown: nativeFr(fr([SS_DOWN[1], SS_DOWN[2], SS_DOWN[2], SS_DOWN[3]]), { fps: 8, loop: false }),
     // Dragon Fist: power up to Super Saiyan 3, rush in, dragon
@@ -567,7 +573,7 @@ const MOVES = {
     ['J  /  K', 'Punch / kick, chain: J J J J or K K K'],
     ['J J J J  /  K K K', 'Ends in a launcher: W to chase them up'],
     ['TOWARD + J  /  K', 'Rush punch / heavy slash (wall bounce)'],
-    ['J + K  /  F', 'Dragon Rush: grab through a block, launches'],
+    ['J + K  /  F', 'Dragon Rush: grab through a block, 3 hits, launches (then W)'],
     ['AIR: J J J', 'Air string, ends in a meteor spike'],
     ['AFTER A HIT', 'Cancel into L, U, Q or a dash'],
     ['AIR HIT + U  /  DASH', 'Kamehameha, or air dash and J again'],

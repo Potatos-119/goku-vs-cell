@@ -112,7 +112,11 @@ function damage(def, src, dmg, heavy, dir, kind = 'melee', opts = {}) {
       if (src.who === 'cell') {
         src.hp = Math.min(src.maxHp, src.hp + (infoOf(src).absorb || 15)); def.ki = Math.max(0, def.ki - 15);
         popups.push({ text: 'ABSORB!  +HP', x: def.x, y: def.y - 58, t: 0, c: '#9f8' });
-      } else popups.push({ text: 'DRAGON RUSH!', x: def.x, y: def.y - 58, t: 0, c: '#9ff' });
+      } else {
+        popups.push({ text: 'DRAGON RUSH!', x: def.x, y: def.y - 58, t: 0, c: '#9ff' });
+        // Goku's has hold of them: the rush plays out once this hit is done (see dragonRush)
+        if (def.hp > dmg) Promise.resolve().then(() => dragonRush(src, def));
+      }
       game.freeze = 0.16; shake(7); sfx.explode();
     }
   }
