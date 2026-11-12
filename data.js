@@ -307,8 +307,9 @@ const ssjTable = look => {
     superCharge: { fr: fr([SS_SUPER[9], SS_SUPER[10]]), fps: 5, loop: false },
     superFire: { fr: fr([SS_SUPER[11]]), fps: 1, loop: true, emit: 46 },
     // the Spirit Bomb that turns him: floating gold as it lands (the frames after his throw on the base sheet)
-    // (in his full gi: floating there, from his own jump)
-    spiritFloat: look === 'ssj' ? { fr: fr([SS_JUMP[3], SS_JUMP[3]]), fps: 7, loop: true } : nativeFr([GB(538, 1981, 39, 56), GB(581, 1973, 50, 65)], { fps: 7, loop: true }),
+    // (in his full gi there's no floating pose on any sheet: he hovers upright in his stance, breathing; his
+    // jump frame read as hanging there)
+    spiritFloat: look === 'ssj' ? { fr: [TURN[9]], fps: 1, loop: true, breathe: true } : nativeFr([GB(538, 1981, 39, 56), GB(581, 1973, 50, 65)], { fps: 7, loop: true }),
     // the moment he turns: the flames held
     // (in his full gi, the gold flames his transformation ends in: TURN)
     // (with the top torn, the last frames of its own transformation row, not his charge's flames)
