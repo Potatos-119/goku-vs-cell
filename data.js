@@ -106,7 +106,7 @@ twins(['9.0', '9.1', '9.2', { id: '9.3', w: 31 }, '9.4', { id: '9.5', w: 31 }], 
 // the Kaioken's red flames (two frames), and the frames around them
 // (hollow: the white inside the flames is see-through, as it is on the sheet)
 // (solid: cut see-through, the middle of the flames looked patchy)
-const KAIO_AURA = [GB(288, 1281, 70, 78), GB(361, 1278, 70, 82)];
+const KAIO_AURA = [{ ...GB(288, 1281, 70, 78), seal: 4 }, { ...GB(361, 1278, 70, 82), seal: 4 }];
 const KAIO_STANCE = GB(441, 1310, 31, 48);
 // the moment the Kaioken bursts out: a white flash of him in a red outline (the sheet's frame, its white
 // middle kept: cut see-through, only broken scraps of the outline were left)
@@ -243,7 +243,7 @@ GOKU_BASE.transformQuick = nativeFr([TURN[2], TURN[3], TURN[4], TURN[5], TURN[6]
 // gold flames twice
 const SST = (x, y, w, h) => ({ sheet: 'ss', rect: [x, y, w, h] });
 const TORN_TURN = [SST(61, 131, 32, 56), SST(106, 131, 34, 56), SST(161, 127, 29, 60), SST(211, 128, 28, 59), SST(261, 130, 29, 57),
-  SST(311, 130, 29, 56), SST(364, 130, 36, 57), SST(417, 129, 51, 58), SST(489, 122, 45, 64), SST(559, 107, 67, 80), SST(637, 107, 65, 80)];
+  SST(311, 130, 29, 56), SST(364, 130, 36, 57), SST(417, 129, 51, 58), SST(489, 122, 45, 64), { ...SST(559, 107, 67, 80), seal: 2 }, { ...SST(637, 107, 65, 80), seal: 2 }];
 const GOKU_BASE_T = formAnims(GOKU_MOVES, 'torn');
 Object.assign(GOKU_BASE_T, {
   spirit: nativeFr([GBN(77, 1988, 37, 49), GBN(128, 1984, 32, 53), GBN(175, 1982, 31, 56), GBN(241, 1970, 39, 69)], { fps: 6, loop: false }),
@@ -251,7 +251,7 @@ Object.assign(GOKU_BASE_T, {
   // the Spirit Bomb that turns him Super Saiyan: as it lands the gold outline bursts off him and the
   // flames go up (the frames after the throw on the sheet)
   // (white hair, the gold swirl, then the gold flames in the air: the sheets' own frames)
-  // (the flames solid: cut see-through their middle looked patchy)
+  // (the flames solid, their white middle sealed in: see-through it looked patchy)
   spiritSsj: nativeFr([TORN_TURN[7], TORN_TURN[7], TORN_TURN[8], TORN_TURN[8], GB(463, 1958, 65, 82), GB(463, 1958, 65, 82)], { fps: 5, loop: false }),
   transform: nativeFr([TORN_TURN[0], TORN_TURN[0], ...TORN_TURN, TORN_TURN[10]], { fps: 8, loop: false }),
   transformQuick: nativeFr([...TORN_TURN.slice(3), TORN_TURN[10]], { fps: 9, loop: false }),

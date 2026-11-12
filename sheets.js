@@ -82,7 +82,7 @@ function rawSheet(img) {
 // (so enclosed white like beam cores survives), trim, and work out the body anchor.
 // (hollow: all of the background colour goes, not just what the edges reach: an aura drawn as flames
 // round a white middle)
-function cutOut(sheet, [sx, sy, w, h], seed, hollow) {
+function cutOut(sheet, [sx, sy, w, h], seed, hollow, seal = 0) {
   const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
   const cx = cv.getContext('2d', { willReadFrequently: true });
   cx.drawImage(sheet.canvas, sx, sy, w, h, 0, 0, w, h);
@@ -90,7 +90,21 @@ function cutOut(sheet, [sx, sy, w, h], seed, hollow) {
   const clear = new Uint8Array(w * h), st = [];
   // the background is white, unless the sheet says otherwise (then: anything close to its colour)
   const bg = sheet.bg, bgAt = bg ? (dd, k) => Math.abs(dd[k] - bg[0]) + Math.abs(dd[k + 1] - bg[1]) + Math.abs(dd[k + 2] - bg[2]) < 30 : isBg;
-  const push = (x, y) => { const i = y * w + x; if (!clear[i] && bgAt(d, i * 4)) { clear[i] = 1; st.push(i); } };
+  // seal: an aura's white glow inside a flame outline with small gaps in it. The fill from the edges may
+  // not pass within `seal` pixels of anything drawn (so it can't leak in through a gap), then grows back
+  // over the background it stopped short of
+  let wall = null;
+  if (seal) {
+    const drawn = new Uint8Array(w * h);
+    for (let i = 0; i < w * h; i++) drawn[i] = bgAt(d, i * 4) ? 0 : 1;
+    wall = drawn;
+    for (let k = 0; k < seal; k++) {
+      const next = wall.slice();
+      for (let i = 0; i < w * h; i++) if (wall[i]) { const x = i % w; if (x > 0) next[i - 1] = 1; if (x + 1 < w) next[i + 1] = 1; if (i >= w) next[i - w] = 1; if (i + w < w * h) next[i + w] = 1; }
+      wall = next;
+    }
+  }
+  const push = (x, y) => { const i = y * w + x; if (!clear[i] && bgAt(d, i * 4) && !(wall && wall[i])) { clear[i] = 1; st.push(i); } };
   if (sheet.keyed || hollow) for (let i = 0; i < w * h; i++) if (bgAt(d, i * 4)) clear[i] = 1;
   if (seed.includes('t')) for (let x = 0; x < w; x++) push(x, 0);
   if (seed.includes('b')) for (let x = 0; x < w; x++) push(x, h - 1);
@@ -100,6 +114,11 @@ function cutOut(sheet, [sx, sy, w, h], seed, hollow) {
     const i = st.pop(), x = i % w, y = (i / w) | 0;
     if (x + 1 < w) push(x + 1, y); if (x > 0) push(x - 1, y);
     if (y + 1 < h) push(x, y + 1); if (y > 0) push(x, y - 1);
+  }
+  for (let k = 0; k < seal; k++) {
+    const grow = [];
+    for (let i = 0; i < w * h; i++) if (!clear[i] && bgAt(d, i * 4)) { const x = i % w; if ((x > 0 && clear[i - 1]) || (x + 1 < w && clear[i + 1]) || (i >= w && clear[i - w]) || (i + w < w * h && clear[i + w])) grow.push(i); }
+    grow.forEach(i => clear[i] = 1);
   }
   // the sheet was a screenshot, so peel off the pale fringe left around each sprite
   for (let pass = 0; pass < 2; pass++) {
@@ -163,7 +182,7 @@ const Sheets = {
       if (r.w) w = Math.min(w, r.w);
       if (r.y) { y += r.y; h -= r.y; }
       if (r.h) h = Math.min(h, r.h);
-      const out = cutOut(this.sheets[sheet], [x, y, w, h], r.seed || 'tblr', r.hollow);
+      const out = cutOut(this.sheets[sheet], [x, y, w, h], r.seed || 'tblr', r.hollow, r.seal);
       if (r.ax != null) out.ax = r.ax * out.width;
       out.k = r.k || 1; // drawn this much bigger (a sheet drawn at a smaller size than the rest)
       this.cache.set(key, out);
