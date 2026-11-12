@@ -110,7 +110,7 @@ function updateCine(raw) {
     Stage.crack(f.x, 2);
   }
   if (c.stage === 2 && c.t >= SSJ_PEAK + 1.6) {
-    f.play('idle'); f.inv = 0.5; cam.focus = null;
+    turnedPose(f); f.inv = 0.5; cam.focus = null;
     game.mode = c.back; game.cine = null; c.done();
   }
 }

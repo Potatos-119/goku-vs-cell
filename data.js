@@ -311,7 +311,10 @@ const ssjTable = look => {
     spiritFloat: look === 'ssj' ? { fr: fr([SS_JUMP[3], SS_JUMP[3]]), fps: 7, loop: true } : nativeFr([GB(538, 1981, 39, 56), GB(581, 1973, 50, 65)], { fps: 7, loop: true }),
     // the moment he turns: the flames held
     // (in his full gi, the gold flames his transformation ends in: TURN)
-    ssjFlare: { fr: look === 'ssj' ? [TURN[8]] : fr([SS_CHARGE[2], SS_CHARGE[3]]), fps: 10, loop: true },
+    // (with the top torn, the last frames of its own transformation row, not his charge's flames)
+    ssjFlare: { fr: look === 'ssj' ? [TURN[8]] : [TORN_TURN[9], TORN_TURN[10]], fps: 10, loop: true },
+    // the last frame of turning with the top torn, held until he moves (see turnedPose)
+    ...(look === 'ssjT' ? { turnHold: nativeFr([TORN_TURN[10]], { fps: 1, loop: true }) } : {}),
     // powering back down to base: his hair goes white, then black again
     powerDown: nativeFr(fr([SS_DOWN[1], SS_DOWN[2], SS_DOWN[2], SS_DOWN[3]]), { fps: 8, loop: false }),
     // Dragon Fist: power up to Super Saiyan 3, rush in, dragon

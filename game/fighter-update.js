@@ -327,8 +327,12 @@ function airSpirit(f, combo = false) {
   Voice.shout('goku', "This isn't a job for a Super Saiyan...");
 }
 
+// Just turned Super Saiyan: with the gi top torn he holds the last frame of the transformation (in the
+// gold flames) until he's told to do something, instead of dropping straight into his stance
+function turnedPose(f) { f.play(f.torn && f.A('turnHold') ? 'turnHold' : 'idle', 'idle'); }
+
 function finishTransform(f, music = true) {
-  setForm(f, 'ssj'); f.play('idle'); Stage.cloud(f.x, 1.6); Stage.strike();
+  setForm(f, 'ssj'); turnedPose(f); Stage.cloud(f.x, 1.6); Stage.strike();
   if (music) Audio8.music.switchTo('ssj');
   game.flash = 1; shake(8); sfx.explode();
 }
