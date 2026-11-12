@@ -285,12 +285,13 @@
     },
 
     // he used to rise into the sky for it; the sheet draws him standing under it
-    'the Spirit Bomb is gathered standing on the ring, as big as he is': async () => {
+    // (it used to be gathered standing on the ring; he rises into the sky with it, as it first was)
+    'the Spirit Bomb is gathered up in the sky, as big as he is, on screen': async () => {
       scene({ gap: 160 });
       player.ki = 100; spiritBomb(player);
-      let floated = false;
-      await tick(80, () => { if (player.y < FLOOR - 1) floated = true; });
-      expect(!floated, 'he left the ring while gathering it');
+      let top = FLOOR;
+      await tick(80, () => { top = Math.min(top, player.y); });
+      expect(FLOOR - top > 30, 'he only rose ' + Math.round(FLOOR - top) + ' px off the ring while gathering it');
       expect(game.spirit && game.spirit.r > 30, 'the bomb is ' + (game.spirit ? game.spirit.r.toFixed(0) : 'gone') + ' px across its radius');
       expect(game.spirit.y - game.spirit.r > 0, 'the top of the bomb is off the screen');
     },
@@ -366,18 +367,12 @@
       expect(game.mode === 'fight', 'the fight did not carry on (' + game.mode + ')');
     },
 
-    // (it used to be the ordinary one from the ring; now every Spirit Bomb that lands turns him)
-    'the Spirit Bomb from the ring turns him Super Saiyan as it lands, with no music change': async () => {
+    'the Spirit Bomb from the ring is the ordinary one: no Super Saiyan': async () => {
       scene({ gap: 110 });
       player.ki = 100;
-      const was = Audio8.music.switchTo; let switched = false;
-      Audio8.music.switchTo = (...a) => { switched = true; return was.apply(Audio8.music, a); };
-      try {
-        hold(P1, 'ult', true); await tick(2); hold(P1, 'ult', false);
-        await tick(420);
-      } finally { Audio8.music.switchTo = was; }
-      expect(goku.form === 'ssj', 'he is still ' + goku.form);
-      expect(!switched, 'the music changed when the bomb turned him');
+      hold(P1, 'ult', true); await tick(2); hold(P1, 'ult', false);
+      await tick(420);
+      expect(goku.form === 'base', 'he turned ' + goku.form);
     },
 
     // thrown from the air, he used to fall to the ring before the bomb landed, and turn down there

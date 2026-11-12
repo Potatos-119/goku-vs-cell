@@ -373,10 +373,12 @@ async function spiritSaiyan(sb, f, foe) {
   Object.assign(f, { vx: 0, vy: 0, inv: 99, visible: true, floating: f.y < FLOOR - 4 });
   cam.focus = { f, z: 1.4 };
   f.play('spiritSsj', 'pose'); f.t2 = 99; sfx.powerup(); shake(5);
-  await wait(0.85);
+  // he turns first (white hair, the swirl, the flames), then floats there in gold as it goes off
+  { const a = f.A(); await wait(a.fr.length / a.fps); }
   finishTransform(f, false); game.wentSsj = true; // (the music carries on: a change mid-bomb sounded wrong)
   f.play('spiritFloat', 'pose'); f.t2 = 99;
-  popups.push({ text: 'SUPER SAIYAN!', x: f.x, y: Math.max(44, f.y - 70), t: 0, c: '#ffe04a' });
+  // (under him: above, with the camera in close, it ran into the timer)
+  popups.push({ text: 'SUPER SAIYAN!', x: f.x, y: Math.min(FLOOR - 4, f.y + 16), t: 0, c: '#ffe04a' });
   await wait(0.8, true);
   // and it goes off
   cam.focus = null;

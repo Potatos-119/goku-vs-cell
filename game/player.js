@@ -25,7 +25,7 @@ function cancel(g, foe, dashDir) {
   // while they're still reeling
   if (isGoku && g.form !== 'ssj' && g.ki >= 100 && act('transform')) { comboTransform(g, foe); return true; }
   if (!isGoku && g.form === 'perfect' && g.ki >= 100 && act('ult')) { solarKame(g); return true; }
-  if (isGoku && g.form === 'base' && g.ki >= 100 && act('ult')) { spiritBomb(g, true, false, true); return true; }
+  if (isGoku && g.form === 'base' && g.ki >= 100 && act('ult')) { spiritBomb(g, true); return true; }
   if (!isGoku && g.form === 'perfect' && g.ki >= 35 && g.assistCd <= 0 && act('junior')) { g.ki -= 35; g.assistCd = 3; callJunior(g); return true; }
   if (g.ki >= 15 && act('vanish')) { g.ki -= 15; teleport(g, foe); return true; }
   if (!isGoku && g.ki >= CANNON_KI && act('cannon')) { g.ki -= CANNON_KI; specialBeamCannon(g); return true; }
@@ -172,8 +172,9 @@ function playerInput(dt, g = player, foe = boss) {
     if (g.ki >= 100 && act('ult')) {
       // Super Saiyan: the Dragon Fist in his full gi, the rush into a Kamehameha with the top torn off
       if (isGoku && g.form === 'ssj') return g.torn ? superRush(g) : startUlt(g);
-      // (on the ring too: it's the Spirit Bomb that turns him Super Saiyan as it lands)
-      if (isGoku && g.form === 'base') return spiritBomb(g, false, false, true);
+      // (from the ring it's the ordinary one: he rises into the sky to gather it, and stays himself;
+      // only from the air does it turn him Super Saiyan)
+      if (isGoku && g.form === 'base') return spiritBomb(g);
       if (!isGoku && g.form === 'perfect') return solarKame(g);
     }
     if (dir) {

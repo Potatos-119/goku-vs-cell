@@ -223,7 +223,10 @@ const GOKU_BASE = formAnims(GOKU_MOVES, 'base');
 // crouch, the white flash, the gold swirl and the flames)
 GOKU_BASE.ssjBuild = nativeFr([SX_TURN[0], SX_TURN[1], SX_TURN[2], SX_TURN[3]], { fps: 6, loop: true, loopFrom: 2 });
 GOKU_BASE.ssjRise = nativeFr([SX_TURN[4], SX_TURN[5], SX_TURN[6], SX_TURN[7]], { fps: 4, loop: false });
-GOKU_BASE.transform = nativeFr([SX_TURN[0], SX_TURN[1], SX_TURN[2], SX_TURN[3], SX_TURN[2], SX_TURN[3], SX_TURN[4], SX_TURN[5], SX_TURN[6], SX_TURN[7], SX_TURN[7], SX_TURN[8]], { fps: 10, loop: false });
+GOKU_BASE.transform = nativeFr([SX_TURN[0], SX_TURN[0], SX_TURN[1], SX_TURN[1], SX_TURN[2], SX_TURN[3], SX_TURN[2], SX_TURN[3], SX_TURN[2], SX_TURN[3],
+  SX_TURN[4], SX_TURN[5], SX_TURN[6], SX_TURN[7], SX_TURN[7], SX_TURN[8]], { fps: 8, loop: false });
+// in the middle of a combo it's quicker (they're held reeling while it plays: see comboTransform)
+GOKU_BASE.transformQuick = nativeFr([SX_TURN[1], SX_TURN[2], SX_TURN[3], SX_TURN[4], SX_TURN[5], SX_TURN[6], SX_TURN[7], SX_TURN[7], SX_TURN[8]], { fps: 9, loop: false });
 
 // Gi top torn off. The newer sheet draws some of it itself (the Spirit Bomb)
 // turning Super Saiyan with the gi top torn, as the torn-gi Super Saiyan sheet draws it (its top row):
@@ -238,9 +241,11 @@ Object.assign(GOKU_BASE_T, {
   spiritThrow: nativeFr([GBN(305, 1985, 38, 52), GBN(361, 1990, 38, 47)], { fps: 5, loop: false }),
   // the Spirit Bomb that turns him Super Saiyan: as it lands the gold outline bursts off him and the
   // flames go up (the frames after the throw on the sheet)
-  spiritSsj: nativeFr([{ ...GB(415, 1979, 38, 60), hollow: true }, { ...GB(415, 1979, 38, 60), hollow: true }, { ...GB(463, 1958, 65, 82), hollow: true },
-    { ...GB(463, 1958, 65, 82), hollow: true }], { fps: 5, loop: false }),
-  transform: nativeFr([...TORN_TURN, TORN_TURN[10]], { fps: 8, loop: false }),
+  // (white hair, the gold swirl, then the gold flames in the air: the sheets' own frames)
+  // (the flames solid: cut see-through their middle looked patchy)
+  spiritSsj: nativeFr([TORN_TURN[7], TORN_TURN[7], TORN_TURN[8], TORN_TURN[8], GB(463, 1958, 65, 82), GB(463, 1958, 65, 82)], { fps: 5, loop: false }),
+  transform: nativeFr([TORN_TURN[0], TORN_TURN[0], ...TORN_TURN, TORN_TURN[10]], { fps: 8, loop: false }),
+  transformQuick: nativeFr([...TORN_TURN.slice(3), TORN_TURN[10]], { fps: 9, loop: false }),
   ssjBuild: nativeFr(TORN_TURN.slice(0, 7), { fps: 6, loop: true, loopFrom: 4 }),
   ssjRise: nativeFr(TORN_TURN.slice(7, 11), { fps: 4, loop: false }),
 });

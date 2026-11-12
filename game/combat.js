@@ -453,6 +453,8 @@ function fireKame(f) {
 const SPIRIT_GATHER = 1.5, SPIRIT_R = 36, SPIRIT_DMG = 45;
 // Thrown from the sky (a Super Saiyan powering down in mid-air for it) he hangs this far above the ring.
 const SPIRIT_HEIGHT = 26;
+// how high he rises from the ring to gather the Spirit Bomb
+const SPIRIT_RISE = 48;
 // Out of a combo (a landed hit, then O at full ki) it's a finisher: a quick gather while the hit
 // leaves them dazed, a faster throw, and it crushes them even if they're already down.
 const SPIRIT_COMBO_GATHER = 0.6, SPIRIT_COMBO_SPEED = 300;
@@ -464,8 +466,9 @@ const SPIRIT_PURE = 1.25;
 function spiritBomb(f, combo = false, pure = false, turn = false) {
   const gather = combo ? SPIRIT_COMBO_GATHER : SPIRIT_GATHER;
   if (turn && !f.torn) tearGi(f);
-  // on the ring he stays on it; started in the air he hangs where he is
-  f.ki = 0; f.vx = 0; f.vy = 0; f.floating = f.y < FLOOR - 4; f.play('spirit', 'spirit'); f.t2 = gather;
+  // he gathers it up in the sky: from the ring he rises up there as it grows (see the 'spirit' state);
+  // started in the air he hangs where he is, unless that's lower
+  f.ki = 0; f.vx = 0; f.vy = 0; f.floating = true; f.play('spirit', 'spirit'); f.t2 = gather;
   // the bomb is everyone's energy, not his: no form of his makes it hit any harder
   const mul = pure ? SPIRIT_PURE : 1;
   game.spirit = { owner: f, x: f.x, y: f.y - 70, r: 3, vx: 0, vy: 0, phase: 'gather', t: 0, boom: 0, combo, gather,
