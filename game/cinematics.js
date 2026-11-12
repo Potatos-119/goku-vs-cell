@@ -506,18 +506,29 @@ async function gokuLastStand() {
   goku.play('getup', 'pose'); goku.t2 = 99;
   await wait(0.5);
   await say('GOKU', player === goku ? "Not... yet...! One more!" : "Not... yet...!");
-  // Instant Transmission right in front of him, up in the sky
-  goku.play('teleOut', 'pose'); sfx.teleport();
-  await wait(0.15);
-  ghosts.push({ img: teleArt(goku), x: goku.x, y: goku.y, t: 0 }); goku.visible = false;
-  await wait(0.25);
-  const side = goku.x < cell.x ? -1 : 1;
-  Object.assign(goku, { x: clamp(cell.x + side * 30, 20, W - 20), y: cell.y, floating: true, visible: true, facing: -side, big: true });
-  ghosts.push({ img: teleArt(goku), x: goku.x, y: goku.y, t: 0 }); sfx.teleport();
-  cam.focus = { x: (goku.x + cell.x) / 2, y: cell.y - 20, z: 1.5 };
-  goku.play('kameCharge', 'pose'); goku.t2 = 99;
-  if (!sfx.kameChant(goku, 0.7)) sfx.charge(0.7);
-  await wait(0.7);
+  // Instant Transmission up into the sky, right beside him. As a Super Saiyan it's the sheet's (from the
+  // ring: the crouch, the leap, the turn and the zip; he reappears holding the Kamehameha at his side);
+  // otherwise the quick flicker
+  if (goku.form === 'ssj' && goku.A('itHold')) {
+    cam.focus = { f: goku, z: 1.3 };
+    await teleKame(goku, cell, false);
+    goku.big = true;
+    cam.focus = { x: (goku.x + cell.x) / 2, y: cell.y - 20, z: 1.5 };
+    if (!sfx.kameChant(goku, 0.7)) sfx.charge(0.7);
+    await wait(0.5);
+  } else {
+    goku.play('teleOut', 'pose'); sfx.teleport();
+    await wait(0.15);
+    ghosts.push({ img: teleArt(goku), x: goku.x, y: goku.y, t: 0 }); goku.visible = false;
+    await wait(0.25);
+    const side = goku.x < cell.x ? -1 : 1;
+    Object.assign(goku, { x: clamp(cell.x + side * 30, 20, W - 20), y: cell.y, floating: true, visible: true, facing: -side, big: true });
+    ghosts.push({ img: teleArt(goku), x: goku.x, y: goku.y, t: 0 }); sfx.teleport();
+    cam.focus = { x: (goku.x + cell.x) / 2, y: cell.y - 20, z: 1.5 };
+    goku.play('kameCharge', 'pose'); goku.t2 = 99;
+    if (!sfx.kameChant(goku, 0.7)) sfx.charge(0.7);
+    await wait(0.7);
+  }
   Voice.shout('goku', 'HAAAAAAA!');
   fireKame(goku); goku.t2 = 1.2;
   game.banner = { text: 'INSTANT KAMEHAMEHA!', t: 0, dur: 1.2 };

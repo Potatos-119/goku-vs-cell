@@ -291,12 +291,12 @@ const ssjTable = look => {
     // Kamehameha held at his side
     // From the ground (sharp frames of his own jump): the crouch and the leap; then, in the air, the
     // sheet's turn, dash pose and zip away
-    ...(look === 'ssj' ? {
-      itCrouch: { fr: fr([SS_JUMP[0]]), fps: 1, loop: true },
-      itLeap: { fr: fr([SS_JUMP[1], SS_JUMP[4]]), fps: 7, loop: false },
-      itAir: { fr: SX_TELE.slice(6, 10), fps: 7, loop: false },
-      itHold: { fr: [SK_KAME[4]], fps: 1, loop: true },
-    } : {}),
+    // (with the top torn there are no such frames on the sheets: its own jump, stretched high, then the zip;
+    // only his last stand uses it, see gokuLastStand)
+    itCrouch: { fr: fr([SS_JUMP[0]]), fps: 1, loop: true },
+    itLeap: { fr: fr([SS_JUMP[1], SS_JUMP[4]]), fps: 7, loop: false },
+    itAir: look === 'ssj' ? { fr: SX_TELE.slice(6, 10), fps: 7, loop: false } : { fr: [...fr([SS_JUMP[4], SS_JUMP[4], SS_JUMP[2]]), SX_TELE[9]], fps: 7, loop: false },
+    itHold: { fr: [SK_KAME[4]], fps: 1, loop: true },
     // the big attack (O on the ground with the gi top torn, full ki): see superRush in game/cinematics.js
     superUp: { fr: fr([SS_SUPER[0], SS_SUPER[1], SS_SUPER[1]]), fps: 8, loop: false },
     superDash: { fr: fr([SS_SUPER[2]]), fps: 1, loop: true },
