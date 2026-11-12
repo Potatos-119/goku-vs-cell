@@ -6,6 +6,15 @@ const CHAINS = {
 };
 
 // the ki T needs to turn Super Saiyan (or to evolve, for Cell)
+// Goku's Dragon Rush (the grab) costs a little ki; Cell's Absorb is free (it takes ki from them)
+const DRAGON_KI = 15;
+const grabKi = g => g.who === 'goku' ? DRAGON_KI : 0;
+// pays for the grab and says whether he can: short of ki, it says so instead
+function payGrab(g) {
+  const cost = grabKi(g);
+  if (g.ki < cost) { if (human(g)) popups.push({ text: 'NEED ' + cost + ' KI', x: g.x, y: g.y - 58, t: 0, c: '#ff8a6a' }); return false; }
+  g.ki -= cost; return true;
+}
 const ssjKi = g => g.who === 'goku' && g.form === 'kaioken' ? 90 : 100;
 
 const AIR_CHAIN = { air: 'air2', air2: 'spike' };
@@ -130,7 +139,7 @@ function playerInput(dt, g = player, foe = boss) {
     }
     if (dashDir) return dash(g, dashDir);
     // holding toward the enemy turns J into a rushing punch and K into a heavy slash
-    if (act('grab') || chord('punch', 'kick')) return startAttack(g, 'grab');
+    if ((act('grab') || chord('punch', 'kick')) && payGrab(g)) return startAttack(g, 'grab');
     if (act('punch')) return startAttack(g, toward ? 'rush' : 'p1');
     if (act('kick')) return startAttack(g, toward ? 'slash' : 'k1');
     if (act('ki')) {
@@ -224,9 +233,9 @@ function playerInput(dt, g = player, foe = boss) {
       else if (act('kick')) { g.facing = foe.x > g.x ? 1 : -1; startAttack(g, 'slash'); }
     }
   } else if (g.state === 'attack' && !g.hitDone && g.at < 0.07 && ['p1', 'rush', 'k1', 'slash'].includes(g.anim)
-      && act(['p1', 'rush'].includes(g.anim) ? 'kick' : 'punch')) {
+      && g.ki >= grabKi(g) && act(['p1', 'rush'].includes(g.anim) ? 'kick' : 'punch')) {
     // the second button of J+K came a moment late: still a Dragon Rush
-    startAttack(g, 'grab');
+    payGrab(g); startAttack(g, 'grab');
   } else if (g.state === 'attack' && g.hitLanded && cancel(g, foe, dashDir)) {
     // a landed hit can be cancelled into a special, a dash or (after a launcher) a chasing jump
   } else if (g.state === 'attack') {

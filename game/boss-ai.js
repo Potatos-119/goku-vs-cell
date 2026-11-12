@@ -297,7 +297,7 @@ function bossAI(dt) {
   if (open) return close ? combo() : dist < 150 ? dashIn() : g.state === 'cast' && ai.spam >= 1 ? superDash(c) : shoot();
   if (close) {
     // a turtling player gets grabbed through the guard
-    if (g.state === 'block' && r < 0.25 + ph * 0.1) return startAttack(c, 'grab');
+    if (g.state === 'block' && r < 0.25 + ph * 0.1 && c.ki >= grabKi(c)) { c.ki -= grabKi(c); return startAttack(c, 'grab'); }
     if (g.state === 'attack' && r < (0.25 + ph * 0.12) * Math.min(1, diff().react)) { c.play('block'); c.t2 = 0.45; c.vx = 0; return; }
     // turtling: keep hitting if their stamina is low, otherwise step out and bait
     if (g.state === 'block' && g.stamina > 40 && r < 0.45) { if (r < 0.25) dash(c, -c.facing); else c.play('back', 'walk'); ai.think = 0.45; return; }

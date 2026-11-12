@@ -595,7 +595,7 @@ const MOVES = {
     ['J  /  K', 'Punch / kick, chain: J J J J or K K K'],
     ['J J J J  /  K K K', 'Ends in a launcher: W to chase them up'],
     ['TOWARD + J  /  K', 'Rush punch / heavy slash (wall bounce)'],
-    ['J + K  /  F', 'Dragon Rush: grab through a block, 3 hits, launches (then W)'],
+    ['J + K  /  F', 'Dragon Rush (15 ki): grab through a block, 3 hits, launches (then W)'],
     ['AIR: J J J', 'Air string, ends in a meteor spike'],
     ['AFTER A HIT', 'Cancel into L, U, Q or a dash'],
     ['AIR HIT + U  /  DASH', 'Kamehameha, or air dash and J again'],
