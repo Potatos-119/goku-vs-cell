@@ -387,6 +387,17 @@
       expect(goku.state === 'transform', 'the second time hurt it played ' + goku.state + ', not the quick one');
     },
 
+    // hurt and torn as a Super Saiyan, the Senzu Bean puts him back in his full gi
+    'the Senzu Bean gives a hurt Super Saiyan his full gi back': async () => {
+      scene({ gap: 140 });
+      goku.torn = true; setForm(goku, 'ssj'); player.hp = player.maxHp * 0.2;
+      let done = false; senzuBean(goku).then(() => done = true);
+      for (let k = 0; k < 60 && !done; k++) await tick(10, () => { if (game.dlg) { const d = game.dlg; game.dlg = null; d.done(); } });
+      expect(done, 'the bean scene did not finish');
+      expect(!goku.torn && goku.form === 'ssj', 'after the bean he is ' + goku.form + (goku.torn ? ', torn' : ''));
+      expect(player.hp === player.maxHp, 'not healed');
+    },
+
     // the Kaioken burns ki every second, so its ki was never quite full and T did nothing in it
     'T turns the Kaioken Super Saiyan, even with its ki draining': async () => {
       scene({ gap: 140 });

@@ -220,6 +220,9 @@ async function senzuBean(f) {
   game.bean = null;
   Object.assign(f, { maxHp: Math.max(f.maxHp, SENZU_HP), ki: 100, stamina: 100, guardBroken: false });
   f.hp = f.maxHp;
+  // healed, he's back in his full gi (a Super Saiyan goes back to the full-gi look); the Kaioken keeps it
+  // torn, since going Kaioken is what tears it
+  if (f.torn && f.form !== 'kaioken') { f.torn = false; Stage.cloud(f.x, 0.8); }
   popups.push({ text: 'SENZU BEAN!  FULL HEALTH', x: f.x, y: f.y - 66, t: 0, c: '#8f8' });
   sfx.powerup(); game.flash = 0.5; f.play('charge', 'pose'); f.t2 = 0.8;
   await wait(0.9);

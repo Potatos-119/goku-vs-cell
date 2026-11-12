@@ -24,6 +24,8 @@ at 1/3. Beat the last phase and it ends in one final beam clash.
 | Spirit Bomb from the air: land it and he turns Super Saiyan | The final clash: mash Space to win it |
 | ![Perfect Cell](assets/gifs/perfect-cell.gif) | ![Re-launch and dunk](assets/gifs/relaunch-dunk.gif) |
 | Perfect Cell's reveal | Air combo: launcher, re-launch, dunk |
+| ![Super Saiyan, hurt](assets/gifs/ssj-hurt.gif) | ![Last stand](assets/gifs/last-stand.gif) |
+| The first time he turns Super Saiyan hurt: the scream, the gold, and the reveal | Lose the final clash and Goku gets up for one last Instant Kamehameha |
 
 All recorded from the game.
 
@@ -42,7 +44,20 @@ All recorded from the game.
 | Perfect | The quick one: two air dashes, Cell Juniors, Solar Kamehameha |
 
 When Goku is down to 45% health his gi top gets torn off and he fights on in the blue undershirt.
-Going Kaioken tears it too.
+Going Kaioken tears it too. The first time he turns Super Saiyan like that is the full transformation
+scene again, ending on a still of him battered and gold. Healthy again (the Senzu Bean, or turning
+Super Saiyan out of the Kaioken with his health up) he's back in his full gi.
+
+More of what Goku can do:
+
+- **Dragon Rush** (F, or J + K; 15 ki): a grab through a block, three hits and a launcher; W chases them up
+- **Instant Kamehameha** (Super Saiyan in his full gi: Q then U, or U then Q): from the ring he leaps up,
+  vanishes, and reappears behind them holding the beam; it's also how he finishes a won fight
+- **Spirit Bomb** (O at full ki, base): from the ring he rises into the sky to gather it; thrown from the
+  air, landing it turns him Super Saiyan
+- **The J string** ends in a launcher: W right after chases them into the air
+
+In training, H shows or hides the combo checklist.
 
 The two O attacks above (Kaioken's, and Super Saiyan's with the gi torn) start with a dash. Block it,
 jump it or vanish and nothing happens. If it lands, the rest plays out by itself.
