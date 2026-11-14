@@ -99,6 +99,9 @@ function updateFighter(f, foe, dt) {
     case 'airAtk':
       meleeCheck(f, foe);
       if (f.animDone && f.next) { f.facing = foe.x > f.x ? 1 : -1; f.play(f.next, 'airAtk'); f.next = null; }
+      // the re-launch with nothing after it: back to falling (free to attack, dash or guard), not
+      // frozen in its last frame until he lands
+      else if (f.animDone && f.anim === 'airLaunch') f.play('fall', 'jump');
       break;
     case 'cast':
       // still holding L when the blast would leave the hand: hold it and charge it up instead

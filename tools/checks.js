@@ -546,6 +546,20 @@
       expect(['rush', 'rush2', 'rush3'].every(a => seen.has(a)), 'no rush of punches: ' + [...seen].join(','));
       expect(seen.has('superKick'), 'no flip kick: ' + [...seen].join(','));
     },
+
+    // F in the air left him stuck in the re-launch's last frame until he landed: J did nothing
+    'after F in the air, J carries on (or he is free again)': async () => {
+      for (const press of [true, false]) {
+        scene({ gap: 30 });
+        player.y = FLOOR - 60; player.vy = -100; player.play('jump');
+        hold(P1, 'grab', true); await tick(1); hold(P1, 'grab', false);
+        expect(player.anim === 'airLaunch', 'setup: F in the air did ' + player.anim);
+        if (press) { await tick(2); hold(P1, 'punch', true); await tick(1); hold(P1, 'punch', false); }
+        let n = 0; while (player.anim === 'airLaunch' && n++ < 40) await tick(1);
+        if (press) expect(player.anim === 'air', 'J after F did ' + player.anim);
+        else expect(player.state === 'jump' && player.y < FLOOR - 2, `nothing after F: ${player.state}/${player.anim} at y ${Math.round(player.y)}`);
+      }
+    },
   };
 
   window.runChecks = async function (only = '') {

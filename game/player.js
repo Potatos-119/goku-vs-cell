@@ -17,7 +17,8 @@ function payGrab(g) {
 }
 const ssjKi = g => g.who === 'goku' && g.form === 'kaioken' ? 90 : 100;
 
-const AIR_CHAIN = { air: 'air2', air2: 'spike' };
+// (after the re-launch, F in the air, J or K carries on with an air hit)
+const AIR_CHAIN = { air: 'air2', air2: 'spike', airLaunch: 'air' };
 // the hop that follows someone up off a ground bounce
 const CHASE_LOW_V = -300;
 
