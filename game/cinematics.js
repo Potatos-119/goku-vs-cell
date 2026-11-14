@@ -401,8 +401,11 @@ async function superScene(f, foe, follow = false) {
   endCinematic(f, foe);
 }
 
-// The Spirit Bomb that turns him (base Goku, O in the air at full ki): it lands, and with everyone's
-// energy still pouring through him the gold bursts out. He's a Super Saiyan as it goes off.
+// The Spirit Bomb that turns him (base Goku, O in the air at full ki), in four beats:
+//  1. it lands on them: the camera on the bomb, Goku still in his throw's follow-through
+//  2. to Goku: the gold bursts off him (the outline, then the flames) as everyone's energy pours through
+//  3. back to the bomb, close: it goes off
+//  4. back to Goku: a Super Saiyan, the last floating frames once and then held still
 async function spiritSaiyan(sb, f, foe) {
   const scale = comboScale(foe, 'ult') * (foe === player && !game.versus ? diff().taken : 1), dir = sb.vx >= 0 ? 1 : -1;
   game.mode = 'cut'; projs = []; beams = []; minions = []; clash = null; game.banner = null;
@@ -412,23 +415,31 @@ async function spiritSaiyan(sb, f, foe) {
   f.torn = f.hp <= f.maxHp * TORN_AT;
   Object.assign(foe, { vx: 0, vy: 0, visible: true, floating: foe.y < FLOOR - 4 }); foe.play('hurt', 'pose'); foe.t2 = 99;
   Object.assign(f, { vx: 0, vy: 0, inv: 99, visible: true, floating: f.y < FLOOR - 4 });
-  cam.focus = { f, z: 1.4 };
+  // 1. it lands
+  f.play('spiritHit', 'pose'); f.t2 = 99;
+  cam.focus = { x: sb.x, y: Math.min(FLOOR - 30, sb.y), z: 1.3 };
+  shake(6);
+  await wait(0.7);
+  // 2. he turns
+  cam.focus = { f, z: 1.5 };
   f.play('spiritSsj', 'pose'); f.t2 = 99; sfx.powerup(); shake(5); Voice.shout('goku', 'Haaaaaaah!');
-  // he turns first (white hair, the swirl, the flames), then floats there in gold as it goes off
-  { const a = f.A(); await wait(a.fr.length / a.fps); }
-  finishTransform(f, false); game.wentSsj = true; if (f.torn) game.wentSsjTorn = true; // (the music carries on: a change mid-bomb sounded wrong)
-  f.play('spiritFloat', 'pose'); f.t2 = 99;
-  // (under him: above, with the camera in close, it ran into the timer)
-  popups.push({ text: 'SUPER SAIYAN!', x: f.x, y: Math.min(FLOOR - 4, f.y + 16), t: 0, c: '#ffe04a' });
-  await wait(0.8, true);
-  // and it goes off
-  cam.focus = null;
+  { const a = f.A(); await wait(a.fr.length / a.fps + 0.25); }
+  game.wentSsj = true; if (f.torn) game.wentSsjTorn = true; // (the music carries on: a change mid-bomb sounded wrong)
+  // 3. it goes off, close up (he holds the flames off camera)
+  cam.focus = { x: sb.x, y: Math.min(FLOOR - 30, sb.y), z: 1.6 };
   sb.phase = 'boom'; sb.t = 0;
   game.flash = 1; shake(12); sfx.explode(); Stage.crack(sb.x, 2.5); Stage.cloud(sb.x, 3);
-  // (hurt enough for the gi to be torn, it hits harder still)
   directDamage(foe, SPIRIT_DMG * 1.2 * (f.torn ? TORN_POWER : 1) * scale);
   foe.floating = false; foe.play('knock'); foe.vy = -300; foe.vx = dir * 200; foe.y -= 1;
-  await wait(1, true);
+  await wait(0.9, true);
+  // 4. back to him: a Super Saiyan
+  setForm(f, 'ssj'); Stage.strike(); game.flash = Math.max(game.flash, 0.5);
+  cam.focus = { f, z: 1.4 };
+  f.play('spiritDone', 'pose'); f.t2 = 99;
+  // (under him: above, with the camera in close, it ran into the timer)
+  popups.push({ text: 'SUPER SAIYAN!', x: f.x, y: Math.min(FLOOR - 4, f.y + 16), t: 0, c: '#ffe04a' });
+  await wait(1.1, true);
+  cam.focus = null;
   if (f.y < FLOOR - 1) { f.floating = false; f.play('fall', 'jump'); }
   endCinematic(f, foe);
 }

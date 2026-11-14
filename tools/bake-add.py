@@ -32,20 +32,27 @@ process.stdout.write(JSON.stringify({ list: list.map(([s, r]) => [s + JSON.strin
 """
 
 
-def cut_out(a, seed='tblr', hollow=False, bg=None, keyed=False):
+def cut_out(a, seed='tblr', hollow=False, bg=None, keyed=False, seal=0):
     """sheets.js cutOut: (rgba, anchor)"""
     a = a.astype(int)
     isbg = (np.abs(a - np.array(bg)).sum(-1) < 30) if bg else ((a[..., 0] > 232) & (a[..., 1] > 232) & (a[..., 2] > 232))
     if keyed or hollow:
         clear = isbg.copy()
     else:
-        lab, _ = ndi.label(isbg, structure=N4)
+        # seal (as sheets.js): the fill from the edges can't pass within `seal` pixels of anything drawn
+        # (an outline's gaps), then grows back `seal` steps over the background it stopped short of
+        fill = isbg & ~ndi.binary_dilation(~isbg, structure=N4, iterations=seal) if seal else isbg
+        lab, _ = ndi.label(fill, structure=N4)
         edge = set()
         if 't' in seed: edge |= set(lab[0].tolist())
         if 'b' in seed: edge |= set(lab[-1].tolist())
         if 'l' in seed: edge |= set(lab[:, 0].tolist())
         if 'r' in seed: edge |= set(lab[:, -1].tolist())
         clear = np.isin(lab, list(edge - {0}))
+        for _ in range(seal):
+            near = np.zeros_like(clear)
+            near[1:] |= clear[:-1]; near[:-1] |= clear[1:]; near[:, 1:] |= clear[:, :-1]; near[:, :-1] |= clear[:, 1:]
+            clear = clear | (near & isbg)
     if not bg:
         mn, mx = a.min(-1), a.max(-1)
         for _ in range(2):
@@ -78,7 +85,7 @@ def main():
         cfg = data['cfg'][name]
         if name not in sheets: sheets[name] = np.asarray(Image.open(os.path.join(ROOT, cfg['src'])).convert('RGB'))
         x, y, w, h = r['rect']
-        c, ax = cut_out(sheets[name][y:y + h, x:x + w], r.get('seed', 'tblr'), r.get('hollow'), cfg.get('bg'), cfg.get('keyed'))
+        c, ax = cut_out(sheets[name][y:y + h, x:x + w], r.get('seed', 'tblr'), r.get('hollow'), cfg.get('bg'), cfg.get('keyed'), r.get('seal', 0))
         if r.get('ax') is not None: ax = r['ax'] * c.shape[1]
         items.append((key, c, ax, r.get('k', 1)))
     if skipped: print('needs the browser bake (tools/bake.html):', *skipped, sep='\n  ')
