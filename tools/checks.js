@@ -529,6 +529,23 @@
       expect(game.mode === 'fight', 'the finish never ended (' + game.mode + ')');
       expect(hp - boss.hp > 30, `it only did ${(hp - boss.hp).toFixed(1)} damage`);
     },
+
+    // mid-combo on the ring, the Kaioken's O took the short air version (just the kick), not the rush
+    'Kaioken O mid-combo on the ring plays the whole finish': async () => {
+      scene({ gap: 30 }); goku.ki = 100; goKaioken(goku);
+      await tick(90);
+      goku.ki = 100; goku.facing = 1;
+      hold(P1, 'punch', true); await tick(1); hold(P1, 'punch', false);
+      let n = 0; while (!goku.hitLanded && n++ < 60) await tick(1);
+      expect(goku.hitLanded, 'setup: the punch never landed');
+      await tick(4); // (past the hit-freeze, as a player's O would come)
+      hold(P1, 'ult', true); await tick(1); hold(P1, 'ult', false);
+      expect(game.mode === 'cut', 'O did not start the finish (' + goku.state + ')');
+      const seen = new Set(); n = 0;
+      while (game.mode === 'cut' && n++ < 600) await tick(1, () => seen.add(goku.anim));
+      expect(['rush', 'rush2', 'rush3'].every(a => seen.has(a)), 'no rush of punches: ' + [...seen].join(','));
+      expect(seen.has('superKick'), 'no flip kick: ' + [...seen].join(','));
+    },
   };
 
   window.runChecks = async function (only = '') {

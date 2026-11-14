@@ -289,14 +289,18 @@ function superRush(f) {
 }
 
 // The Kaioken's finish as a follow-up (O off a landed hit, or while they're bouncing off the ring or up in
-// the air close by): no dash to land, he's straight on them. They drop to the ring and he goes into the
-// run, the flip kick and the Kamehameha up at them (see superScene).
+// the air close by): no dash to land, he's straight on them. On the ring it's the whole finish; from the
+// air or off a bounce they drop to the ring and he goes straight into the run, the flip kick and the
+// Kamehameha up at them (see superScene).
 function kaioFollow(f) {
   const foe = foeOf(f);
   f.ki -= SUPER_KI.kaioken; f.facing = foe.x > f.x ? 1 : -1;
   popups.push({ text: 'KAIOKEN FINISH!', x: f.x, y: f.y - 70, t: 0, c: '#ff5a5a' });
   sfx.powerup(); shake(4);
-  superScene(f, foe, true);
+  // on the ring mid-combo it's the whole finish (the rush of punches first); only from the air, or onto
+  // them bouncing off a dunk, is it the short one that starts at the kick
+  const short = f.y < FLOOR - 4 || foe.spiked || foe.bounced;
+  superScene(f, foe, short);
 }
 // they're reeling in the air or off a bounce, near enough for the Kaioken's finish to follow up
 const kaioFollowable = (f, foe) => foe.hp > 0 && foe.visible && foe.state === 'knock' && Math.abs(foe.x - f.x) < 140;
