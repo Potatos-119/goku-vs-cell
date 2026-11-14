@@ -551,6 +551,8 @@ const COMBOS = {
     { name: 'SKY SPIRIT BOMB', steps: ['launch', 'air', 'spirit'], how: 'launcher, W, J, then O at full ki (base)' },
     { name: 'DUNK SHOT', steps: ['spike', 'bounce', 'melee'], how: 'air S + J (dunk), then hit the bounce' },
     { name: 'RELAUNCH', steps: ['air', 'airLaunch', 'air'], how: 'air hit, F to send them up again, J' },
+    { name: 'KAIOKEN FOLLOW-UP', steps: ['melee', 'kaioFinish'], how: 'Kaioken: land a hit, then O (50 ki)' },
+    { name: 'BOUNCE TO KAIOKEN', steps: ['spike', 'bounce', 'kaioFinish'], how: 'Kaioken: dunk (air S + J), O on the bounce' },
   ],
   cell: [
     { name: 'NIGHTMARE STRING', steps: ['p1', 'p2', 'k2'], how: 'J J K' },

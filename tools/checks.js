@@ -520,11 +520,13 @@
       await tick(90, () => { if (game.mode === 'cut' && game.dlg) { const d = game.dlg; game.dlg = null; d.done(); } });
       expect(goku.form === 'kaioken', 'setup: not in the Kaioken (' + goku.form + ')');
       goku.ki = 100; boss.play('knock'); boss.y = FLOOR - 40; boss.vy = 300; boss.spiked = true; boss.bounced = false;
+      game.combo.n = 1; game.combo.t = 0; comboToken('spike'); // (the dunk that sent them down)
       await tick(20);
       expect(boss.state === 'knock' && boss.bounced, 'setup: Cell did not bounce (' + boss.state + ')');
       const hp = boss.hp;
       hold(P1, 'ult', true); await tick(1); hold(P1, 'ult', false);
       expect(game.mode === 'cut', 'O on the bounce did not start the finish (' + goku.state + ')');
+      expect(game.combo.done.has('BOUNCE TO KAIOKEN'), 'BOUNCE TO KAIOKEN was not named: ' + [...game.combo.done].join(', '));
       let n = 0; while (game.mode === 'cut' && n++ < 600) await tick(1);
       expect(game.mode === 'fight', 'the finish never ended (' + game.mode + ')');
       expect(hp - boss.hp > 30, `it only did ${(hp - boss.hp).toFixed(1)} damage`);
@@ -541,6 +543,7 @@
       await tick(4); // (past the hit-freeze, as a player's O would come)
       hold(P1, 'ult', true); await tick(1); hold(P1, 'ult', false);
       expect(game.mode === 'cut', 'O did not start the finish (' + goku.state + ')');
+      expect(game.combo.done.has('KAIOKEN FOLLOW-UP'), 'KAIOKEN FOLLOW-UP was not named: ' + [...game.combo.done].join(', '));
       const seen = new Set(); n = 0;
       while (game.mode === 'cut' && n++ < 600) await tick(1, () => seen.add(goku.anim));
       expect(['rush', 'rush2', 'rush3'].every(a => seen.has(a)), 'no rush of punches: ' + [...seen].join(','));

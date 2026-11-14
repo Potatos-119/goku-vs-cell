@@ -297,6 +297,7 @@ function kaioFollow(f) {
   f.ki -= SUPER_KI.kaioken; f.facing = foe.x > f.x ? 1 : -1;
   popups.push({ text: 'KAIOKEN FINISH!', x: f.x, y: f.y - 70, t: 0, c: '#ff5a5a' });
   sfx.powerup(); shake(4);
+  comboToken('kaioFinish', f);
   // on the ring mid-combo it's the whole finish (the rush of punches first); only from the air, or onto
   // them bouncing off a dunk, is it the short one that starts at the kick
   const short = f.y < FLOOR - 4 || foe.spiked || foe.bounced;
