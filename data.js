@@ -232,8 +232,6 @@ GOKU_BASE.ssjRise = nativeFr([TURN[5], TURN[6], TURN[7], TURN[8]], { fps: 5, loo
 GOKU_BASE.transform = nativeFr([TURN[1], TURN[1], TURN[2], TURN[2], TURN[3], TURN[4], TURN[3], TURN[4], TURN[3], TURN[4],
   TURN[5], TURN[6], TURN[7], TURN[8], TURN[8], TURN[9]], { fps: 8, loop: false });
 // in the middle of a combo it's quicker (they're held reeling while it plays: see comboTransform)
-// (and the Spirit Bomb that turns him, in his full gi: the white flash, the swirl, the flames)
-GOKU_BASE.spiritSsj = nativeFr([TURN[6], TURN[6], TURN[7], TURN[7], TURN[8], TURN[8]], { fps: 5, loop: false });
 GOKU_BASE.transformQuick = nativeFr([TURN[2], TURN[3], TURN[4], TURN[5], TURN[6], TURN[7], TURN[8], TURN[9]], { fps: 9, loop: false });
 
 // Gi top torn off. The newer sheet draws some of it itself (the Spirit Bomb)
@@ -247,14 +245,6 @@ const GOKU_BASE_T = formAnims(GOKU_MOVES, 'torn');
 Object.assign(GOKU_BASE_T, {
   spirit: nativeFr([GBN(77, 1988, 37, 49), GBN(128, 1984, 32, 53), GBN(175, 1982, 31, 56), GBN(241, 1970, 39, 69)], { fps: 6, loop: false }),
   spiritThrow: nativeFr([GBN(305, 1985, 38, 52), GBN(361, 1990, 38, 47)], { fps: 5, loop: false }),
-  // the Spirit Bomb that turns him Super Saiyan: as it lands the gold outline bursts off him and the
-  // flames go up (the frames after the throw on the sheet)
-  // (white hair, the gold swirl, then the gold flames in the air: the sheets' own frames)
-  // (the flames solid, their white middle sealed in: see-through it looked patchy)
-  // (as the sheet draws it after the throw: the gold outline bursting off him, then the flames; the
-  // outline's white middle and the flames' kept solid)
-  spiritSsj: nativeFr([{ ...GB(413, 1977, 41, 63), seal: 3 }, { ...GB(413, 1977, 41, 63), seal: 3 }, { ...GB(463, 1958, 65, 82), seal: 2 },
-    { ...GB(463, 1958, 65, 82), seal: 2 }, { ...GB(463, 1958, 65, 82), seal: 2 }], { fps: 5, loop: false }),
   transform: nativeFr([TORN_TURN[0], TORN_TURN[0], ...TORN_TURN, TORN_TURN[10]], { fps: 8, loop: false }),
   transformQuick: nativeFr([...TORN_TURN.slice(3), TORN_TURN[10]], { fps: 9, loop: false }),
   ssjBuild: nativeFr(TORN_TURN.slice(0, 7), { fps: 6, loop: true, loopFrom: 4 }),
@@ -309,13 +299,6 @@ const ssjTable = look => {
     super4: { fr: fr([SS_SUPER[7], SS_SUPER[8]]), fps: 7, loop: false },
     superCharge: { fr: fr([SS_SUPER[9], SS_SUPER[10]]), fps: 5, loop: false },
     superFire: { fr: fr([SS_SUPER[11]]), fps: 1, loop: true, emit: 46 },
-    // the Spirit Bomb that turns him: floating gold as it lands (the frames after his throw on the base sheet)
-    // (in his full gi there's no floating pose on any sheet: he hovers upright in his stance, breathing; his
-    // jump frame read as hanging there)
-    spiritFloat: look === 'ssj' ? { fr: [TURN[9]], fps: 1, loop: true, breathe: true } : nativeFr([GB(538, 1981, 39, 56), GB(581, 1973, 50, 65)], { fps: 7, loop: true }),
-    // the end of it (see spiritSaiyan): the two floating frames once, then the last one held, still
-    // (looping the two read as a wiggle); in his full gi, his stance held, no breathing
-    spiritDone: look === 'ssj' ? { fr: [TURN[9]], fps: 1, loop: false } : nativeFr([GB(538, 1981, 39, 56), GB(581, 1973, 50, 65)], { fps: 4, loop: false }),
     // the moment he turns: the flames held
     // (in his full gi, the gold flames his transformation ends in: TURN)
     // (with the top torn, the last frame of its own transformation row, held: flipping between its last two,

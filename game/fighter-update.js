@@ -139,6 +139,9 @@ function updateFighter(f, foe, dt) {
       break;
     case 'down':
       keepOnScreen(f);
+      // knocked out, then back with health (Cell coming back in his next form), while the KO's endless
+      // wait was still set: he gets up as from any knock-down
+      if (game.mode === 'fight' && f.hp > 0 && f.t2 > 0.7) f.t2 = 0.7;
       if ((f.t2 -= dt) <= 0 && f.hp > 0) { if (f.A('getup')) f.play('getup', 'appear'); else f.play('idle'); f.inv = 0.7; }
       break;
     case 'jump': if (f.vy > 0 && f.anim !== 'fall') f.play('fall', 'jump'); break;
