@@ -321,8 +321,17 @@ const ssjTable = look => {
   return Object.fromEntries(Object.entries(t).filter(([, a]) => !a.fr.includes(null)));
 };
 const GOKU_SSJ = ssjTable('ssj'), GOKU_SSJ_T = ssjTable('ssjT');
-// the Spirit Bomb that turns him, the moment it lands: his throw's last frame, held (see spiritSaiyan)
+// The Spirit Bomb that turns him (see spiritSaiyan), as goku-base.png's Spirit Bomb row draws it after
+// the gather and the throw: as it lands his throw's last frame, held; then the gold outline bursting off
+// him, the flames, and the two floating frames (played once, the last held: looped, they read as a
+// wiggle). The outline's white middle and the flames' are kept solid. In his full gi (healthy enough to
+// keep it) the flames and the floating pose are his own, so the gi doesn't flip from torn to whole.
 for (const T of [GOKU_BASE, GOKU_BASE_T]) T.spiritHit = { ...T.spiritThrow, fr: [T.spiritThrow.fr[T.spiritThrow.fr.length - 1]], fps: 1, loop: true };
+const SB_OUTLINE = { ...GB(413, 1977, 41, 63), seal: 3 }, SB_FLAMES = { ...GB(463, 1958, 65, 82), seal: 2 };
+GOKU_BASE_T.spiritSsj = nativeFr([SB_OUTLINE, SB_OUTLINE, SB_FLAMES, SB_FLAMES, SB_FLAMES], { fps: 5, loop: false });
+GOKU_BASE.spiritSsj = nativeFr([SB_OUTLINE, SB_OUTLINE, TURN[8], TURN[8], TURN[8]], { fps: 5, loop: false });
+GOKU_SSJ_T.spiritDone = nativeFr([GB(538, 1981, 39, 56), GB(581, 1973, 50, 65)], { fps: 4, loop: false });
+GOKU_SSJ.spiritDone = nativeFr([TURN[9]], { fps: 1, loop: false });
 
 // Kaioken: the torn look in red. The sheet draws its flames, its dash, a flurry that becomes his rush
 // (toward + J: three hits, each stepping further in) and a Kamehameha of its own, which is the end of
