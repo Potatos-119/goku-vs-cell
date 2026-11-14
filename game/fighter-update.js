@@ -357,6 +357,10 @@ function landed(f) {
     f.spiked = false; f.bounced = true; f.y = FLOOR - 1; f.vy = -260; f.vx *= 0.5; f.juggle = Math.max(0, f.juggle - 1);
     Stage.crack(f.x, 1.8); shake(9); sfx.impact(); game.freeze = Math.max(game.freeze, 0.06);
     popups.push({ text: 'GROUND BOUNCE!', x: f.x, y: f.y - 50, t: 0, c: '#ffd23a' });
+    // a Kaioken Goku with the ki for it: say his finish can follow
+    const g = foeOf(f);
+    if (human(g) && g.who === 'goku' && g.form === 'kaioken' && g.ki >= SUPER_KI.kaioken)
+      popups.push({ text: actionLabel('ult', ctlOf(g)) + '  KAIOKEN FINISH!', x: g.x, y: g.y - 64, t: 0, c: '#ff8a7a' });
     if (f === boss) comboToken('bounce'); else if (f === player) comboToken('bounce', boss);
     return;
   }

@@ -60,7 +60,11 @@ More of what Goku can do:
 In training, H shows or hides the combo checklist.
 
 The two O attacks above (Kaioken's, and Super Saiyan's with the gi torn) start with a dash. Block it,
-jump it or vanish and nothing happens. If it lands, the rest plays out by itself.
+jump it or vanish and nothing happens. If it lands, the rest plays out by itself. The Kaioken's also
+follows a combo: O right after a hit lands (on the ring or in the air), or while they bounce off the ring
+after a dunk, goes straight into its finish. In the air with nothing landed, its dash dives at them.
+With the gi torn, Goku's O attacks (the rush into the Kamehameha, and the Spirit Bomb from the air) hit
+about a third harder.
 
 ## Running it
 
@@ -133,8 +137,7 @@ slower and throws shorter combos.
 - `tools/balance.js`: measures how hard the boss hits on each difficulty
 - `tools/bake.html`: re-bakes the frames after a sheet changes
 - `tools/bake-add.py`: bakes only the frames that are new, without a browser
-- `tools/ssj-kame.py`, `tools/ssj-moves.py`: Super Saiyan's Kamehameha, Instant Transmission and full-gi
-  transformation, cut from the sheets
+- `tools/ssj-moves.py`: Super Saiyan's Instant Transmission, cut from the full-gi sheet
 - `tools/record-page.js`: films the game frame by frame from inside the page, for the README GIFs
 
 ## Changing the sprites
@@ -145,9 +148,9 @@ slower and throws shorter combos.
 
 Super Saiyan comes from two sheets, both at their full size: `goku-ssj-first.png` (mrruben7's, with the
 gi top torn) and `goku-super-saiyan.png` (PeculiarDoc's, in his full gi). Every frame is cut from them
-as drawn; the tool lines each full-gi frame up with the same pose on the torn-gi sheet. His full-gi Kamehameha (the poses and the beam)
-comes from a sharp strip of the sheet: `python3 tools/ssj-kame.py STRIP.png` scales its smaller poses
-up 1.25x (Scale2x, so the edges stay sharp) into `assets/sheets/goku-ssj-kame.png`. His Instant
+as drawn; the tool lines each full-gi frame up with the same pose on the torn-gi sheet. His Kamehameha (the poses and the beam)
+is cut straight from the full-gi sheet's Instant Kamehameha row (`GS_KAME` and `BEAMS.gokuSsj` in
+`data.js`). His Instant
 Transmission is cut from the full-gi sheet by `python3 tools/ssj-moves.py` into
 `assets/sheets/goku-ssj-moves.png`.
 

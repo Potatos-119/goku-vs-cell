@@ -282,10 +282,28 @@ function superRush(f) {
   const ssj = f.form === 'ssj';
   f.ki -= SUPER_KI[f.form]; f.vx = 0; f.facing = foeOf(f).x > f.x ? 1 : -1;
   if (ssj) { f.play('superUp', 'superUp'); f.t2 = 0.38; game.flash = Math.max(game.flash, 0.35); }
-  else { f.play('superDash', 'superDash'); f.t2 = 0.5; }
+  // (the Kaioken's from the air: the dash dives down at them)
+  else { f.play('superDash', 'superDash'); f.t2 = 0.5; if (f.y < FLOOR - 4) { f.floating = false; f.vy = Math.max(f.vy, 220); } }
   sfx.powerup(); shake(4);
   popups.push({ text: ssj ? 'SUPER KAMEHAMEHA!' : 'KAIOKEN FINISH!', x: f.x, y: f.y - 70, t: 0, c: ssj ? '#ffe04a' : '#ff5a5a' });
 }
+
+// The Kaioken's finish as a follow-up (O off a landed hit, or while they're bouncing off the ring or up in
+// the air close by): no dash to land, he's straight on them. They drop to the ring and he goes into the
+// run, the flip kick and the Kamehameha up at them (see superScene).
+function kaioFollow(f) {
+  const foe = foeOf(f);
+  f.ki -= SUPER_KI.kaioken; f.facing = foe.x > f.x ? 1 : -1;
+  popups.push({ text: 'KAIOKEN FINISH!', x: f.x, y: f.y - 70, t: 0, c: '#ff5a5a' });
+  sfx.powerup(); shake(4);
+  superScene(f, foe, true);
+}
+// they're reeling in the air or off a bounce, near enough for the Kaioken's finish to follow up
+const kaioFollowable = (f, foe) => foe.hp > 0 && foe.visible && foe.state === 'knock' && Math.abs(foe.x - f.x) < 140;
+
+// With the gi top torn, his big attacks hit harder (his last reserves): the rush into the Super
+// Kamehameha, and the Spirit Bomb from the air
+const TORN_POWER = 1.35;
 
 // a beam for a cutscene: it does no damage of its own (the scene deals it), and it's aimed at them
 function superBeam(f, foe, size) {
@@ -297,11 +315,13 @@ function superBeam(f, foe, size) {
   game.flash = 1; shake(12); Stage.strike();
 }
 
-async function superScene(f, foe) {
+async function superScene(f, foe, follow = false) {
   // (out of a combo it's worth less, and the boss's hurts as much as the difficulty says)
   const ssj = f.form === 'ssj', scale = comboScale(foe, 'ult') * (foe === player && !game.versus ? diff().taken : 1), dir = f.facing;
+  const torn = ssj && f.torn, power = torn ? TORN_POWER : 1;
+  const from = { x: f.x, y: f.y }, foeY = foe.y;
   game.mode = 'cut'; projs = []; beams = []; minions = []; clash = null; game.banner = null; game.spirit = null;
-  Object.assign(f, { vx: 0, vy: 0, inv: 99, visible: true });
+  Object.assign(f, { vx: 0, vy: 0, inv: 99, visible: true, y: FLOOR, floating: false });
   Object.assign(foe, { vx: 0, vy: 0, visible: true, y: FLOOR, floating: false, facing: -dir });
   cam.focus = { x: (f.x + foe.x) / 2, y: FLOOR, z: 1.5 };
   // one blow of the string: he's on them, they reel (it never knocks them out: the beam does that)
@@ -317,11 +337,13 @@ async function superScene(f, foe) {
     await wait(dur);
   };
   if (ssj) {
-    await blow('super1', 3, 0.2, 4);
-    await blow('super2', 3, 0.24, 4);
-    await blow('super3', 4, 0.22, 6);
+    // (with the gi torn: a red-gold flash as he goes all out, and every blow hits harder)
+    if (torn) { game.flash = 1; shake(8); Voice.shout('goku', 'Haaaaaaah!'); }
+    await blow('super1', 3 * power, 0.2, 4);
+    await blow('super2', 3 * power, 0.24, 4);
+    await blow('super3', 4 * power, 0.22, 6);
     // the flip kick: up they go
-    await blow('super4', 5, 0.08, 0);
+    await blow('super4', 5 * power, 0.08, 0);
     foe.play('knock', 'pose'); foe.t2 = 99; foe.floating = true; Stage.crack(foe.x, 1.5);
     for (let i = 0; i < 9; i++) { foe.y -= 9 - i * 0.6; foe.x = clamp(foe.x + dir * 5, 20, W - 20); await wait(0.03); }
     cam.focus = { x: (f.x + foe.x) / 2, y: FLOOR - 30, z: 1.25 };
@@ -329,9 +351,22 @@ async function superScene(f, foe) {
     Voice.shout('goku', 'Ka... me... ha... me...'); if (!sfx.kameChant(f, 0.8)) sfx.charge(0.8);
     await wait(0.8);
     Voice.shout('goku', 'HAAAAAAA!');
-    superBeam(f, foe, 1.25);
+    superBeam(f, foe, torn ? 1.55 : 1.25);
+  } else if (follow) {
+    // the follow-up: they drop to the ring where they were knocked, and he's there in a flash
+    f.visible = false; ghosts.push({ img: teleArt(f), x: from.x, y: from.y, t: 0 }); sfx.teleport();
+    foe.y = foeY; foe.play('knock', 'pose'); foe.t2 = 99;
+    for (let i = 1; i <= 6 && foeY < FLOOR - 2; i++) { foe.y = foeY + (FLOOR - foeY) * i / 6; await wait(0.03); }
+    foe.y = FLOOR; Stage.crack(foe.x, 1.2); shake(5); sfx.impact();
+    foe.play('hurt', 'pose');
+    f.x = clamp(foe.x - dir * 34, 14, W - 14); f.visible = true;
+    ghosts.push({ img: teleArt(f), x: f.x, y: f.y, t: 0 });
+    cam.focus = { x: (f.x + foe.x) / 2, y: FLOOR, z: 1.5 };
+    await wait(0.12);
   } else {
     for (const [anim, dmg] of [['rush', 2], ['rush2', 2], ['rush', 2], ['rush2', 2], ['rush3', 3]]) await blow(anim, dmg, 0.12, 5);
+  }
+  if (!ssj) {
     // the sheet's own finish: he runs in, a flip kick sends them up (they only go up once his foot is
     // on them), he follows them up, the swirl gathers in his hands, and he fires up at them
     f.x = clamp(foe.x - dir * 30, 14, W - 14);
@@ -354,9 +389,9 @@ async function superScene(f, foe) {
     Voice.shout('goku', 'HAAAAAAA!');
     superBeam(f, foe, 1.2);
   }
-  game.banner = { text: ssj ? 'SUPER KAMEHAMEHA!' : 'KAIOKEN KAMEHAMEHA!', t: 0, dur: 1.3 };
+  game.banner = { text: torn ? 'FULL POWER KAMEHAMEHA!' : ssj ? 'SUPER KAMEHAMEHA!' : 'KAIOKEN KAMEHAMEHA!', t: 0, dur: 1.3 };
   await wait(0.12, true);
-  directDamage(foe, (ssj ? 46 : 45) * scale);
+  directDamage(foe, (ssj ? 46 * power : 45) * scale);
   foe.floating = false; foe.play('knock'); foe.vy = ssj ? -200 : -300; foe.vx = dir * 240; foe.y -= 1; sfx.explode();
   await wait(1.25, true);
   endCinematic(f, foe);
@@ -386,7 +421,8 @@ async function spiritSaiyan(sb, f, foe) {
   cam.focus = null;
   sb.phase = 'boom'; sb.t = 0;
   game.flash = 1; shake(12); sfx.explode(); Stage.crack(sb.x, 2.5); Stage.cloud(sb.x, 3);
-  directDamage(foe, SPIRIT_DMG * 1.2 * scale);
+  // (hurt enough for the gi to be torn, it hits harder still)
+  directDamage(foe, SPIRIT_DMG * 1.2 * (f.torn ? TORN_POWER : 1) * scale);
   foe.floating = false; foe.play('knock'); foe.vy = -300; foe.vx = dir * 200; foe.y -= 1;
   await wait(1, true);
   if (f.y < FLOOR - 1) { f.floating = false; f.play('fall', 'jump'); }

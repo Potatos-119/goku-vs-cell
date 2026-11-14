@@ -38,6 +38,8 @@ function cancel(g, foe, dashDir) {
   if (isGoku && g.form !== 'ssj' && g.ki >= ssjKi(g) && act('transform')) { comboTransform(g, foe); return true; }
   if (!isGoku && g.form === 'perfect' && g.ki >= 100 && act('ult')) { solarKame(g); return true; }
   if (isGoku && g.form === 'base' && g.ki >= 100 && act('ult')) { spiritBomb(g, true); return true; }
+  // the Kaioken's finish straight off the hit (no dash to land)
+  if (isGoku && g.form === 'kaioken' && g.ki >= SUPER_KI.kaioken && act('ult')) { kaioFollow(g); return true; }
   if (!isGoku && g.form === 'perfect' && g.ki >= 35 && g.assistCd <= 0 && act('junior')) { g.ki -= 35; g.assistCd = 3; callJunior(g); return true; }
   if (g.ki >= 15 && act('vanish')) { g.ki -= 15; teleport(g, foe); return true; }
   if (!isGoku && g.ki >= CANNON_KI && act('cannon')) { g.ki -= CANNON_KI; specialBeamCannon(g); return true; }
@@ -63,6 +65,7 @@ function airCancel(g, foe, dashDir) {
   if (!isGoku && g.form === 'perfect' && g.ki >= 100 && act('ult')) { solarKame(g); return true; }
   if (isGoku && g.form === 'base' && g.ki >= 100 && act('ult')) { spiritBomb(g, true, false, true); return true; }
   if (isGoku && g.form === 'ssj' && g.ki >= 100 && act('ult')) { airSpirit(g, true); return true; }
+  if (isGoku && g.form === 'kaioken' && g.ki >= SUPER_KI.kaioken && act('ult')) { kaioFollow(g); return true; }
   if (act('beam')) {
     if (deathBeamFirst(g)) { g.ki -= 20; cast(g, 'death'); return true; }
     if (g.ki >= 50 && canKame(g)) { g.ki -= 50; startKame(g, false, false, true); return true; }
@@ -182,8 +185,9 @@ function playerInput(dt, g = player, foe = boss) {
       if (canKame(g) && g.ki >= 50) { g.ki -= 50; return startKame(g); }
       if (!isGoku && g.ki >= 20) { g.ki -= 20; return cast(g, 'death'); }
     }
-    // the Kaioken's big attack: a dash that has to land, then it plays itself out
-    if (isGoku && g.form === 'kaioken' && g.ki >= SUPER_KI.kaioken && act('ult')) return superRush(g);
+    // the Kaioken's big attack: a dash that has to land, then it plays itself out (or, with them knocked
+    // up or bouncing off the ring close by, straight into its finish)
+    if (isGoku && g.form === 'kaioken' && g.ki >= SUPER_KI.kaioken && act('ult')) return kaioFollowable(g, foe) ? kaioFollow(g) : superRush(g);
     if (g.ki >= 100 && act('ult')) {
       // Super Saiyan: the Dragon Fist in his full gi, the rush into a Kamehameha with the top torn off
       if (isGoku && g.form === 'ssj') return g.torn ? superRush(g) : startUlt(g);
@@ -212,6 +216,8 @@ function playerInput(dt, g = player, foe = boss) {
     if (isGoku && g.form === 'base' && g.ki >= 100 && act('ult')) return spiritBomb(g, false, false, true);
     // Super Saiyan: O powers down mid-air into the Spirit Bomb
     if (isGoku && g.form === 'ssj' && g.ki >= 100 && act('ult')) return airSpirit(g);
+    // the Kaioken: its finish follows them up (or down off a bounce); otherwise the dash dives at them
+    if (isGoku && g.form === 'kaioken' && g.ki >= SUPER_KI.kaioken && act('ult')) return kaioFollowable(g, foe) ? kaioFollow(g) : superRush(g);
     // the dunk: S + J (or K) in the air slams straight down at them
     if (keys.block && (act('punch') || act('kick'))) { g.facing = foe.x > g.x ? 1 : -1; return g.play('spike', 'airAtk'); }
     // F (or punch + kick together) in the air: the re-launch (it only finds them once they're up)
@@ -234,7 +240,8 @@ function playerInput(dt, g = player, foe = boss) {
     if (g.y < FLOOR - 1) { if (!airCancel(g, foe, dashDir) && (act('punch') || act('kick'))) g.play('air', 'airAtk'); }
     else if (!cancel(g, foe, dashDir)) {
       if (act('punch')) { g.facing = foe.x > g.x ? 1 : -1; startAttack(g, 'rush'); }
-      else if (act('kick')) { g.facing = foe.x > g.x ? 1 : -1; startAttack(g, 'slash'); }
+      // K is the plain kick unless toward is held (the wall-bounce slash only with toward, as on the ground)
+      else if (act('kick')) { g.facing = foe.x > g.x ? 1 : -1; startAttack(g, dir === g.facing ? 'slash' : 'k1'); }
     }
   } else if (g.state === 'attack' && !g.hitDone && g.at < 0.07 && ['p1', 'rush', 'k1', 'slash'].includes(g.anim)
       && g.ki >= grabKi(g) && act(['p1', 'rush'].includes(g.anim) ? 'kick' : 'punch')) {

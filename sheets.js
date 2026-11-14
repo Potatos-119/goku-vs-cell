@@ -12,8 +12,8 @@ const SHEET_CFG = {
   // from them by exact rectangles ({ sheet: 'goku2', rect: [x, y, w, h] }) and they aren't sliced
   goku2: { src: 'assets/sheets/goku1-source.png', raw: true },
   gb: { src: 'assets/sheets/goku-base.png', raw: true },
-  // Super Saiyan Goku's Kamehameha in his full gi, and its beam (tools/ssj-kame.py)
-  sk: { src: 'assets/sheets/goku-ssj-kame.png', raw: true },
+  // the full-gi Super Saiyan sheet itself: his Kamehameha poses and its beam, cut as drawn
+  gs: { src: 'assets/sheets/goku-super-saiyan.png', raw: true },
   // his Instant Transmission and full-gi transformation (tools/ssj-moves.py)
   sx: { src: 'assets/sheets/goku-ssj-moves.png', raw: true, bg: [255, 0, 255], keyed: true },
   // the second Super Saiyan sheet (his charge in his full gi), on its dark background

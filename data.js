@@ -70,11 +70,10 @@ const SS_DOWN = ssRow([[66, 1201, 28, 56], [107, 1201, 28, 56], [147, 1199, 26, 
 // the Kamehameha fired up at them (cut down to him: the game draws the beam)
 const SS_SUPER = ssRow([[65, 1087, 31, 51], [112, 1059, 70, 79], [197, 1098, 46, 42], [262, 1084, 42, 54], [310, 1089, 45, 49], [366, 1088, 36, 50],
   [414, 1085, 43, 53], [469, 1083, 35, 53], [518, 1083, 31, 53], [561, 1083, 33, 55], [610, 1083, 59, 57], [706, 1066, 62, 74]], { alone: true });
-// his Kamehameha in his full gi, from a sharp strip of the sheet (assets/sheets/goku-ssj-kame.png, made by
-// tools/ssj-kame.py, which scales the strip's smaller poses up to match his other frames): the swing back,
-// the swirl gathering in his hands, the lean back, then the thrust as it fires
-const SK = (x, y, w, h) => ({ sheet: 'sk', rect: [x, y, w, h] });
-const SK_KAME = [SK(6, 57, 38, 52), SK(50, 57, 34, 52), SK(90, 57, 31, 52), SK(127, 45, 68, 64), SK(201, 58, 34, 51), SK(241, 58, 39, 51), SK(286, 60, 39, 49)];
+// his Kamehameha in his full gi, cut as drawn from the full-gi sheet (goku-super-saiyan.png, the end of
+// its Instant Kamehameha row): the hands cupped at his side, the thrust, and the thrust as the beam leaves
+const GS = (x, y, w, h) => ({ sheet: 'gs', rect: [x, y, w, h] });
+const GS_KAME = [GS(528, 1069, 36, 54), GS(586, 1069, 41, 54), GS(645, 1069, 39, 54)];
 // Instant Transmission in the air, in his full gi, cut from the full-gi sheet
 // (assets/sheets/goku-ssj-moves.png, made by tools/ssj-moves.py)
 const SX = (x, y, w, h) => ({ sheet: 'sx', rect: [x, y, w, h] });
@@ -283,10 +282,10 @@ const ssjTable = look => {
     charge: look === 'ssj' ? { fr: SJ_CHARGE, fps: 12, loop: true, loopFrom: 1 } : { fr: fr(SS_CHARGE), fps: 10, loop: true, loopFrom: 2 },
     chargeEnd: { fr: look === 'ssj' ? [SJ_CHARGE[0]] : fr([SS_CHARGE[1]]), fps: 9, loop: false, then: 'idle' },
     // his Kamehameha: the turn, the swirl gathering in his hands, then the thrust
-    // (in his full gi, the sheet's own Kamehameha: see SK_KAME)
+    // (in his full gi, the sheet's own Kamehameha: see GS_KAME)
     // (with the top torn too: the torn sheet's own looked wrong, so he fires it the full-gi way)
-    kameCharge: { fr: SK_KAME.slice(0, 5), fps: 6, loop: false },
-    kameFire: { fr: SK_KAME.slice(5), fps: 12, loop: false, emitAt: 1, emit: 28 },
+    kameCharge: { fr: [GS_KAME[0], GS_KAME[0], GS_KAME[0], GS_KAME[0], GS_KAME[0]], fps: 6, loop: false },
+    kameFire: { fr: GS_KAME.slice(1), fps: 12, loop: false, emitAt: 1, emit: 29 },
     // Instant Transmission (full gi only, see teleKame in game/cinematics.js): from the ground the
     // crouch, the spring up and the fade; in the air the turn and the zip away; appearing; the
     // Kamehameha held at his side
@@ -297,7 +296,7 @@ const ssjTable = look => {
     itCrouch: { fr: fr([SS_JUMP[0]]), fps: 1, loop: true },
     itLeap: { fr: fr([SS_JUMP[1], SS_JUMP[4]]), fps: 7, loop: false },
     itAir: look === 'ssj' ? { fr: SX_TELE, fps: 7, loop: false } : { fr: [...fr([SS_JUMP[4], SS_JUMP[4], SS_JUMP[2]]), SX_TELE[3]], fps: 7, loop: false },
-    itHold: { fr: [SK_KAME[4]], fps: 1, loop: true },
+    itHold: { fr: [GS_KAME[0]], fps: 1, loop: true },
     // the big attack (O on the ground with the gi top torn, full ki): see superRush in game/cinematics.js
     superUp: { fr: fr([SS_SUPER[0], SS_SUPER[1], SS_SUPER[1]]), fps: 8, loop: false },
     superDash: { fr: fr([SS_SUPER[2]]), fps: 1, loop: true },
@@ -502,13 +501,13 @@ const FX_ART = {
   cellFace: k => ({ sheet: 'cellFaces', ref: { id: '0.0', x: 42 * k, w: 41 } }),
 };
 const BEAMS = {
-  // Super Saiyan Goku's in his full gi, as the sheet draws it with his Kamehameha: a spiky burst out of
+  // Super Saiyan Goku's, as the full-gi sheet draws it with his Instant Kamehameha: a spiky burst out of
   // his hands, a thinner stream, and a big round head (drawn at its own size, not squeezed to the stream)
   gokuSsj: {
-    start: { sheet: 'sk', ref: { sheet: 'sk', rect: [331, 6, 104, 103], seed: 'tbl' } },
-    body: { sheet: 'sk', ref: { sheet: 'sk', rect: [441, 61, 40, 48], seed: 'tb' } },
-    head: { sheet: 'sk', ref: { sheet: 'sk', rect: [487, 6, 104, 103], seed: 'tbr' } },
-    scale: 0.62, tile: true, ownHead: true,
+    start: { sheet: 'gs', ref: { sheet: 'gs', rect: [687, 1028, 123, 132], seed: 'tbl' } },
+    body: { sheet: 'gs', ref: { sheet: 'gs', rect: [830, 1068, 40, 51], seed: 'tb' } },
+    head: { sheet: 'gs', ref: { sheet: 'gs', rect: [929, 1028, 140, 132], seed: 'tbr' } },
+    scale: 0.5, tile: true, ownHead: true,
   },
   // the Kaioken's, as its sheet draws it with his finish (the same shape, a little bigger)
   gokuKaio: {
@@ -603,14 +602,15 @@ const MOVES = {
     ['G', 'Solar Flare (20 ki): blinds them if they are looking at you'],
     ['Y', 'Destructo Disc (30 ki): cuts through a guard'],
     ['E', 'Kaioken (25 ki): fastest form, burns ki, E ends it'],
-    ['KAIOKEN: O (50 KI)', 'Kaioken finish: rush, kick them up, Kamehameha'],
+    ['KAIOKEN: O (50 KI)', 'Dash in: if it lands, rush, kick them up, Kamehameha'],
+    ['KAIOKEN: O AFTER A HIT', 'Straight into the finish (air, or off a ground bounce, too)'],
+    ['KAIOKEN: O IN THE AIR', 'The dash dives down at them'],
     ['KAIOKEN: DOUBLE-TAP', 'Two air dashes a jump instead of one'],
-    ['KAIOKEN: O (50 KI)', 'Dash in: if it lands, a flurry into his biggest Kamehameha'],
     ['T', 'Super Saiyan (full ki): hits hardest'],
     ['Q THEN U  /  U THEN Q', 'Instant Kamehameha (SSJ, full gi, full ki)'],
     ['O', 'Spirit Bomb (base, full ki) / Dragon Fist (SSJ)'],
     ['O IN THE AIR (BASE)', 'Spirit Bomb that turns him Super Saiyan if it lands'],
-    ['O (SSJ, GI TORN)', 'Dash in: if it lands, kicks into a Kamehameha'],
+    ['O (SSJ, GI TORN)', 'Dash in: if it lands, his full-power Kamehameha (hits harder)'],
     ['O IN THE AIR (SSJ)', 'Power down mid-air: a bigger Spirit Bomb (full ki)'],
     ['T  (AS SSJ)', 'Power down to base, keeping your ki'],
   ],

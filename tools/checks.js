@@ -498,6 +498,37 @@
       expect(lastStandY < FLOOR - 40, `Cell was at y ${Math.round(lastStandY)} (the ring is ${FLOOR}) when Goku fired`);
       expect(game.result === 'lose', 'the clash was lost and the result is ' + game.result);
     },
+
+    // K straight after a landed ki blast always did the wall-bounce slash, toward held or not
+    'K after a landed ki blast is the plain kick unless toward is held': async () => {
+      for (const toward of [false, true]) {
+        scene({ gap: 60 }); goku.ki = 100; await tick(4);
+        hold(P1, 'ki', true); await tick(1); hold(P1, 'ki', false);
+        let n = 0; while (!(goku.state === 'cast' && goku.hitLanded) && n++ < 120) await tick(1);
+        expect(goku.hitLanded, 'setup: the ki blast never hit');
+        if (toward) hold(P1, 'right', true);
+        hold(P1, 'kick', true); await tick(1); hold(P1, 'kick', false); await tick(4);
+        letGo();
+        const want = toward ? 'slash' : 'k1';
+        expect(goku.anim === want, `${toward ? 'toward + K' : 'K'} did ${goku.anim}, not ${want}`);
+      }
+    },
+
+    // the Kaioken's finish only came from a dash on the ring: now O follows a dunk's ground bounce
+    'Kaioken O off a ground bounce goes into its finish': async () => {
+      scene({ gap: 50 }); goku.ki = 100; goKaioken(goku);
+      await tick(90, () => { if (game.mode === 'cut' && game.dlg) { const d = game.dlg; game.dlg = null; d.done(); } });
+      expect(goku.form === 'kaioken', 'setup: not in the Kaioken (' + goku.form + ')');
+      goku.ki = 100; boss.play('knock'); boss.y = FLOOR - 40; boss.vy = 300; boss.spiked = true; boss.bounced = false;
+      await tick(20);
+      expect(boss.state === 'knock' && boss.bounced, 'setup: Cell did not bounce (' + boss.state + ')');
+      const hp = boss.hp;
+      hold(P1, 'ult', true); await tick(1); hold(P1, 'ult', false);
+      expect(game.mode === 'cut', 'O on the bounce did not start the finish (' + goku.state + ')');
+      let n = 0; while (game.mode === 'cut' && n++ < 600) await tick(1);
+      expect(game.mode === 'fight', 'the finish never ended (' + game.mode + ')');
+      expect(hp - boss.hp > 30, `it only did ${(hp - boss.hp).toFixed(1)} damage`);
+    },
   };
 
   window.runChecks = async function (only = '') {
