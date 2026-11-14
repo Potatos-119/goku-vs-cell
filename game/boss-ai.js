@@ -163,6 +163,18 @@ function bossFlow(c, g, dt, ph) {
       ai.rushNext = game.t; cast(c, c.who === 'cell' ? 'finger' : 'kiCast'); return true;
     }
   }
+  // the player's big dash (the Kaioken's O, or the Super Saiyan's with the gi torn): read once as it
+  // starts, sometimes, and blocked; a blocked or dodged one leaves them skidding to a stop, wide open
+  if (g.state !== 'superDash') ai.readDash = false;
+  else if (!ai.readDash && c.free && c.y >= FLOOR - 2) {
+    ai.readDash = true;
+    if (Math.random() < T.punish[ph] * flow) { c.facing = g.x > c.x ? 1 : -1; c.play('block'); c.t2 = 0.8; c.vx = 0; return true; }
+  }
+  if (g.state === 'pose' && g.anim === 'dashStop' && (c.free || c.state === 'block') && game.t - (ai.punishAt || -9) > 0.8) {
+    ai.punishAt = game.t; c.facing = g.x > c.x ? 1 : -1;
+    if (close) { c.queue = PUNISH_STRING[c.who].slice(); startAttack(c, 'p1'); ai.think = 0.5; return true; }
+    if (dist < 140) { c.play('dash'); c.t2 = 0.24; c.vx = c.facing * 280 * c.speed; ai.think = 0.2; return true; }
+  }
   // blocked their attack and they're still recovering: hit back
   if (c.state === 'block' && g.state === 'attack' && g.hitDone && close && game.t - (ai.punishAt || -9) > 0.8) {
     ai.punishAt = game.t;
@@ -291,8 +303,9 @@ function bossAI(dt) {
   }
   // jumping in: kick them out of the air, or shoot them on the way down
   if (g.y < FLOOR - 20 && g.vy > 0 && dist < 70) return close ? startAttack(c, isCell ? 'k2' : 'k3') : shoot();
-  // openings: whiffed attack, landing, ki blast recovery, broken guard
-  const open = g.guardBroken || ['land', 'cast', 'kiHold', 'transform', 'evolve'].includes(g.state) || (g.state === 'attack' && g.hitDone && dist > 40);
+  // openings: whiffed attack, landing, ki blast recovery, broken guard, a big dash that didn't land
+  const open = g.guardBroken || ['land', 'cast', 'kiHold', 'transform', 'evolve'].includes(g.state) || (g.state === 'attack' && g.hitDone && dist > 40)
+    || (g.state === 'pose' && g.anim === 'dashStop');
   // shooting from far away gets Super Dashed once they've been at it a while
   if (open) return close ? combo() : dist < 150 ? dashIn() : g.state === 'cast' && ai.spam >= 1 ? superDash(c) : shoot();
   if (close) {
